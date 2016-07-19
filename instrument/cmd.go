@@ -1,6 +1,8 @@
 package instrument
 
 import (
+	"os"
+	"io/ioutil"
 	"path/filepath"
 	"fmt"
 )
@@ -51,10 +53,22 @@ Option Flags
 		if err != nil {
 			return nil, nil, cmd.Errorf(7, err.Error())
 		}
-		fmt.Println(output, c)
+		err = BuildBinary(pkgName, output, program)
+		if err != nil {
+			return nil, nil, cmd.Errorf(8, err.Error())
+		}
 		return nil, nil, nil
 	},
 )
+
+func BuildBinary(entryPkgName, output string, program *loader.Program) (err error) {
+	dir, err := ioutil.TempDir("", fmt.Sprintf("dynagrok-build-%v-", filepath.Base(entryPkgName)))
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(dir)
+	return nil
+}
 
 func Instrument(entryPkgName string, program *loader.Program) (err error) {
 	entry := program.Package(entryPkgName)
