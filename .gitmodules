@@ -1,3 +1,6 @@
 [submodule "src/golang.org/x/tools"]
 	path = src/golang.org/x/tools
 	url = git@github.com:golang/tools
+[submodule "src/github.com/timtadh/getopt"]
+	path = src/github.com/timtadh/getopt
+	url = git@github.com:timtadh/getopt
