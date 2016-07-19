@@ -19,7 +19,7 @@ type Runnable interface {
 	Usage() string
 }
 
-type Action func(argv []string, optargs []getopt.OptArg, xtra ...interface{}) ([]string, interface{}, *Error)
+type Action func(r Runnable, argv []string, optargs []getopt.OptArg, xtra ...interface{}) ([]string, interface{}, *Error)
 
 type Joiner func(xtra []interface{}) (interface{}, *Error)
 
@@ -67,7 +67,7 @@ func Commands(runners map[string]Runnable) Runnable {
 func (c *Command) Run(argv []string, xtra ...interface{}) ([]string, interface{}, *Error) {
 	args, optargs, err := getopt.GetOpt(argv, c.ShortOpts(), c.LongOpts())
 	if err != nil {
-		return nil, nil, Usage(c, -1, "could not process args")
+		return nil, nil, Usage(c, -1, "could not process args: %v", err)
 	}
 	for _, oa := range optargs {
 		switch oa.Opt() {
@@ -75,7 +75,7 @@ func (c *Command) Run(argv []string, xtra ...interface{}) ([]string, interface{}
 			return nil, nil, Usage(c, 0)
 		}
 	}
-	return c.Action(args, optargs, xtra...)
+	return c.Action(c, args, optargs, xtra...)
 }
 
 func (c *Command) ShortOpts() string {
@@ -117,7 +117,7 @@ func (c *Command) Usage() string {
 func (s *Sequence) Run(argv []string, xtra ...interface{}) ([]string, interface{}, *Error) {
 	_, optargs, err := getopt.GetOpt(argv, s.ShortOpts(), s.LongOpts())
 	if err != nil {
-		return nil, nil, Usage(s, -1, "could not process args")
+		return nil, nil, Usage(s, -1, "could not process args: %v", err)
 	}
 	for _, oa := range optargs {
 		switch oa.Opt() {

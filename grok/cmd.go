@@ -21,7 +21,7 @@ Option Flags
 `,
 	"",
 	[]string{},
-	func(args []string, optargs []getopt.OptArg, xtra ...interface{}) ([]string, interface{}, *cmd.Error) {
+	func(r cmd.Runnable, args []string, optargs []getopt.OptArg, xtra ...interface{}) ([]string, interface{}, *cmd.Error) {
 		// for _, oa := range optargs {
 		// 	switch oa.Opt() {
 		// 	}
