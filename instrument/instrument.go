@@ -1,117 +1,28 @@
 package instrument
 
 import (
-	"os"
-	"os/exec"
-	"io/ioutil"
-	"path/filepath"
-	"fmt"
-	"go/format"
-	"go/build"
-	"go/types"
-	"strings"
+	"go/ast"
 )
 
 import (
 	"github.com/timtadh/data-structures/errors"
 	"golang.org/x/tools/go/loader"
+	"golang.org/x/tools/go/ssa"
+	"golang.org/x/tools/go/ssa/ssautil"
 )
 
-import (
-	"github.com/timtadh/dynagrok/cmd"
-)
+import ()
 
-
-type BinaryBuilder struct {
-	config *cmd.Config
-	buildContext *build.Context
+type instrumenter struct {
 	program *loader.Program
+	ssa *ssa.Program
 	entry string
-	work string
-	output string
 }
 
-
-func BuildBinary(c *cmd.Config, keepWork bool, work, entryPkgName, output string, program *loader.Program) (err error) {
-	if work == "" {
-		work, err = ioutil.TempDir("", fmt.Sprintf("dynagrok-build-%v-", filepath.Base(entryPkgName)))
-		if err != nil {
-			return err
-		}
-	}
-	if !keepWork {
-		defer os.RemoveAll(work)
-	}
-	errors.Logf("INFO", "work-dir %v", work)
-	b := &BinaryBuilder{
-		config: c,
-		buildContext: cmd.BuildContext(c),
-		program: program,
-		entry: entryPkgName,
-		work: work,
-		output: output,
-	}
-	return b.Build()
-}
-
-
-func (b *BinaryBuilder) basePaths() paths {
-	basePaths := make([]string, 0, 10)
-	basePaths = append(basePaths, b.buildContext.GOROOT)
-	paths := strings.Split(b.buildContext.GOPATH, ":")
-	for _, path := range paths {
-		if path != "" {
-			basePaths = append(basePaths, path)
-		}
-	}
-	return basePaths
-}
-
-type paths []string
-
-func (ps paths) TrimPrefix(s string) string {
-	for _, path := range ps {
-		if strings.HasPrefix(s, path) {
-			return strings.TrimPrefix(strings.TrimPrefix(s, path), "/")
-		}
-	}
-	return s
-}
-
-func (b *BinaryBuilder) Build() error {
-	basePaths := b.basePaths()
-	for pkgType, pkgInfo := range b.program.AllPackages {
-		if err := b.createDir(pkgType); err != nil {
-			return err
-		}
-		for _, f := range pkgInfo.Files {
-			to := filepath.Join(b.work, basePaths.TrimPrefix(b.program.Fset.File(f.Pos()).Name()))
-			fout, err := os.Create(to)
-			if err != nil {
-				return err
-			}
-			err = format.Node(fout, b.program.Fset, f)
-			fout.Close()
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return b.goBuild()
-}
-
-func (b *BinaryBuilder) goBuild() error {
-	c := exec.Command("go", "build", "-o", b.output, b.entry)
-	c.Env = append(c.Env, fmt.Sprintf("GOPATH=%v", b.work))
-	output, err := c.CombinedOutput()
-	fmt.Fprintln(os.Stderr, c.Path, strings.Join(c.Args[1:], " "))
-	fmt.Fprintln(os.Stderr, string(output))
-	return err
-}
-
-func (b *BinaryBuilder) createDir(pkg *types.Package) error {
-	path := filepath.Join(b.work, "src", pkg.Path())
-	return os.MkdirAll(path, os.ModeDir|os.ModeTemporary|0775)
+func buildSSA(program *loader.Program) *ssa.Program {
+	sp := ssautil.CreateProgram(program, ssa.GlobalDebug)
+	sp.Build()
+	return sp
 }
 
 func Instrument(entryPkgName string, program *loader.Program) (err error) {
@@ -122,6 +33,93 @@ func Instrument(entryPkgName string, program *loader.Program) (err error) {
 	if entry.Pkg.Name() != "main" {
 		return errors.Errorf("The entry package was not main")
 	}
+	i := &instrumenter{
+		program: program,
+		ssa: buildSSA(program),
+		entry: entryPkgName,
+	}
+	return i.instrument()
+}
+
+func (i *instrumenter) instrument() (err error) {
+	type bbEntry struct {
+		bb *ssa.BasicBlock
+		n *ast.Expr
+	}
+	for pkgType, _ := range i.program.AllPackages {
+		ssaPkg := i.ssa.Package(pkgType)
+		if ssaPkg == nil {
+			return errors.Errorf("Could not find pkg %v", pkgType)
+		}
+		err := i.functions(ssaPkg, func(fn *ssa.Function) error {
+			entries := make([]bbEntry, 0, len(fn.Blocks))
+			errors.Logf("INFO", "fn %v", fn)
+			for _, blk := range fn.Blocks {
+				errors.Logf("INFO", "blk %v", blk)
+				found := false
+				for _, inst := range blk.Instrs {
+					if debug, is := inst.(*ssa.DebugRef); is {
+						entries = append(entries, bbEntry{
+							bb: blk,
+							n: &debug.Expr,
+						})
+						errors.Logf("INFO", "entry %v %v", debug.Expr, i.program.Fset.Position(debug.Expr.Pos()))
+						found = true
+						break
+					}
+				}
+				if !found {
+					// Some blocks do not have a clear syntactic location
+					// for _, inst := range blk.Instrs {
+					// 	errors.Logf("INFO", "inst %T %v %v", inst, inst, i.program.Fset.Position(inst.Pos()))
+					// }
+					// return errors.Errorf("Not entry for %v", blk)
+					entries = append(entries, bbEntry{
+						bb: blk,
+						n: nil,
+					})
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		// for _, f := range pkgInfo.Files {
+		// 	errors.Logf("INFO", "f %v", f)
+		// }
+	}
 	return nil
 }
 
+func (i instrumenter) functions(pkg *ssa.Package, do func(*ssa.Function) error) error {
+	var values [10]*ssa.Value
+	seen := make(map[*ssa.Function]bool)
+	for _, member := range pkg.Members {
+		if fn, is := member.(*ssa.Function); is {
+			if seen[fn] {
+				continue
+			}
+			seen[fn] = true
+			if err := do(fn); err != nil {
+				return err
+			}
+			for _, blk := range fn.Blocks {
+				for _, inst := range blk.Instrs {
+					for _, op := range inst.Operands(values[:0]) {
+						if innerFn, is := (*op).(*ssa.Function); is {
+							if seen[innerFn] {
+								continue
+							}
+							seen[innerFn] = true
+							if err := do(innerFn); err != nil {
+								return err
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
