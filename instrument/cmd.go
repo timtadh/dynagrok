@@ -1,16 +1,12 @@
 package instrument
 
 import (
-	"os"
-	"io/ioutil"
 	"path/filepath"
 	"fmt"
 )
 
 import (
 	"github.com/timtadh/getopt"
-	"github.com/timtadh/data-structures/errors"
-	"golang.org/x/tools/go/loader"
 )
 
 import (
@@ -23,18 +19,29 @@ var Command = cmd.Cmd(
 	`
 Option Flags
     -h,--help                         Show this message
+    -o,--output=<path>                Output file to create (defaults to pkg-name.instr)
+    -w,--work=<path>                  Work directory to use (defaults to tempdir)
+    --keep-work                       Keep the work directory
 `,
-	"o:",
+	"o:w:",
 	[]string{
 		"output=",
+		"work=",
+		"keep-work",
 	},
 	func(r cmd.Runnable, args []string, optargs []getopt.OptArg, xtra ...interface{}) ([]string, interface{}, *cmd.Error) {
 		c := xtra[0].(*cmd.Config)
 		output := ""
+		keepWork := false
+		work := ""
 		for _, oa := range optargs {
 			switch oa.Opt() {
 			case "-o", "--output":
 				output = oa.Arg()
+			case "-w", "--work":
+				work = oa.Arg()
+			case "-k", "--keep-work":
+				keepWork = true
 			}
 		}
 		if len(args) != 1 {
@@ -53,31 +60,10 @@ Option Flags
 		if err != nil {
 			return nil, nil, cmd.Errorf(7, err.Error())
 		}
-		err = BuildBinary(pkgName, output, program)
+		err = BuildBinary(c, keepWork, work, pkgName, output, program)
 		if err != nil {
 			return nil, nil, cmd.Errorf(8, err.Error())
 		}
 		return nil, nil, nil
 	},
 )
-
-func BuildBinary(entryPkgName, output string, program *loader.Program) (err error) {
-	dir, err := ioutil.TempDir("", fmt.Sprintf("dynagrok-build-%v-", filepath.Base(entryPkgName)))
-	if err != nil {
-		return err
-	}
-	defer os.RemoveAll(dir)
-	return nil
-}
-
-func Instrument(entryPkgName string, program *loader.Program) (err error) {
-	entry := program.Package(entryPkgName)
-	if entry == nil {
-		return errors.Errorf("The entry package was not found in the loaded program")
-	}
-	if entry.Pkg.Name() != "main" {
-		return errors.Errorf("The entry package was not main")
-	}
-	return nil
-}
-

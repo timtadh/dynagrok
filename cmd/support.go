@@ -24,11 +24,15 @@ func Main(r Runnable) {
 	os.Exit(0)
 }
 
-
-func LoadPkg(c *Config, pkg string) (*loader.Program, error) {
+func BuildContext(c *Config) *build.Context {
 	b := &build.Default
 	b.GOPATH = c.GOPATH
+	return b
+}
+
+func LoadPkg(c *Config, pkg string) (*loader.Program, error) {
 	var conf loader.Config
+	conf.Build = BuildContext(c)
 	conf.Import(pkg)
 	return conf.Load()
 }
