@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"fmt"
-	"go/format"
+	"go/printer"
 	"go/build"
 	"go/types"
 	"strings"
@@ -21,6 +21,8 @@ import (
 	"github.com/timtadh/dynagrok/cmd"
 )
 
+// var config = printer.Config{Mode: printer.UseSpaces | printer.TabIndent | printer.SourcePos, Tabwidth: 8}
+var config = printer.Config{Tabwidth: 8}
 
 
 type binaryBuilder struct {
@@ -91,7 +93,7 @@ func (b *binaryBuilder) Build() error {
 			if err != nil {
 				return err
 			}
-			err = format.Node(fout, b.program.Fset, f)
+			err = config.Fprint(fout, b.program.Fset, f)
 			fout.Close()
 			if err != nil {
 				return errors.Errorf("Could not serialize tree at %v tree %v error: %v", to, f, err)

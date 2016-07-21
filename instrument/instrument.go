@@ -3,6 +3,7 @@ package instrument
 import (
 	"fmt"
 	"go/ast"
+	"go/token"
 	"go/parser"
 	"strconv"
 	"unsafe"
@@ -26,8 +27,11 @@ type instrumenter struct {
 
 type bbInfo struct {
 	bb *ssa.BasicBlock
-	entry *ssa.DebugRef
-	exit *ssa.DebugRef
+	ref *ssa.DebugRef
+	entry *parent
+	entryPos token.Pos
+	exit *parent
+	exitPos token.Pos
 }
 
 func buildSSA(program *loader.Program) *ssa.Program {
@@ -66,8 +70,9 @@ func (i *instrumenter) instrument() (err error) {
 				// skipping synthetic function
 				return nil
 			}
-			errors.Logf("INFO", "fn %v %T %v", fn, fnAst, fnAst)
-			blkInfos := i.basicBlocks(fn)
+			errors.Logf("INFO", "fn %v", fn)
+			parents := findParents(fnAst)
+			blkInfos := i.basicBlocks(fn, parents)
 			switch n := fnAst.(type) {
 			case *ast.FuncDecl:
 				return i.funcDecl(fn, blkInfos, n)
@@ -125,23 +130,41 @@ func (i instrumenter) functions(pkg *ssa.Package, do func(*ssa.Function) error) 
 	return nil
 }
 
-func (i instrumenter) basicBlocks(fn *ssa.Function) []bbInfo {
+func (i instrumenter) basicBlocks(fn *ssa.Function, parents *parents) []bbInfo {
 	bbInfos := make([]bbInfo, 0, len(fn.Blocks))
+	errors.Logf("SSA-FN", "fn %v", fn)
 	for _, blk := range fn.Blocks {
-		var entry *ssa.DebugRef = nil
-		var exit *ssa.DebugRef = nil
+		var ref *ssa.DebugRef
+		var entry token.Pos
+		var exit token.Pos
+		errors.Logf("SSA-BLK", "blk %v", blk.Index)
 		for _, inst := range blk.Instrs {
-			if debug, is := inst.(*ssa.DebugRef); is {
-				if entry == nil {
-					entry = debug
-				}
-				exit = debug
+			errors.Logf("SSA-INST", "%v", inst)
+			if entry == 0 {
+				entry = inst.Pos()
 			}
+			exit = inst.Pos()
+			if debug, is := inst.(*ssa.DebugRef); is {
+				if ref == nil {
+					ref = debug
+				}
+			}
+		}
+		var entryParents *parent
+		var exitParents *parent
+		for _, v, next := parents.posParents.Range(Pos(entry), Pos(exit))(); next != nil; _, v, next = next() {
+			if entryParents == nil {
+				entryParents = v.(*parent)
+			}
+			exitParents = v.(*parent)
 		}
 		bbInfos = append(bbInfos, bbInfo{
 			bb: blk,
-			entry: entry,
-			exit: exit,
+			ref: ref,
+			entry: entryParents,
+			entryPos: entry,
+			exit: exitParents,
+			exitPos: exit,
 		})
 	}
 	return bbInfos
@@ -167,17 +190,34 @@ func (i instrumenter) fnBody(fn *ssa.Function, blkInfos []bbInfo, blk *ast.Block
 	name := fmt.Sprintf("%v.%v @ %v", fn.Package().Pkg.Name(), fn.Name(), i.program.Fset.Position(fn.Syntax().Pos()))
 	for x := range blkInfos {
 		bbInfo := &blkInfos[x]
-		if bbInfo.entry == nil {
-			continue
-		}
+		var err error
 		if len(bbInfo.bb.Preds) == 0 && len(bbInfo.bb.Succs) == 0 {
-			i.basicBlock(fn, blk, bbInfo, "(single blk)")
+			err = i.enterBasicBlock(fn, blkInfos, x, "(single blk)")
 		} else if len(bbInfo.bb.Preds) == 0 {
-			i.basicBlock(fn, blk, bbInfo, "(entry blk)")
+			err = i.enterBasicBlock(fn, blkInfos, x, "(entry blk)")
 		} else if len(bbInfo.bb.Succs) == 0 {
-			i.basicBlock(fn, blk, bbInfo, "(exit blk)")
+			err = i.enterBasicBlock(fn, blkInfos, x, "(exit blk)")
 		} else {
-			i.basicBlock(fn, blk, bbInfo, "")
+			err = i.enterBasicBlock(fn, blkInfos, x, "")
+		}
+		if err != nil {
+			return err
+		}
+	}
+	for x := range blkInfos {
+		bbInfo := &blkInfos[x]
+		var err error
+		if len(bbInfo.bb.Preds) == 0 && len(bbInfo.bb.Succs) == 0 {
+			err = i.exitBasicBlock(fn, blkInfos, x, "(single blk)")
+		} else if len(bbInfo.bb.Preds) == 0 {
+			err = i.exitBasicBlock(fn, blkInfos, x, "(entry blk)")
+		} else if len(bbInfo.bb.Succs) == 0 {
+			err = i.exitBasicBlock(fn, blkInfos, x, "(exit blk)")
+		} else {
+			err = i.exitBasicBlock(fn, blkInfos, x, "")
+		}
+		if err != nil {
+			return err
 		}
 	}
 	prin, err := i.mkPrint(fn, name)
@@ -189,45 +229,66 @@ func (i instrumenter) fnBody(fn *ssa.Function, blkInfos []bbInfo, blk *ast.Block
 	return nil
 }
 
-func (i instrumenter) basicBlock(fn *ssa.Function, blk *ast.BlockStmt, bbInfo *bbInfo, prefix string) error {
-	errors.Logf("DEBUG", "blk %v %v", i.program.Fset.Position(bbInfo.entry.Pos()), i.program.Fset.Position(bbInfo.exit.Pos()))
-	err := i.instrumentAt(fn, blk, bbInfo.entry, false, bbInfo.bb.Index, prefix + " entering")
+func (i instrumenter) enterBasicBlock(fn *ssa.Function, bbInfos []bbInfo, idx int, prefix string) error {
+	bbInfo := &bbInfos[idx]
+	if bbInfo.entry == nil {
+		return nil
+	}
+	blk := bbInfo.entry.blk
+	blkIdx := findIdx(bbInfo.entry.blk, bbInfo.entry.after)
+	pos := bbInfo.entryPos
+	err := i.instrumentAt(fn, blk, blkIdx, pos, bbInfo.bb.Index, prefix + " entering")
 	if err != nil {
 		return err
 	}
-	err = i.instrumentAt(fn, blk, bbInfo.exit, true, bbInfo.bb.Index, prefix + " exiting")
-	if err != nil {
-		return err
+	for _, pred := range bbInfo.bb.Preds {
+		err := i.instrumentAt(fn, blk, blkIdx, pos, pred.Index, prefix + " exiting")
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func (i instrumenter) instrumentAt(fn *ssa.Function, blk *ast.BlockStmt, at *ssa.DebugRef, after bool, blkIndex int, prefix string) error {
-	j, eBlk, err := i.findContainingBlk(&blk.List, at.Expr)
-	if err != nil {
-		return err
-	}
-	if eBlk == nil {
-		errors.Logf("ERROR", "could not find blk")
+func (i instrumenter) exitBasicBlock(fn *ssa.Function, bbInfos []bbInfo, idx int, prefix string) error {
+	bbInfo := &bbInfos[idx]
+	if bbInfo.exit == nil {
 		return nil
 	}
-	errors.Logf("DEBUG", "FOUND BLK")
-	name := fmt.Sprintf("%v.%v @ %v", fn.Package().Pkg.Name(), fn.Name(), i.program.Fset.Position(at.Expr.Pos()))
+	if len(bbInfo.bb.Succs) == 0 {
+		blk := bbInfo.exit.blk
+		x := len(*blk)-1
+		switch (*blk)[x].(type) {
+		case *ast.ReturnStmt:
+		default:
+			x++
+		}
+		err := i.instrumentAt(fn, blk, x, bbInfo.exitPos, bbInfo.bb.Index, prefix + " exiting")
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func findIdx(blk *[]ast.Stmt, prev uintptr) int {
+	for i, stmt := range *blk {
+		if stmtPtr(stmt) == prev {
+			return i
+		}
+	}
+	return 0
+}
+
+func (i instrumenter) instrumentAt(fn *ssa.Function, blk *[]ast.Stmt, idx int, at token.Pos, blkIndex int, prefix string) error {
+	// errors.Logf("DEBUG", "FOUND BLK")
+	name := fmt.Sprintf("%v.%v @ %v", fn.Package().Pkg.Name(), fn.Name(), i.program.Fset.Position(at))
 	blkName := fmt.Sprintf("%v blk %v", prefix, blkIndex)
 	prin, err := i.mkPrint(fn, fmt.Sprintf("%v in %v", blkName, name))
 	if err != nil {
 		return err
 	}
-	if after {
-		switch (*eBlk)[j].(type) {
-		case *ast.ReturnStmt:
-			*eBlk = insert(*eBlk, j, prin)
-		default:
-			*eBlk = insert(*eBlk, j+1, prin)
-		}
-	} else {
-		*eBlk = insert(*eBlk, j, prin)
-	}
+	*blk = insert(*blk, idx, prin)
 	return nil
 }
 
@@ -257,9 +318,13 @@ func insert(blk []ast.Stmt, j int, stmt ast.Stmt) []ast.Stmt {
 	return blk
 }
 
+func (i instrumenter) findNearestBlk(blk *[]ast.Stmt, at token.Pos) (*[]ast.Stmt, error) {
+	return nil, nil
+}
+
 func (i instrumenter) findContainingBlk(blk *[]ast.Stmt, e ast.Expr) (int, *[]ast.Stmt, error) {
 	for j, stmt := range *blk {
-		errors.Logf("DEBUG", "stmt %T", stmt)
+		// errors.Logf("DEBUG", "stmt %T", stmt)
 		if i.isExpr(stmt, e) {
 			return j, blk, nil
 		}
@@ -613,7 +678,7 @@ func (i instrumenter) _sameExpr(a, b ast.Expr) bool {
 	}
 	x := (*intr)(unsafe.Pointer(&a)).data
 	y := (*intr)(unsafe.Pointer(&b)).data
-	errors.Logf("DEBUG", "a %T %v %v ?= b %T %v %v", a, a, x, b, b, y)
+	// errors.Logf("DEBUG", "a %T %v %v ?= b %T %v %v", a, a, x, b, b, y)
 	return x == y
 }
 
