@@ -24,10 +24,10 @@ type instrumenter struct {
 	seenFn map[*ssa.Function]bool
 }
 
-type bbEntry struct {
+type bbInfo struct {
 	bb *ssa.BasicBlock
-	i *ssa.DebugRef
-	n ast.Expr
+	entry *ssa.DebugRef
+	exit *ssa.DebugRef
 }
 
 func buildSSA(program *loader.Program) *ssa.Program {
@@ -67,12 +67,12 @@ func (i *instrumenter) instrument() (err error) {
 				return nil
 			}
 			errors.Logf("INFO", "fn %v %T %v", fn, fnAst, fnAst)
-			entries := i.basicBlockEntries(fn)
+			blkInfos := i.basicBlocks(fn)
 			switch n := fnAst.(type) {
 			case *ast.FuncDecl:
-				return i.funcDecl(fn, entries, n)
+				return i.funcDecl(fn, blkInfos, n)
 			case *ast.FuncLit:
-				return i.funcLit(fn, entries, n)
+				return i.funcLit(fn, blkInfos, n)
 			default:
 				return errors.Errorf("Unexpected ast node for %v %T, expected FuncDecl or FuncLit", fn, fnAst)
 			}
@@ -125,74 +125,59 @@ func (i instrumenter) functions(pkg *ssa.Package, do func(*ssa.Function) error) 
 	return nil
 }
 
-func (i instrumenter) basicBlockEntries(fn *ssa.Function) []bbEntry {
-	entries := make([]bbEntry, 0, len(fn.Blocks))
+func (i instrumenter) basicBlocks(fn *ssa.Function) []bbInfo {
+	bbInfos := make([]bbInfo, 0, len(fn.Blocks))
 	for _, blk := range fn.Blocks {
-		found := false
+		var entry *ssa.DebugRef = nil
+		var exit *ssa.DebugRef = nil
 		for _, inst := range blk.Instrs {
 			if debug, is := inst.(*ssa.DebugRef); is {
-				entries = append(entries, bbEntry{
-					bb: blk,
-					i: debug,
-					n: debug.Expr,
-				})
-				found = true
-				break
+				if entry == nil {
+					entry = debug
+				}
+				exit = debug
 			}
 		}
-		if !found {
-			// Some blocks do not have a clear syntactic location
-			// for _, inst := range blk.Instrs {
-			// 	errors.Logf("INFO", "inst %T %v %v", inst, inst, i.program.Fset.Position(inst.Pos()))
-			// }
-			// return errors.Errorf("Not entry for %v", blk)
-			entries = append(entries, bbEntry{
-				bb: blk,
-				i: nil,
-				n: nil,
-			})
-		}
+		bbInfos = append(bbInfos, bbInfo{
+			bb: blk,
+			entry: entry,
+			exit: exit,
+		})
 	}
-	return entries
+	return bbInfos
 }
 
-func (i instrumenter) funcDecl(fn *ssa.Function, entries []bbEntry, n *ast.FuncDecl) error {
+func (i instrumenter) funcDecl(fn *ssa.Function, blkInfos []bbInfo, n *ast.FuncDecl) error {
 	if n.Body == nil {
 		// this is a forward declaration
 		return nil
 	}
-	return i.fnBody(fn, entries, n.Body)
+	return i.fnBody(fn, blkInfos, n.Body)
 }
 
-func (i instrumenter) funcLit(fn *ssa.Function, entries []bbEntry, n *ast.FuncLit) error {
+func (i instrumenter) funcLit(fn *ssa.Function, blkInfos []bbInfo, n *ast.FuncLit) error {
 	if n.Body == nil {
 		// this is a forward declaration
 		return nil
 	}
-	return i.fnBody(fn, entries, n.Body)
+	return i.fnBody(fn, blkInfos, n.Body)
 }
 
-func (i instrumenter) fnBody(fn *ssa.Function, entries []bbEntry, blk *ast.BlockStmt) error {
+func (i instrumenter) fnBody(fn *ssa.Function, blkInfos []bbInfo, blk *ast.BlockStmt) error {
 	name := fmt.Sprintf("%v.%v @ %v", fn.Package().Pkg.Name(), fn.Name(), i.program.Fset.Position(fn.Syntax().Pos()))
-	for _, e := range entries {
-		if e.n == nil {
+	for x := range blkInfos {
+		bbInfo := &blkInfos[x]
+		if bbInfo.entry == nil {
 			continue
 		}
-		if len(e.bb.Succs) == 0 {
-			errors.Logf("DEBUG", "%v %v", i.program.Fset.Position(e.i.Pos()), i.program.Fset.Position(e.n.Pos()))
-			eBlk, err := i.findContainingBlk(&blk.List, e.n)
-			if err != nil {
-				return err
-			}
-			if eBlk == nil {
-				return errors.Errorf("could not find blk")
-			}
-			errors.Logf("DEBUG", "FOUND BLK")
-			prin, err := i.mkPrint(fn, fmt.Sprintf("exiting %v", name))
-			if err != nil {
-				return err
-			}
-			*eBlk = append([]ast.Stmt{prin}, (*eBlk)...)
+		if len(bbInfo.bb.Preds) == 0 && len(bbInfo.bb.Succs) == 0 {
+			i.basicBlock(fn, blk, bbInfo, "(single blk)")
+		} else if len(bbInfo.bb.Preds) == 0 {
+			i.basicBlock(fn, blk, bbInfo, "(entry blk)")
+		} else if len(bbInfo.bb.Succs) == 0 {
+			i.basicBlock(fn, blk, bbInfo, "(exit blk)")
+		} else {
+			i.basicBlock(fn, blk, bbInfo, "")
 		}
 	}
 	prin, err := i.mkPrint(fn, name)
@@ -204,26 +189,102 @@ func (i instrumenter) fnBody(fn *ssa.Function, entries []bbEntry, blk *ast.Block
 	return nil
 }
 
-func (i instrumenter) findContainingBlk(blk *[]ast.Stmt, e ast.Expr) (*[]ast.Stmt, error) {
-	for _, stmt := range *blk {
+func (i instrumenter) basicBlock(fn *ssa.Function, blk *ast.BlockStmt, bbInfo *bbInfo, prefix string) error {
+	errors.Logf("DEBUG", "blk %v %v", i.program.Fset.Position(bbInfo.entry.Pos()), i.program.Fset.Position(bbInfo.exit.Pos()))
+	err := i.instrumentAt(fn, blk, bbInfo.entry, false, bbInfo.bb.Index, prefix + " entering")
+	if err != nil {
+		return err
+	}
+	err = i.instrumentAt(fn, blk, bbInfo.exit, true, bbInfo.bb.Index, prefix + " exiting")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (i instrumenter) instrumentAt(fn *ssa.Function, blk *ast.BlockStmt, at *ssa.DebugRef, after bool, blkIndex int, prefix string) error {
+	j, eBlk, err := i.findContainingBlk(&blk.List, at.Expr)
+	if err != nil {
+		return err
+	}
+	if eBlk == nil {
+		errors.Logf("ERROR", "could not find blk")
+		return nil
+	}
+	errors.Logf("DEBUG", "FOUND BLK")
+	name := fmt.Sprintf("%v.%v @ %v", fn.Package().Pkg.Name(), fn.Name(), i.program.Fset.Position(at.Expr.Pos()))
+	blkName := fmt.Sprintf("%v blk %v", prefix, blkIndex)
+	prin, err := i.mkPrint(fn, fmt.Sprintf("%v in %v", blkName, name))
+	if err != nil {
+		return err
+	}
+	if after {
+		switch (*eBlk)[j].(type) {
+		case *ast.ReturnStmt:
+			*eBlk = insert(*eBlk, j, prin)
+		default:
+			*eBlk = insert(*eBlk, j+1, prin)
+		}
+	} else {
+		*eBlk = insert(*eBlk, j, prin)
+	}
+	return nil
+}
+
+func insert(blk []ast.Stmt, j int, stmt ast.Stmt) []ast.Stmt {
+	if j > len(blk) {
+		j = len(blk)
+	}
+	if j < 0 {
+		j = 0
+	}
+	if cap(blk) <= len(blk) + 1 {
+		nblk := make([]ast.Stmt, len(blk), (cap(blk)+1)*2)
+		copy(nblk, blk)
+		blk = nblk
+	}
+	blk = blk[:len(blk)+1]
+	for i := len(blk)-1; i > 0; i-- {
+		if j == i {
+			blk[i] = stmt
+			break
+		}
+		blk[i] = blk[i-1]
+	}
+	if j == 0 {
+		blk[j] = stmt
+	}
+	return blk
+}
+
+func (i instrumenter) findContainingBlk(blk *[]ast.Stmt, e ast.Expr) (int, *[]ast.Stmt, error) {
+	for j, stmt := range *blk {
 		errors.Logf("DEBUG", "stmt %T", stmt)
 		if i.isExpr(stmt, e) {
-			return blk, nil
+			return j, blk, nil
 		}
-		sblk, err := i.findExpr(stmt, e)
+		idx, sblk, err := i.findExpr(stmt, e)
 		if err != nil {
-			return nil, err
+			return 0, nil, err
 		} else if sblk != nil {
-			return sblk, nil
+			return idx, sblk, nil
 		}
 	}
-	return nil, nil
+	return 0, nil, nil
 }
 
 func (i instrumenter) isExpr(stmt ast.Stmt, e ast.Expr) (bool) {
 	switch n := stmt.(type) {
 	case *ast.ExprStmt:
 		if i.sameExpr(n.X, e) {
+			return true
+		}
+	case *ast.DeferStmt:
+		if i.sameExpr(n.Call, e) {
+			return true
+		}
+	case *ast.GoStmt:
+		if i.sameExpr(n.Call, e) {
 			return true
 		}
 	case *ast.ReturnStmt:
@@ -257,6 +318,10 @@ func (i instrumenter) isExpr(stmt ast.Stmt, e ast.Expr) (bool) {
 		if i.sameExpr(n.Value, e) {
 			return true
 		}
+	case *ast.IncDecStmt:
+		if i.sameExpr(n.X, e) {
+			return true
+		}
 	case *ast.SwitchStmt:
 		if i.isExpr(n.Init, e) {
 			return true
@@ -271,15 +336,67 @@ func (i instrumenter) isExpr(stmt ast.Stmt, e ast.Expr) (bool) {
 		if i.isExpr(n.Post, e) {
 			return true
 		}
+	case *ast.TypeSwitchStmt:
+		if i.isExpr(n.Init, e) {
+			return true
+		}
+		if i.isExpr(n.Assign, e) {
+			return true
+		}
+	case *ast.SendStmt:
+		if i.sameExpr(n.Chan, e) {
+			return true
+		}
+		if i.sameExpr(n.Value, e) {
+			return true
+		}
 	case *ast.CaseClause:
 		for _, c := range n.List {
 			if i.sameExpr(c, e) {
 				return true
 			}
 		}
+	case *ast.CommClause:
+		if i.isExpr(n.Comm, e) {
+			return true
+		}
+		for _, c := range n.Body {
+			if i.isExpr(c, e) {
+				return true
+			}
+		}
 	case *ast.DeclStmt:
-		// no action?
-	case *ast.BranchStmt, nil:
+		switch d := n.Decl.(type) {
+		case *ast.GenDecl:
+			for _, spec := range d.Specs {
+				switch s := spec.(type) {
+				case *ast.TypeSpec:
+					if i.sameExpr(s.Name, e) {
+						return true
+					}
+					return i.sameExpr(s.Type, e)
+				case *ast.ValueSpec:
+					for _, name := range s.Names {
+						if i.sameExpr(name, e) {
+							return true
+						}
+					}
+					for _, val := range s.Values {
+						if i.sameExpr(val, e) {
+							return true
+						}
+					}
+					return i.sameExpr(s.Type, e)
+				default:
+					panic(fmt.Errorf("unexpected type %T", s))
+				}
+			}
+		default:
+			panic(fmt.Errorf("unexpected type %T", d))
+		}
+	case *ast.LabeledStmt:
+		return i.isExpr(n.Stmt, e)
+	case *ast.EmptyStmt, *ast.SelectStmt, *ast.BranchStmt, nil:
 		// no action
 	default:
 		panic(fmt.Errorf("unexpected type %T", n))
@@ -287,35 +404,55 @@ func (i instrumenter) isExpr(stmt ast.Stmt, e ast.Expr) (bool) {
 	return false
 }
 
-func (i instrumenter) findExpr(stmt ast.Stmt, e ast.Expr) (*[]ast.Stmt, error) {
+func (i instrumenter) findExpr(stmt ast.Stmt, e ast.Expr) (int, *[]ast.Stmt, error) {
 	switch n := stmt.(type) {
 	case *ast.BlockStmt:
 		return i.findContainingBlk(&n.List, e)
 	case *ast.IfStmt:
-		blk, err := i.findContainingBlk(&n.Body.List, e)
+		idx, blk, err := i.findContainingBlk(&n.Body.List, e)
 		if err != nil {
-			return nil, err
+			return 0, nil, err
 		}
 		if blk != nil {
-			return blk, nil
+			return idx, blk, nil
 		}
 		return i.findExpr(n.Else, e)
+	case *ast.TypeSwitchStmt:
+		return i.findContainingBlk(&n.Body.List, e)
 	case *ast.SwitchStmt:
 		return i.findContainingBlk(&n.Body.List, e)
+	case *ast.SelectStmt:
+		return i.findContainingBlk(&n.Body.List, e)
 	case *ast.CaseClause:
+		return i.findContainingBlk(&n.Body, e)
+	case *ast.CommClause:
 		return i.findContainingBlk(&n.Body, e)
 	case *ast.ForStmt:
 		return i.findContainingBlk(&n.Body.List, e)
 	case *ast.RangeStmt:
 		return i.findContainingBlk(&n.Body.List, e)
 	case *ast.DeclStmt:
-		// no action?
-	case *ast.BranchStmt, *ast.ExprStmt, *ast.ReturnStmt, *ast.AssignStmt, nil:
+		switch d := n.Decl.(type) {
+		case *ast.GenDecl:
+			for _, spec := range d.Specs {
+				switch spec.(type) {
+				case *ast.TypeSpec:
+				case *ast.ValueSpec:
+				default:
+					panic(fmt.Errorf("unexpected type %T", spec))
+				}
+			}
+		default:
+			panic(fmt.Errorf("unexpected type %T", d))
+		}
+	case *ast.SendStmt, *ast.GoStmt:
+		// no action
+	case *ast.LabeledStmt, *ast.DeferStmt, *ast.IncDecStmt, *ast.BranchStmt, *ast.ExprStmt, *ast.ReturnStmt, *ast.AssignStmt, nil:
 		// no action
 	default:
 		panic(fmt.Errorf("unexpected type %T", n))
 	}
-	return nil, nil
+	return 0, nil, nil
 }
 
 func (i instrumenter) sameExpr(a, b ast.Expr) (bool) {
@@ -424,7 +561,40 @@ func (i instrumenter) sameExpr(a, b ast.Expr) (bool) {
 			return true
 		}
 		return false
-	case *ast.FuncLit:
+	case *ast.ChanType:
+		if i.sameExpr(x.Value, b) {
+			return true
+		}
+		return false
+	case *ast.InterfaceType:
+		for _, f := range x.Methods.List {
+			for _, name := range f.Names {
+				if i.sameExpr(name, b) {
+					return true
+				}
+			}
+			if i.sameExpr(f.Tag, b) {
+				return true
+			}
+			if i.sameExpr(f.Type, b) {
+				return true
+			}
+		}
+	case *ast.StructType:
+		for _, f := range x.Fields.List {
+			for _, name := range f.Names {
+				if i.sameExpr(name, b) {
+					return true
+				}
+			}
+			if i.sameExpr(f.Tag, b) {
+				return true
+			}
+			if i.sameExpr(f.Type, b) {
+				return true
+			}
+		}
+	case *ast.FuncLit, *ast.FuncType:
 		// TODO: confirm this is the correct action
 		return false
 	default:

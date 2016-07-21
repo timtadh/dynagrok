@@ -94,7 +94,7 @@ func (b *binaryBuilder) Build() error {
 			err = format.Node(fout, b.program.Fset, f)
 			fout.Close()
 			if err != nil {
-				return err
+				return errors.Errorf("Could not serialize tree at %v tree %v error: %v", to, f, err)
 			}
 		}
 	}
