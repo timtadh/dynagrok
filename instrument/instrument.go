@@ -84,16 +84,20 @@ func (i *instrumenter) instrument() (err error) {
 }
 
 func (i instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.Node, fnBody *[]ast.Stmt) error {
+	*fnBody = insert(*fnBody, 0, i.mkPrint(fnAst.Pos(), fmt.Sprintf("enter %v", fnName)))
+	if _, is := (*fnBody)[len(*fnBody)-1].(*ast.ReturnStmt); !is {
+		*fnBody = insert(*fnBody, len(*fnBody), i.mkPrint(fnAst.Pos(), fmt.Sprintf("exit %v bkl-0", fnName)))
+	}
 	return blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
 		var pos token.Pos = fnAst.Pos()
 		if len(*blk) > 0 {
 			pos = (*blk)[0].Pos()
 		}
-		*blk = insert(*blk, 0, i.mkPrint(pos, fmt.Sprintf("enter %v-blk-%d", fnName, id)))
-		if _, is := (*blk)[len(*blk)-1].(*ast.ReturnStmt); !is {
-			*blk = insert(*blk, len(*blk), i.mkPrint(pos, fmt.Sprintf("exit %v-blk-%d", fnName, id)))
-		} else {
-			*blk = insert(*blk, len(*blk)-1, i.mkPrint(pos, fmt.Sprintf("exit %v-blk-%d", fnName, id)))
+		for j, stmt := range *blk {
+			if _, is := stmt.(*ast.ReturnStmt); is {
+				*blk = insert(*blk, j, i.mkPrint(pos, fmt.Sprintf("exit %v blk-%d", fnName, id)))
+				break
+			}
 		}
 		return nil
 	})
