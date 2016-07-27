@@ -12,7 +12,8 @@ func (w *wacky) fib(x int) int {
 		return x
 	}
 	add := func(a, b int) int {
-		return id(a) + id(b)
+		z := id(a) + id(b)
+		return z
 	}
 	if x <= 1 {
 		return 1

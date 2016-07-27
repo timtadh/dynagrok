@@ -62,7 +62,7 @@ func (i *instrumenter) instrument() (err error) {
 					if x.Body == nil {
 						return nil
 					}
-					parentName := pkg.Pkg.Name()
+					parentName := pkg.Pkg.Path()
 					if parent != nil {
 						parentType := pkg.Info.TypeOf(parent.Name)
 						if parentType != nil {
@@ -84,28 +84,35 @@ func (i *instrumenter) instrument() (err error) {
 }
 
 func (i instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.Node, fnBody *[]ast.Stmt) error {
-	*fnBody = insert(*fnBody, 0, i.mkPrint(fnAst.Pos(), fmt.Sprintf("enter %v", fnName)))
-	if _, is := (*fnBody)[len(*fnBody)-1].(*ast.ReturnStmt); !is {
-		*fnBody = insert(*fnBody, len(*fnBody), i.mkPrint(fnAst.Pos(), fmt.Sprintf("exit %v bkl-0", fnName)))
-	}
-	return blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
+	err := blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
 		var pos token.Pos = fnAst.Pos()
 		if len(*blk) > 0 {
 			pos = (*blk)[0].Pos()
 		}
-		for j, stmt := range *blk {
-			if _, is := stmt.(*ast.ReturnStmt); is {
-				*blk = insert(*blk, j, i.mkPrint(pos, fmt.Sprintf("exit %v blk-%d", fnName, id)))
-				break
+		*blk = insert(*blk, 0, i.mkPrint(pos, fmt.Sprintf("blk-%d %v enter", id, fnName)))
+		for j := 0; j < len(*blk) - 1; j++ {
+			switch (*blk)[j].(type) {
+			case *ast.BranchStmt:
+				*blk = insert(*blk, j, i.mkPrint(pos, fmt.Sprintf("blk-%d %v exiting", id, fnName)))
+				j++
+			case *ast.IfStmt, *ast.ForStmt, *ast.SelectStmt, *ast.SwitchStmt, *ast.TypeSwitchStmt:
+				*blk = insert(*blk, j+1, i.mkPrint(pos, fmt.Sprintf("blk-%d %v re-entering-%v", id, fnName, 2+j+1)))
+				j++
 			}
 		}
 		return nil
 	})
+	if err != nil {
+		return nil
+	}
+	*fnBody = insert(*fnBody, 0, i.mkPrint(fnAst.Pos(), fmt.Sprintf("enter %v", fnName)))
+	*fnBody = insert(*fnBody, 1, i.mkDeferPrint(fnAst.Pos(), fmt.Sprintf("exit %v", fnName)))
+	return nil
 }
 
 func funcName(pkg *types.Package, fnType *types.Signature, fnAst *ast.FuncDecl) string {
 	recv := fnType.Recv()
-	recvName := pkg.Name()
+	recvName := pkg.Path()
 	if recv != nil {
 		recvName = fmt.Sprintf("(%v)", typeName(pkg, recv.Type()))
 	}
@@ -117,7 +124,7 @@ func typeName(pkg *types.Package, t types.Type) string {
 	case *types.Pointer:
 		return fmt.Sprintf("*%v", typeName(pkg, r.Elem()))
 	case *types.Named:
-		return fmt.Sprintf("%v.%v", pkg.Name(), r.Obj().Name())
+		return fmt.Sprintf("%v.%v", pkg.Path(), r.Obj().Name())
 	default:
 		panic(errors.Errorf("unexpected recv %T", t))
 	}
@@ -156,5 +163,14 @@ func (i instrumenter) mkPrint(pos token.Pos, data string) ast.Stmt {
 		panic(fmt.Errorf("mkPrint (%v) error: %v", s, err))
 	}
 	return &ast.ExprStmt{e}
+}
+
+func (i instrumenter) mkDeferPrint(pos token.Pos, data string) ast.Stmt {
+	s := fmt.Sprintf("func() {println(%v)}()", strconv.Quote(data))
+	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
+	if err != nil {
+		panic(fmt.Errorf("mkPrint (%v) error: %v", s, err))
+	}
+	return &ast.DeferStmt{Call: e.(*ast.CallExpr)}
 }
 
