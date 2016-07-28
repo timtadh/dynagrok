@@ -33,6 +33,7 @@ func BuildContext(c *Config) *build.Context {
 func LoadPkg(c *Config, pkg string) (*loader.Program, error) {
 	var conf loader.Config
 	conf.Build = BuildContext(c)
+	conf.Build.CgoEnabled = true
 	conf.Import(pkg)
 	return conf.Load()
 }

@@ -2,7 +2,8 @@ package main
 
 func main() {
 	x := func()int{return 1}
-	((*wacky)(&x)).fib(5)
+	println(((*wacky)(&x)).fib(5))
+	println(fibLoop(5))
 }
 
 type wacky func() int
@@ -20,4 +21,18 @@ func (w *wacky) fib(x int) int {
 	}
 	f := add(w.fib(x-1), w.fib(x-2))
 	return f
+}
+
+func fibLoop(x int) int {
+	p := 0
+	c := 1
+loop:
+	for i := 0; ; i++ {
+		if i >= x {
+			break loop
+		}
+		p, c = c, p+c
+		continue loop
+	}
+	return c
 }

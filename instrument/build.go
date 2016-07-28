@@ -3,9 +3,11 @@ package instrument
 import (
 	"os"
 	"os/exec"
+	"io"
 	"io/ioutil"
 	"path/filepath"
 	"fmt"
+	"go/ast"
 	"go/printer"
 	"go/build"
 	"go/types"
@@ -81,10 +83,19 @@ func (ps paths) TrimPrefix(s string) string {
 	return s
 }
 
+func (ps paths) PrefixedBy(s string) string {
+	for _, path := range ps {
+		if strings.HasPrefix(s, path) {
+			return path
+		}
+	}
+	panic("unreachable")
+}
+
 func (b *binaryBuilder) Build() error {
 	basePaths := b.basePaths()
 	for pkgType, pkgInfo := range b.program.AllPackages {
-		if err := b.createDir(pkgType); err != nil {
+		if err := b.createDir(basePaths, pkgType, pkgInfo.Files); err != nil {
 			return err
 		}
 		for _, f := range pkgInfo.Files {
@@ -105,15 +116,64 @@ func (b *binaryBuilder) Build() error {
 
 func (b *binaryBuilder) goBuild() error {
 	c := exec.Command("go", "build", "-o", b.output, b.entry)
-	c.Env = append(c.Env, fmt.Sprintf("GOPATH=%v", b.work))
+	env := make([]string, 0, len(os.Environ()))
+	for _, item := range os.Environ() {
+		if strings.HasPrefix(item, "GOPATH=") {
+			continue
+		}
+		env = append(env, item)
+	}
+	c.Env = append(env, fmt.Sprintf("GOPATH=%v", b.work))
 	output, err := c.CombinedOutput()
 	fmt.Fprintln(os.Stderr, c.Path, strings.Join(c.Args[1:], " "))
 	fmt.Fprintln(os.Stderr, string(output))
 	return err
 }
 
-func (b *binaryBuilder) createDir(pkg *types.Package) error {
+func (b *binaryBuilder) createDir(basePaths paths, pkg *types.Package, pkgFiles []*ast.File) error {
 	path := filepath.Join(b.work, "src", pkg.Path())
-	return os.MkdirAll(path, os.ModeDir|os.ModeTemporary|0775)
+	err := os.MkdirAll(path, os.ModeDir|os.ModeTemporary|0775)
+	if err != nil {
+		return err
+	}
+	var srcPath string
+	for _, path := range basePaths {
+		if _, err := os.Stat(filepath.Join(path, "src", pkg.Path())); err == nil {
+			srcPath = filepath.Join(path, "src")
+			break
+		}
+	}
+	srcDir, err := os.Open(filepath.Join(srcPath, pkg.Path()))
+	if err != nil {
+		return err
+	}
+	files, err := srcDir.Readdir(0)
+	srcDir.Close()
+	if err != nil {
+		return err
+	}
+	for _, f := range files {
+		if f.IsDir() {
+			continue
+		}
+		name := f.Name()
+		from, err := os.Open(filepath.Join(srcPath, pkg.Path(), name))
+		if err != nil {
+			return err
+		}
+		to, err := os.Create(filepath.Join(b.work, "src", pkg.Path(), name))
+		if err != nil {
+			from.Close()
+			return err
+		}
+		_, err = io.Copy(to, from)
+		from.Close()
+		to.Close()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+
 }
 

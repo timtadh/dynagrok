@@ -11,6 +11,7 @@ import (
 
 import (
 	"github.com/timtadh/data-structures/errors"
+	"golang.org/x/tools/go/ast/astutil"
 	"golang.org/x/tools/go/loader"
 	"golang.org/x/tools/go/ssa"
 	"golang.org/x/tools/go/ssa/ssautil"
@@ -50,7 +51,9 @@ func Instrument(entryPkgName string, program *loader.Program) (err error) {
 func (i *instrumenter) instrument() (err error) {
 	for _, pkg := range i.program.AllPackages {
 		for _, fileAst := range pkg.Files {
+			hadFunc := false
 			err = functions(fileAst, func(fn ast.Node, parent *ast.FuncDecl, count int) error {
+				hadFunc = true
 				switch x := fn.(type) {
 				case *ast.FuncDecl:
 					if x.Body == nil {
@@ -78,6 +81,10 @@ func (i *instrumenter) instrument() (err error) {
 			if err != nil {
 				return err
 			}
+			if hadFunc {
+				astutil.AddImport(i.program.Fset, fileAst, "runtime")
+				astutil.AddImport(i.program.Fset, fileAst, "fmt")
+			}
 		}
 	}
 	return nil
@@ -91,13 +98,22 @@ func (i instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.N
 		}
 		*blk = insert(*blk, 0, i.mkPrint(pos, fmt.Sprintf("blk-%d %v enter", id, fnName)))
 		for j := 0; j < len(*blk) - 1; j++ {
-			switch (*blk)[j].(type) {
+			switch stmt := (*blk)[j].(type) {
 			case *ast.BranchStmt:
 				*blk = insert(*blk, j, i.mkPrint(pos, fmt.Sprintf("blk-%d %v exiting", id, fnName)))
 				j++
-			case *ast.IfStmt, *ast.ForStmt, *ast.SelectStmt, *ast.SwitchStmt, *ast.TypeSwitchStmt:
+			case *ast.IfStmt, *ast.ForStmt, *ast.SelectStmt, *ast.SwitchStmt, *ast.TypeSwitchStmt, *ast.RangeStmt:
 				*blk = insert(*blk, j+1, i.mkPrint(pos, fmt.Sprintf("blk-%d %v re-entering-%v", id, fnName, 2+j+1)))
 				j++
+			case *ast.LabeledStmt:
+				switch stmt.Stmt.(type) {
+				case *ast.ForStmt, *ast.SwitchStmt, *ast.SelectStmt, *ast.TypeSwitchStmt, *ast.RangeStmt:
+					*blk = insert(*blk, j+1, i.mkPrint(pos, fmt.Sprintf("blk-%d %v re-entering-%v", id, fnName, 2+j+1)))
+				default:
+					errors.Logf("DEBUG", "label stmt %T %T in %v", stmt.Stmt, (*blk)[j+1], fnName)
+					*blk = insert(*blk, j+1, stmt.Stmt)
+					stmt.Stmt = i.mkPrint(pos, fmt.Sprintf("blk-%d %v re-entering-%v", id, fnName, 2+j))
+				}
 			}
 		}
 		return nil
@@ -157,7 +173,7 @@ func insert(blk []ast.Stmt, j int, stmt ast.Stmt) []ast.Stmt {
 }
 
 func (i instrumenter) mkPrint(pos token.Pos, data string) ast.Stmt {
-	s := fmt.Sprintf("println(%v)", strconv.Quote(data))
+	s := fmt.Sprintf(`fmt.Printf("goid %%d %%v\n", runtime.GoID(), %v)`, strconv.Quote(data))
 	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
 	if err != nil {
 		panic(fmt.Errorf("mkPrint (%v) error: %v", s, err))
@@ -166,7 +182,7 @@ func (i instrumenter) mkPrint(pos token.Pos, data string) ast.Stmt {
 }
 
 func (i instrumenter) mkDeferPrint(pos token.Pos, data string) ast.Stmt {
-	s := fmt.Sprintf("func() {println(%v)}()", strconv.Quote(data))
+	s := fmt.Sprintf(`func() { fmt.Printf("goid %%d %%v\n", runtime.GoID(), %v) }()`, strconv.Quote(data))
 	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
 	if err != nil {
 		panic(fmt.Errorf("mkPrint (%v) error: %v", s, err))
