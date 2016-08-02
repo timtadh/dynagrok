@@ -53,6 +53,15 @@ func (i *instrumenter) instrument() (err error) {
 		if len(pkg.BuildPackage.CgoFiles) > 0 {
 			continue
 		}
+		if pkg.Pkg.Path() == "runtime" {
+			continue
+		}
+		if pkg.Pkg.Path() == "sync" {
+			continue
+		}
+		if pkg.Pkg.Path() == "fmt" {
+			continue
+		}
 		for _, fileAst := range pkg.Files {
 			hadFunc := false
 			err = functions(fileAst, func(fn ast.Node, parent *ast.FuncDecl, count int) error {
@@ -85,8 +94,7 @@ func (i *instrumenter) instrument() (err error) {
 				return err
 			}
 			if hadFunc {
-				astutil.AddImport(i.program.Fset, fileAst, "runtime")
-				astutil.AddImport(i.program.Fset, fileAst, "fmt")
+				astutil.AddImport(i.program.Fset, fileAst, "github.com/timtadh/dynagrok/dgruntime")
 			}
 		}
 	}
@@ -94,38 +102,41 @@ func (i *instrumenter) instrument() (err error) {
 }
 
 func (i instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.Node, fnBody *[]ast.Stmt) error {
-	err := blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
-		var pos token.Pos = fnAst.Pos()
-		if len(*blk) > 0 {
-			pos = (*blk)[0].Pos()
-		}
-		*blk = insert(*blk, 0, i.mkPrint(pos, fmt.Sprintf("blk-%d %v enter", id, fnName)))
-		for j := 0; j < len(*blk) - 1; j++ {
-			switch stmt := (*blk)[j].(type) {
-			case *ast.BranchStmt:
-				*blk = insert(*blk, j, i.mkPrint(pos, fmt.Sprintf("blk-%d %v exiting", id, fnName)))
-				j++
-			case *ast.IfStmt, *ast.ForStmt, *ast.SelectStmt, *ast.SwitchStmt, *ast.TypeSwitchStmt, *ast.RangeStmt:
-				*blk = insert(*blk, j+1, i.mkPrint(pos, fmt.Sprintf("blk-%d %v re-entering-%v", id, fnName, 2+j+1)))
-				j++
-			case *ast.LabeledStmt:
-				switch stmt.Stmt.(type) {
-				case *ast.ForStmt, *ast.SwitchStmt, *ast.SelectStmt, *ast.TypeSwitchStmt, *ast.RangeStmt:
-					*blk = insert(*blk, j+1, i.mkPrint(pos, fmt.Sprintf("blk-%d %v re-entering-%v", id, fnName, 2+j+1)))
-				default:
-					errors.Logf("DEBUG", "label stmt %T %T in %v", stmt.Stmt, (*blk)[j+1], fnName)
-					*blk = insert(*blk, j+1, stmt.Stmt)
-					stmt.Stmt = i.mkPrint(pos, fmt.Sprintf("blk-%d %v re-entering-%v", id, fnName, 2+j))
-				}
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		return nil
+	// err := blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
+	// 	var pos token.Pos = fnAst.Pos()
+	// 	if len(*blk) > 0 {
+	// 		pos = (*blk)[0].Pos()
+	// 	}
+	// 	*blk = insert(*blk, 0, i.mkPrint(pos, fmt.Sprintf("enter-blk:\t %d\t of %v", id, fnName)))
+	// 	for j := 0; j < len(*blk) - 1; j++ {
+	// 		switch stmt := (*blk)[j].(type) {
+	// 		case *ast.BranchStmt:
+	// 			*blk = insert(*blk, j, i.mkPrint(pos, fmt.Sprintf("exit-blk:\t %d\t of %v", id, fnName)))
+	// 			j++
+	// 		case *ast.IfStmt, *ast.ForStmt, *ast.SelectStmt, *ast.SwitchStmt, *ast.TypeSwitchStmt, *ast.RangeStmt:
+	// 			*blk = insert(*blk, j+1, i.mkPrint(pos, fmt.Sprintf("re-enter-blk:\t %d\t at %d\t of %v", id, 2+j+1, fnName)))
+	// 			j++
+	// 		case *ast.LabeledStmt:
+	// 			switch stmt.Stmt.(type) {
+	// 			case *ast.ForStmt, *ast.SwitchStmt, *ast.SelectStmt, *ast.TypeSwitchStmt, *ast.RangeStmt:
+	// 				*blk = insert(*blk, j+1, i.mkPrint(pos, fmt.Sprintf("re-enter-blk:\t %d\t at %d\t of %v", id, 2+j+1, fnName)))
+	// 			default:
+	// 				errors.Logf("DEBUG", "label stmt %T %T in %v", stmt.Stmt, (*blk)[j+1], fnName)
+	// 				*blk = insert(*blk, j+1, stmt.Stmt)
+	// 				stmt.Stmt = i.mkPrint(pos, fmt.Sprintf("re-enter-blk:\t %d\t at %d\t of %v", id, 2+j, fnName))
+	// 			}
+	// 		}
+	// 	}
+	// 	return nil
+	// })
+	// if err != nil {
+	// 	return nil
+	// }
+	*fnBody = insert(*fnBody, 0, i.mkEnterFunc(fnAst.Pos(), fnName))
+	*fnBody = insert(*fnBody, 1, i.mkExitFunc(fnAst.Pos(), fnName))
+	if pkg.Pkg.Path() == i.entry && fnName == fmt.Sprintf("%v.main", pkg.Pkg.Path()) {
+		*fnBody = insert(*fnBody, 0, i.mkShutdown(fnAst.Pos()))
 	}
-	*fnBody = insert(*fnBody, 0, i.mkPrint(fnAst.Pos(), fmt.Sprintf("enter %v", fnName)))
-	*fnBody = insert(*fnBody, 1, i.mkDeferPrint(fnAst.Pos(), fmt.Sprintf("exit %v", fnName)))
 	return nil
 }
 
@@ -176,7 +187,7 @@ func insert(blk []ast.Stmt, j int, stmt ast.Stmt) []ast.Stmt {
 }
 
 func (i instrumenter) mkPrint(pos token.Pos, data string) ast.Stmt {
-	s := fmt.Sprintf(`fmt.Printf("goid %%d %%v\n", runtime.GoID(), %v)`, strconv.Quote(data))
+	s := fmt.Sprintf("dgruntime.Println(%v)", strconv.Quote(data))
 	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
 	if err != nil {
 		panic(fmt.Errorf("mkPrint (%v) error: %v", s, err))
@@ -185,11 +196,39 @@ func (i instrumenter) mkPrint(pos token.Pos, data string) ast.Stmt {
 }
 
 func (i instrumenter) mkDeferPrint(pos token.Pos, data string) ast.Stmt {
-	s := fmt.Sprintf(`func() { fmt.Printf("goid %%d %%v\n", runtime.GoID(), %v) }()`, strconv.Quote(data))
+	s := fmt.Sprintf("func() { dgruntime.Println(%v) }()", strconv.Quote(data))
 	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
 	if err != nil {
-		panic(fmt.Errorf("mkPrint (%v) error: %v", s, err))
+		panic(fmt.Errorf("mkDeferPrint (%v) error: %v", s, err))
 	}
 	return &ast.DeferStmt{Call: e.(*ast.CallExpr)}
 }
+
+func (i instrumenter) mkEnterFunc(pos token.Pos, name string) ast.Stmt {
+	s := fmt.Sprintf("dgruntime.EnterFunc(%v)", strconv.Quote(name))
+	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
+	if err != nil {
+		panic(fmt.Errorf("mkEnterFunc (%v) error: %v", s, err))
+	}
+	return &ast.ExprStmt{e}
+}
+
+func (i instrumenter) mkExitFunc(pos token.Pos, name string) ast.Stmt {
+	s := fmt.Sprintf("func() { dgruntime.ExitFunc(%v) }()", strconv.Quote(name))
+	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
+	if err != nil {
+		panic(fmt.Errorf("mkExitFunc (%v) error: %v", s, err))
+	}
+	return &ast.DeferStmt{Call: e.(*ast.CallExpr)}
+}
+
+func (i instrumenter) mkShutdown(pos token.Pos) ast.Stmt {
+	s := "func() { dgruntime.Shutdown() }()"
+	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
+	if err != nil {
+		panic(fmt.Errorf("mkShutdown (%v) error: %v", s, err))
+	}
+	return &ast.DeferStmt{Call: e.(*ast.CallExpr)}
+}
+
 

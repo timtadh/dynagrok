@@ -93,12 +93,28 @@ func (ps paths) PrefixedBy(s string) string {
 }
 
 func (b *binaryBuilder) Build() error {
+	err := b.copyDir(
+		filepath.Join(b.config.DGPATH, "dgruntime"), 
+		filepath.Join(b.work, "src", "github.com", "timtadh", "dynagrok", "dgruntime"),
+	)
+	if err != nil {
+		return err
+	}
 	basePaths := b.basePaths()
 	for pkgType, pkgInfo := range b.program.AllPackages {
 		if err := b.createDir(basePaths, pkgType, pkgInfo.Files); err != nil {
 			return err
 		}
 		if len(pkgInfo.BuildPackage.CgoFiles) > 0 {
+			continue
+		}
+		if pkgInfo.Pkg.Path() == "runtime" {
+			continue
+		}
+		if pkgInfo.Pkg.Path() == "sync" {
+			continue
+		}
+		if pkgInfo.Pkg.Path() == "fmt" {
 			continue
 		}
 		for _, f := range pkgInfo.Files {
@@ -177,6 +193,47 @@ func (b *binaryBuilder) createDir(basePaths paths, pkg *types.Package, pkgFiles 
 		}
 	}
 	return nil
+}
 
+func (b *binaryBuilder) copyDir(src, targ string) error {
+	err := os.MkdirAll(targ, os.ModeDir|os.ModeTemporary|0775)
+	if err != nil {
+		return err
+	}
+	srcDir, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	files, err := srcDir.Readdir(0)
+	srcDir.Close()
+	if err != nil {
+		return err
+	}
+	for _, f := range files {
+		name := f.Name()
+		if f.IsDir() {
+			err := b.copyDir(filepath.Join(src, name), filepath.Join(targ, name))
+			if err != nil {
+				return nil
+			}
+		} else {
+			from, err := os.Open(filepath.Join(src, name))
+			if err != nil {
+				return err
+			}
+			to, err := os.Create(filepath.Join(targ, name))
+			if err != nil {
+				from.Close()
+				return err
+			}
+			_, err = io.Copy(to, from)
+			from.Close()
+			to.Close()
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 

@@ -30,14 +30,18 @@ var Main = cmd.Cmd(os.Args[0],
 Option Flags
     -h,--help                         Show this message
     -p,--cpu-profile=<path>           Path to write the cpu-profile
+    -g,--go-path=<path>               go path
+    -d,--dynagrok-path=<path>         dynagrok path
 `,
-	"p:g:",
+	"p:g:d:",
 	[]string{
 		"cpu-profile=",
 		"go-path=",
+		"dynagrok-path=",
 	},
 	func(r cmd.Runnable, args []string, optargs []getopt.OptArg, _ ...interface{}) ([]string, interface{}, *cmd.Error) {
 		GOPATH := os.Getenv("GOPATH")
+		DGPATH := os.Getenv("DGPATH")
 		cpuProfile := ""
 		for _, oa := range optargs {
 			switch oa.Opt() {
@@ -45,6 +49,8 @@ Option Flags
 				cpuProfile = oa.Arg()
 			case "-g", "--go-path":
 				GOPATH = oa.Arg()
+			case "-d", "--dynagrok-path":
+				DGPATH = oa.Arg()
 			}
 		}
 		if cpuProfile != "" {
@@ -56,6 +62,7 @@ Option Flags
 		}
 		c := &cmd.Config{
 			GOPATH: GOPATH,
+			DGPATH: DGPATH,
 		}
 		return args, c, nil
 	},
