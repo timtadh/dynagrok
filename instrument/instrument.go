@@ -50,6 +50,9 @@ func Instrument(entryPkgName string, program *loader.Program) (err error) {
 
 func (i *instrumenter) instrument() (err error) {
 	for _, pkg := range i.program.AllPackages {
+		if len(pkg.BuildPackage.CgoFiles) > 0 {
+			continue
+		}
 		for _, fileAst := range pkg.Files {
 			hadFunc := false
 			err = functions(fileAst, func(fn ast.Node, parent *ast.FuncDecl, count int) error {

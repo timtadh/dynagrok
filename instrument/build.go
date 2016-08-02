@@ -98,6 +98,9 @@ func (b *binaryBuilder) Build() error {
 		if err := b.createDir(basePaths, pkgType, pkgInfo.Files); err != nil {
 			return err
 		}
+		if len(pkgInfo.BuildPackage.CgoFiles) > 0 {
+			continue
+		}
 		for _, f := range pkgInfo.Files {
 			to := filepath.Join(b.work, basePaths.TrimPrefix(b.program.Fset.File(f.Pos()).Name()))
 			fout, err := os.Create(to)
