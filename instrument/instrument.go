@@ -17,7 +17,9 @@ import (
 	"golang.org/x/tools/go/ssa/ssautil"
 )
 
-import ()
+import (
+	"github.com/timtadh/dynagrok/dgruntime"
+)
 
 type instrumenter struct {
 	program *loader.Program
@@ -53,13 +55,7 @@ func (i *instrumenter) instrument() (err error) {
 		if len(pkg.BuildPackage.CgoFiles) > 0 {
 			continue
 		}
-		if pkg.Pkg.Path() == "runtime" {
-			continue
-		}
-		if pkg.Pkg.Path() == "sync" {
-			continue
-		}
-		if pkg.Pkg.Path() == "fmt" {
+		if dgruntime.ExcludedPkg(pkg.Pkg.Path()) {
 			continue
 		}
 		for _, fileAst := range pkg.Files {

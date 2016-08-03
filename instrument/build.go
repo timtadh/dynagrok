@@ -21,6 +21,7 @@ import (
 
 import (
 	"github.com/timtadh/dynagrok/cmd"
+	"github.com/timtadh/dynagrok/dgruntime"
 )
 
 // var config = printer.Config{Mode: printer.UseSpaces | printer.TabIndent | printer.SourcePos, Tabwidth: 8}
@@ -108,13 +109,7 @@ func (b *binaryBuilder) Build() error {
 		if len(pkgInfo.BuildPackage.CgoFiles) > 0 {
 			continue
 		}
-		if pkgInfo.Pkg.Path() == "runtime" {
-			continue
-		}
-		if pkgInfo.Pkg.Path() == "sync" {
-			continue
-		}
-		if pkgInfo.Pkg.Path() == "fmt" {
+		if dgruntime.ExcludedPkg(pkgInfo.Pkg.Path()) {
 			continue
 		}
 		for _, f := range pkgInfo.Files {
