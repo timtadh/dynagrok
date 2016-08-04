@@ -98,36 +98,38 @@ func (i *instrumenter) instrument() (err error) {
 }
 
 func (i instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.Node, fnBody *[]ast.Stmt) error {
-	// err := blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
-	// 	var pos token.Pos = fnAst.Pos()
-	// 	if len(*blk) > 0 {
-	// 		pos = (*blk)[0].Pos()
-	// 	}
-	// 	*blk = insert(*blk, 0, i.mkPrint(pos, fmt.Sprintf("enter-blk:\t %d\t of %v", id, fnName)))
-	// 	for j := 0; j < len(*blk) - 1; j++ {
-	// 		switch stmt := (*blk)[j].(type) {
-	// 		case *ast.BranchStmt:
-	// 			*blk = insert(*blk, j, i.mkPrint(pos, fmt.Sprintf("exit-blk:\t %d\t of %v", id, fnName)))
-	// 			j++
-	// 		case *ast.IfStmt, *ast.ForStmt, *ast.SelectStmt, *ast.SwitchStmt, *ast.TypeSwitchStmt, *ast.RangeStmt:
-	// 			*blk = insert(*blk, j+1, i.mkPrint(pos, fmt.Sprintf("re-enter-blk:\t %d\t at %d\t of %v", id, 2+j+1, fnName)))
-	// 			j++
-	// 		case *ast.LabeledStmt:
-	// 			switch stmt.Stmt.(type) {
-	// 			case *ast.ForStmt, *ast.SwitchStmt, *ast.SelectStmt, *ast.TypeSwitchStmt, *ast.RangeStmt:
-	// 				*blk = insert(*blk, j+1, i.mkPrint(pos, fmt.Sprintf("re-enter-blk:\t %d\t at %d\t of %v", id, 2+j+1, fnName)))
-	// 			default:
-	// 				errors.Logf("DEBUG", "label stmt %T %T in %v", stmt.Stmt, (*blk)[j+1], fnName)
-	// 				*blk = insert(*blk, j+1, stmt.Stmt)
-	// 				stmt.Stmt = i.mkPrint(pos, fmt.Sprintf("re-enter-blk:\t %d\t at %d\t of %v", id, 2+j, fnName))
-	// 			}
-	// 		}
-	// 	}
-	// 	return nil
-	// })
-	// if err != nil {
-	// 	return nil
-	// }
+	err := blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
+		var pos token.Pos = fnAst.Pos()
+		if len(*blk) > 0 {
+			pos = (*blk)[0].Pos()
+		}
+		if id != 0 {
+			*blk = insert(*blk, 0, i.mkEnterBlk(pos, id))
+		}
+		for j := 0; j < len(*blk) - 1; j++ {
+			switch stmt := (*blk)[j].(type) {
+			case *ast.BranchStmt:
+				// *blk = insert(*blk, j, i.mkPrint(pos, fmt.Sprintf("exit-blk:\t %d\t of %v", id, fnName)))
+				// j++
+			case *ast.IfStmt, *ast.ForStmt, *ast.SelectStmt, *ast.SwitchStmt, *ast.TypeSwitchStmt, *ast.RangeStmt:
+				*blk = insert(*blk, j+1, i.mkRe_enterBlk(pos, id, 2+j+1))
+				j++
+			case *ast.LabeledStmt:
+				switch stmt.Stmt.(type) {
+				case *ast.ForStmt, *ast.SwitchStmt, *ast.SelectStmt, *ast.TypeSwitchStmt, *ast.RangeStmt:
+					*blk = insert(*blk, j+1, i.mkRe_enterBlk(pos, id, 2+j+1))
+				default:
+					// errors.Logf("DEBUG", "label stmt %T %T in %v", stmt.Stmt, (*blk)[j+1], fnName)
+					*blk = insert(*blk, j+1, stmt.Stmt)
+					stmt.Stmt = i.mkRe_enterBlk(pos, id, 2+j)
+				}
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil
+	}
 	*fnBody = insert(*fnBody, 0, i.mkEnterFunc(fnAst.Pos(), fnName))
 	*fnBody = insert(*fnBody, 1, i.mkExitFunc(fnAst.Pos(), fnName))
 	if pkg.Pkg.Path() == i.entry && fnName == fmt.Sprintf("%v.main", pkg.Pkg.Path()) {
@@ -227,4 +229,21 @@ func (i instrumenter) mkShutdown(pos token.Pos) ast.Stmt {
 	return &ast.DeferStmt{Call: e.(*ast.CallExpr)}
 }
 
+func (i instrumenter) mkEnterBlk(pos token.Pos, blkid int) ast.Stmt {
+	s := fmt.Sprintf("dgruntime.EnterBlk(%d)", blkid)
+	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
+	if err != nil {
+		panic(fmt.Errorf("mkEnterBlk (%v) error: %v", s, err))
+	}
+	return &ast.ExprStmt{e}
+}
+
+func (i instrumenter) mkRe_enterBlk(pos token.Pos, blkid, at int) ast.Stmt {
+	s := fmt.Sprintf("dgruntime.Re_enterBlk(%d, %d)", blkid, at)
+	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
+	if err != nil {
+		panic(fmt.Errorf("mkEnterBlk (%v) error: %v", s, err))
+	}
+	return &ast.ExprStmt{e}
+}
 
