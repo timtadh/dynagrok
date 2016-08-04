@@ -29,16 +29,24 @@ var exec *Execution
 type Execution struct {
 	m sync.Mutex
 	Goroutines []*Goroutine
+	Profile    *Profile
 	OutputPath string
 }
 
+type Profile struct {
+	Funcs     map[string]*Function
+	Calls     map[Call]int
+	CallCount int
+}
+
 type Goroutine struct {
-	m sync.Mutex
-	GoID   int64
-	Closed bool
-	Stack  []*FuncCall
-	Calls  map[Call]int
-	Funcs  map[string]*Function
+	m         sync.Mutex
+	GoID      int64
+	Closed    bool
+	Stack     []*FuncCall
+	Calls     map[Call]int
+	Funcs     map[string]*Function
+	CallCount int
 }
 
 type Function struct {
@@ -65,6 +73,10 @@ func newExecution() *Execution {
 		output = os.Getenv("DGPROF")
 	}
 	e := &Execution{
+		Profile: &Profile{
+			Calls: make(map[Call]int),
+			Funcs: make(map[string]*Function),
+		},
 		OutputPath: output,
 	}
 	e.growGoroutines()
@@ -115,32 +127,121 @@ func (e *Execution) growGoroutines() {
 	e.Goroutines = n
 }
 
-func (g *Goroutine) Exit() {
-	g.m.Lock()
-	g.Closed = true
-	g.m.Unlock()
+func (e *Execution) Merge(g *Goroutine) {
+	e.m.Lock()
+	defer e.m.Unlock()
+	if !g.Closed {
+		return
+	}
+	e.Profile.CallCount += g.CallCount
+	for _, fn := range g.Funcs {
+		if x, has := e.Profile.Funcs[fn.Name]; has {
+			x.Merge(fn)
+		} else {
+			e.Profile.Funcs[fn.Name] = fn
+		}
+	}
+	for call, count := range g.Calls {
+		e.Profile.Calls[call] += count
+	}
 }
 
-func (g *Goroutine) Serialize(fout io.Writer) {
+func (g *Goroutine) Exit() {
 	g.m.Lock()
 	defer g.m.Unlock()
+	g.Closed = true
+	exec.Merge(g)
+}
+
+func (p *Profile) Serialize(fout io.Writer) {
+	strlist := func(list []string) string {
+		str := "["
+		for i, item := range list {
+			str += item
+			if i+1 < len(list) {
+				str += ", "
+			}
+		}
+		str += "]"
+		return strconv.Quote(str)
+	}
+	intlist := func(list []uintptr) string {
+		items := make([]string, 0, len(list))
+		for _, i := range list {
+			items = append(items, fmt.Sprintf("%v", i))
+		}
+		return strlist(items)
+	}
+	max := func(a, b float64) float64 {
+		if a > b {
+			return a
+		}
+		return b
+	}
+	round := func(a float64) int {
+		return int(a + .5)
+	}
 	nextfid := 1
 	fids := make(map[string]int)
 	fids["<entry>"] = 0
-	fmt.Fprintf(fout, "digraph \"g-%d\" {\n", g.GoID)
-	fmt.Fprintf(fout, "0 [label=\"goroutine %d\", shape=rect];\n", g.GoID)
-	for _, f := range g.Funcs {
+	fmt.Fprintf(fout, "digraph {\n",)
+	fmt.Fprintf(fout, "0 [label=\"entry\", shape=rect];\n")
+	for _, f := range p.Funcs {
 		fid := nextfid
 		nextfid++
 		fids[f.Name] = fid
-		fmt.Fprintf(fout, "%d [label=%v, shape=rect, calls=%d, runtime_name=%v, entry_pc=%d];\n",
-			fid, strconv.Quote(f.Name), f.Calls, strconv.Quote(f.RuntimeNames[0]), f.FuncPcs[0])
+		fmt.Fprintf(fout, "%d [label=%v, shape=rect, calls=%d, runtime_names=%v, entry_pcs=%v, fontsize=%d];\n",
+			fid, strconv.Quote(f.Name), f.Calls, strlist(f.RuntimeNames),
+			intlist(f.FuncPcs),
+			round(96*max(.15, float64(f.Calls)/float64(p.CallCount))),
+		)
 	}
-	for call, count := range g.Calls {
-		fmt.Fprintf(fout, "%v -> %v [calls=%d];\n",
-			fids[call.Caller], fids[call.Callee], count)
+	for call, count := range p.Calls {
+		fmt.Fprintf(fout, "%v -> %v [calls=%d, weight=%f];\n",
+			fids[call.Caller], fids[call.Callee],
+			count, float64(count)/float64(p.CallCount))
 	}
 	fmt.Fprintln(fout, "}\n\n")
+}
+
+func (f *Function) Merge(b *Function) {
+	f.Calls += b.Calls
+	for _, bName := range b.RuntimeNames {
+		hasName := false
+		for _, name := range f.RuntimeNames {
+			if name == bName {
+				hasName = true
+				break
+			}
+		}
+		if !hasName {
+			f.RuntimeNames = append(f.RuntimeNames, bName)
+		}
+	}
+	for _, bCallPc := range b.CallPcs {
+		hasCallPc := false
+		for _, pc := range f.CallPcs {
+			if pc == bCallPc {
+				hasCallPc = true
+				break
+			}
+		}
+		if !hasCallPc {
+			f.CallPcs = append(f.CallPcs, bCallPc)
+		}
+	}
+	for _, bFuncPc := range b.FuncPcs {
+		hasFuncPc := false
+		for _, pc := range f.FuncPcs {
+			if pc == bFuncPc {
+				hasFuncPc = true
+				break
+			}
+		}
+		if !hasFuncPc {
+			f.FuncPcs = append(f.FuncPcs, bFuncPc)
+		}
+	}
 }
 
 func (f *Function) Update(fc *FuncCall) {
@@ -199,23 +300,21 @@ func shutdown(e *Execution) {
 	if e == nil {
 		return
 	}
+	for _, g := range e.Goroutines {
+		g.m.Lock()
+		if !g.Closed && len(g.Calls) > 0 {
+			g.m.Unlock()
+			g.Exit()
+		}
+	}
 	e.m.Lock()
 	defer e.m.Unlock()
 	fout, err := os.Create(e.OutputPath)
 	if err != nil {
 		panic(err)
 	}
-	defer fout.Close()
-	for _, g := range e.Goroutines {
-		if !g.Closed && len(g.Calls) > 0 {
-			g.Exit()
-		}
-	}
-	for _, g := range e.Goroutines {
-		if g.Closed && len(g.Calls) > 0 {
-			g.Serialize(fout)
-		}
-	}
+	e.Profile.Serialize(fout)
+	fout.Close()
 	fmt.Println("done shutting down")
 }
 
@@ -251,6 +350,7 @@ func ExitFunc(name string) {
 	if g.Closed {
 		panic("enter func on closed Goroutine")
 	}
+	g.CallCount++
 	fc := g.Stack[len(g.Stack)-1]
 	g.Stack = g.Stack[:len(g.Stack)-1]
 	if f, has := g.Funcs[fc.Name]; has {
