@@ -36,7 +36,11 @@ func (g *Goroutine) Exit() {
 	g.m.Lock()
 	defer g.m.Unlock()
 	g.Closed = true
+	exec.m.Lock()
+	exec.Goroutines[g.GoID] = nil
+	exec.m.Unlock()
 	exec.Merge(g)
+	// Println(fmt.Sprintf("exit goroutine %d", g.GoID))
 }
 
 

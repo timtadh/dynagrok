@@ -12,6 +12,8 @@ type Execution struct {
 	Goroutines []*Goroutine
 	Profile    *Profile
 	OutputPath string
+	mergeCh    chan *Goroutine
+	async      sync.WaitGroup
 }
 
 var execMu sync.Mutex
@@ -39,8 +41,16 @@ func newExecution() *Execution {
 			Funcs: make(map[string]*Function),
 		},
 		OutputPath: output,
+		mergeCh: make(chan *Goroutine, 15),
 	}
 	e.growGoroutines()
+	go func() {
+		e.async.Add(1)
+		for g := range e.mergeCh {
+			e.merge(g)
+		}
+		e.async.Done()
+	}()
 	return e
 }
 
@@ -52,19 +62,31 @@ func (e *Execution) Goroutine(id int64) *Goroutine {
 		}
 		e.m.Unlock()
 	}
+	if e.Goroutines[id] == nil {
+		e.m.Lock()
+		if e.Goroutines[id] == nil {
+			// Println(fmt.Sprintf("new goroutine %d", id))
+			e.Goroutines[id] = newGoroutine(id)
+		}
+		e.m.Unlock()
+	}
 	return e.Goroutines[id]
 }
 
 func (e *Execution) growGoroutines() {
 	n := make([]*Goroutine, (len(e.Goroutines)+1)*2)
 	copy(n, e.Goroutines)
-	for i := len(e.Goroutines); i < len(n); i++ {
-		n[i] = newGoroutine(int64(i))
-	}
+	// for i := len(e.Goroutines); i < len(n); i++ {
+	// 	n[i] = newGoroutine(int64(i))
+	// }
 	e.Goroutines = n
 }
 
 func (e *Execution) Merge(g *Goroutine) {
+	e.mergeCh<-g
+}
+
+func (e *Execution) merge(g *Goroutine) {
 	e.m.Lock()
 	defer e.m.Unlock()
 	if !g.Closed {
@@ -84,18 +106,24 @@ func (e *Execution) Merge(g *Goroutine) {
 }
 
 func shutdown(e *Execution) {
+	fmt.Println("starting shut down")
 	execMu.Lock()
 	defer execMu.Unlock()
 	if e == nil {
 		return
 	}
 	for _, g := range e.Goroutines {
+		if g == nil {
+			continue
+		}
 		g.m.Lock()
 		if !g.Closed && len(g.Calls) > 0 {
 			g.m.Unlock()
 			g.Exit()
 		}
 	}
+	close(e.mergeCh)
+	e.async.Wait()
 	e.m.Lock()
 	defer e.m.Unlock()
 	fout, err := os.Create(e.OutputPath)

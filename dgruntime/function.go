@@ -5,7 +5,7 @@ type Function struct {
 	RuntimeNames []string
 	FuncPcs []uintptr
 	CallPcs []uintptr
-	Flows   []Flow
+	// Flows   []Flow
 	Calls int
 }
 
@@ -64,18 +64,18 @@ func (f *Function) Merge(b *Function) {
 			f.FuncPcs = append(f.FuncPcs, bFuncPc)
 		}
 	}
-	for _, bFlow := range b.Flows {
-		hasFlow := false
-		for _, flow := range f.Flows {
-			if flow.equals(bFlow) {
-				hasFlow = true
-				break
-			}
-		}
-		if !hasFlow {
-			f.Flows = append(f.Flows, bFlow)
-		}
-	}
+	// for _, bFlow := range b.Flows {
+	// 	hasFlow := false
+	// 	for _, flow := range f.Flows {
+	// 		if flow.equals(bFlow) {
+	// 			hasFlow = true
+	// 			break
+	// 		}
+	// 	}
+	// 	if !hasFlow {
+	// 		f.Flows = append(f.Flows, bFlow)
+	// 	}
+	// }
 }
 
 func (f *Function) Update(fc *FuncCall) {
@@ -110,15 +110,15 @@ func (f *Function) Update(fc *FuncCall) {
 	if !hasFuncPc {
 		f.FuncPcs = append(f.FuncPcs, fc.FuncPc)
 	}
-	hasFlow := false
-	for _, flow := range f.Flows {
-		if flow.equals(fc.Flow) {
-			hasFlow = true
-			break
-		}
-	}
-	if !hasFlow {
-		f.Flows = append(f.Flows, fc.Flow)
-	}
+	// hasFlow := false
+	// for _, flow := range f.Flows {
+	// 	if flow.equals(fc.Flow) {
+	// 		hasFlow = true
+	// 		break
+	// 	}
+	// }
+	// if !hasFlow {
+	// 	f.Flows = append(f.Flows, fc.Flow)
+	// }
 }
 

@@ -98,37 +98,39 @@ func (i *instrumenter) instrument() (err error) {
 }
 
 func (i instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.Node, fnBody *[]ast.Stmt) error {
-	err := blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
-		var pos token.Pos = fnAst.Pos()
-		if len(*blk) > 0 {
-			pos = (*blk)[0].Pos()
-		}
-		if id != 0 {
-			*blk = insert(*blk, 0, i.mkEnterBlk(pos, id))
-		}
-		for j := 0; j < len(*blk) - 1; j++ {
-			switch stmt := (*blk)[j].(type) {
-			case *ast.BranchStmt:
-				// *blk = insert(*blk, j, i.mkPrint(pos, fmt.Sprintf("exit-blk:\t %d\t of %v", id, fnName)))
-				// j++
-			case *ast.IfStmt, *ast.ForStmt, *ast.SelectStmt, *ast.SwitchStmt, *ast.TypeSwitchStmt, *ast.RangeStmt:
-				*blk = insert(*blk, j+1, i.mkRe_enterBlk(pos, id, 2+j+1))
-				j++
-			case *ast.LabeledStmt:
-				switch stmt.Stmt.(type) {
-				case *ast.ForStmt, *ast.SwitchStmt, *ast.SelectStmt, *ast.TypeSwitchStmt, *ast.RangeStmt:
+	if false {
+		err := blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
+			var pos token.Pos = fnAst.Pos()
+			if len(*blk) > 0 {
+				pos = (*blk)[0].Pos()
+			}
+			if id != 0 {
+				*blk = insert(*blk, 0, i.mkEnterBlk(pos, id))
+			}
+			for j := 0; j < len(*blk) - 1; j++ {
+				switch stmt := (*blk)[j].(type) {
+				case *ast.BranchStmt:
+					// *blk = insert(*blk, j, i.mkPrint(pos, fmt.Sprintf("exit-blk:\t %d\t of %v", id, fnName)))
+					// j++
+				case *ast.IfStmt, *ast.ForStmt, *ast.SelectStmt, *ast.SwitchStmt, *ast.TypeSwitchStmt, *ast.RangeStmt:
 					*blk = insert(*blk, j+1, i.mkRe_enterBlk(pos, id, 2+j+1))
-				default:
-					// errors.Logf("DEBUG", "label stmt %T %T in %v", stmt.Stmt, (*blk)[j+1], fnName)
-					*blk = insert(*blk, j+1, stmt.Stmt)
-					stmt.Stmt = i.mkRe_enterBlk(pos, id, 2+j)
+					j++
+				case *ast.LabeledStmt:
+					switch stmt.Stmt.(type) {
+					case *ast.ForStmt, *ast.SwitchStmt, *ast.SelectStmt, *ast.TypeSwitchStmt, *ast.RangeStmt:
+						*blk = insert(*blk, j+1, i.mkRe_enterBlk(pos, id, 2+j+1))
+					default:
+						// errors.Logf("DEBUG", "label stmt %T %T in %v", stmt.Stmt, (*blk)[j+1], fnName)
+						*blk = insert(*blk, j+1, stmt.Stmt)
+						stmt.Stmt = i.mkRe_enterBlk(pos, id, 2+j)
+					}
 				}
 			}
+			return nil
+		})
+		if err != nil {
+			return nil
 		}
-		return nil
-	})
-	if err != nil {
-		return nil
 	}
 	*fnBody = insert(*fnBody, 0, i.mkEnterFunc(fnAst.Pos(), fnName))
 	*fnBody = insert(*fnBody, 1, i.mkExitFunc(fnAst.Pos(), fnName))

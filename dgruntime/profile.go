@@ -32,22 +32,13 @@ func (p *Profile) Serialize(fout io.Writer) {
 		}
 		return strlist(items)
 	}
-	flowlist := func(flows []Flow) string {
-		items := make([]string, 0, len(flows))
-		for _, f := range flows {
-			items = append(items, f.String())
-		}
-		return strlist(items)
-	}
-	max := func(a, b float64) float64 {
-		if a > b {
-			return a
-		}
-		return b
-	}
-	round := func(a float64) int {
-		return int(a + .5)
-	}
+	// flowlist := func(flows []Flow) string {
+	// 	items := make([]string, 0, len(flows))
+	// 	for _, f := range flows {
+	// 		items = append(items, f.String())
+	// 	}
+	// 	return strlist(items)
+	// }
 	nextfid := 1
 	fids := make(map[string]int)
 	fids["<entry>"] = 0
@@ -57,11 +48,10 @@ func (p *Profile) Serialize(fout io.Writer) {
 		fid := nextfid
 		nextfid++
 		fids[f.Name] = fid
-		fmt.Fprintf(fout, "%d [label=%v, shape=rect, calls=%d, runtime_names=%v, entry_pcs=%v, flows=%v, fontsize=%d];\n",
+		fmt.Fprintf(fout, "%d [label=%v, shape=rect, calls=%d, runtime_names=%v, entry_pcs=%v, call_pcs=%v];\n",
 			fid, strconv.Quote(f.Name), f.Calls, strlist(f.RuntimeNames),
 			intlist(f.FuncPcs),
-			flowlist(f.Flows),
-			round(96*max(.15, float64(f.Calls)/float64(p.CallCount))),
+			intlist(f.CallPcs),
 		)
 	}
 	for call, count := range p.Calls {

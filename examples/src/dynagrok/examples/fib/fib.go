@@ -1,5 +1,21 @@
 package main
 
+func init() {
+	wizard_1()
+}
+
+func init() {
+	wizard_2()
+}
+
+func wizard_1() {
+	println("1 wizard")
+}
+
+func wizard_2() {
+	println("2 wizard")
+}
+
 func main() {
 	x := func()int{return 1}
 	println(((*wacky)(&x)).fib(5))
