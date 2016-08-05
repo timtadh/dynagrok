@@ -33,11 +33,11 @@ func EnterBlk(bid int) {
 	g := exec.Goroutine(runtime.GoID())
 	g.m.Lock()
 	defer g.m.Unlock()
-	fc := g.Stack[len(g.Stack)-1]
-	if len(fc.Flow) >= MAXFLOW {
-		return
-	}
-	fc.Flow = append(fc.Flow, BlkEntrance{bid, 0})
+	// fc := g.Stack[len(g.Stack)-1]
+	// if len(fc.Flow) >= MAXFLOW {
+	// 	return
+	// }
+	// fc.Flow = append(fc.Flow, BlkEntrance{bid, 0})
 }
 
 func Re_enterBlk(bid, at int) {
@@ -45,63 +45,55 @@ func Re_enterBlk(bid, at int) {
 	g := exec.Goroutine(runtime.GoID())
 	g.m.Lock()
 	defer g.m.Unlock()
-	fc := g.Stack[len(g.Stack)-1]
-	if len(fc.Flow) >= MAXFLOW {
-		return
-	}
-	fc.Flow = append(fc.Flow, BlkEntrance{bid, at})
+	//fc := g.Stack[len(g.Stack)-1]
+	//if len(fc.Flow) >= MAXFLOW {
+	//	return
+	//}
+	//fc.Flow = append(fc.Flow, BlkEntrance{bid, at})
 }
 
 func EnterFunc(name string) {
 	execCheck()
 	g := exec.Goroutine(runtime.GoID())
-	g.m.Lock()
+	// g.m.Lock()
 	if g.Closed {
-		g.m.Unlock()
+		// g.m.Unlock()
 		panic("enter func on closed Goroutine")
 	}
-	// var callers [2]uintptr
-	// n := runtime.Caller(2, callers[:])
-	// if n <= 0 {
-	// 	panic("could not get stack frame")
-	// }
 	pc := runtime.GetCallerPC(unsafe.Pointer(&name))
 	f := runtime.FuncForPC(pc)
+	fpc := f.Entry()
 	g.Stack = append(g.Stack, &FuncCall{
 		Name: name,
-		RuntimeName: f.Name(),
-		CallPc: pc,
-		FuncPc: f.Entry(),
-		// Flow: []BlkEntrance{{0,0}},
+		FuncPc: fpc,
 	})
-	g.Calls[Call{Caller: g.Stack[len(g.Stack)-2].Name, Callee: g.Stack[len(g.Stack)-1].Name}]++
-	// Println(fmt.Sprintf("enter-func: %v %d", name, g.GoID))
-	g.m.Unlock()
+	g.Calls[Call{Caller: g.Stack[len(g.Stack)-2].FuncPc, Callee: fpc}]++
+	// g.m.Unlock()
 }
 
 func ExitFunc(name string) {
 	execCheck()
 	g := exec.Goroutine(runtime.GoID())
-	g.m.Lock()
+	// g.m.Lock()
 	if g.Closed {
-		g.m.Unlock()
+		// g.m.Unlock()
 		panic("enter func on closed Goroutine")
 	}
 	g.CallCount++
 	fc := g.Stack[len(g.Stack)-1]
 	g.Stack = g.Stack[:len(g.Stack)-1]
 	// Println(fmt.Sprintf("exit %v %v", fc.Name, fc.Flow))
-	if f, has := g.Funcs[fc.Name]; has {
+	if f, has := g.Funcs[fc.FuncPc]; has {
 		f.Update(fc)
 	} else {
-		g.Funcs[fc.Name] = newFunction(fc)
+		g.Funcs[fc.FuncPc] = newFunction(fc)
 	}
 	if len(g.Stack) == 1 {
-		g.m.Unlock()
+		// g.m.Unlock()
 		g.Exit()
 		return
 	}
-	g.m.Unlock()
+	// g.m.Unlock()
 }
 
 func Println(data string) {

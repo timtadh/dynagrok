@@ -38,7 +38,7 @@ func newExecution() *Execution {
 	e := &Execution{
 		Profile: &Profile{
 			Calls: make(map[Call]int),
-			Funcs: make(map[string]*Function),
+			Funcs: make(map[uintptr]*Function),
 		},
 		OutputPath: output,
 		mergeCh: make(chan *Goroutine, 15),
@@ -94,10 +94,10 @@ func (e *Execution) merge(g *Goroutine) {
 	}
 	e.Profile.CallCount += g.CallCount
 	for _, fn := range g.Funcs {
-		if x, has := e.Profile.Funcs[fn.Name]; has {
+		if x, has := e.Profile.Funcs[fn.FuncPc]; has {
 			x.Merge(fn)
 		} else {
-			e.Profile.Funcs[fn.Name] = fn
+			e.Profile.Funcs[fn.FuncPc] = fn
 		}
 	}
 	for call, count := range g.Calls {
