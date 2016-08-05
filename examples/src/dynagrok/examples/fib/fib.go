@@ -17,9 +17,14 @@ func wizard_2() {
 }
 
 func main() {
+	c := make(chan bool)
 	x := func()int{return 1}
-	println(((*wacky)(&x)).fib(5))
+	go func() {
+		println(((*wacky)(&x)).fib(5))
+		c<-true
+	}()
 	println(fibLoop(5))
+	<-c
 }
 
 type wacky func() int
