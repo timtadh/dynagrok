@@ -126,6 +126,7 @@ func shutdown(e *Execution) {
 	e.async.Wait()
 	e.m.Lock()
 	defer e.m.Unlock()
+	fmt.Println("writing to:", e.OutputPath)
 	fout, err := os.Create(e.OutputPath)
 	if err != nil {
 		panic(err)

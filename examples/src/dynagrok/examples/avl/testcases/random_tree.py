@@ -5,31 +5,43 @@ import sys
 import subprocess
 import random
 
+import optutils
+
+
 random.seed()
 
 
 class Remote(object):
 
-    def __init__(self, path):
+    def __init__(self, path, dgpath):
+        env = os.environ
+        env['DGPROF'] = dgpath
         self.p = subprocess.Popen([path],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
+                env=env,
         )
+        self.input = list()
+        self.output = list()
 
     def render(self, op):
         return ' '.join([str(x) for x in op])
 
-    def get_line(self):
-        return self.p.stdout.readline().strip()
+    def get_output(self):
+        line = self.p.stdout.readline().strip()
+        self.output.append(line)
+        print '>', line
+        return line
+
+    def send_input(self, inp):
+        print '$', inp
+        self.p.stdin.write(inp)
+        self.p.stdin.write('\n')
+        self.input.append(inp)
 
     def ex(self, op):
-        op = self.render(op)
-        print '$', op
-        self.p.stdin.write(op)
-        self.p.stdin.write('\n')
-        line = self.get_line().split()
-        #line = ['ex', 'wacky', 'true']
-        print '>', ' '.join(line)
+        self.send_input(self.render(op))
+        line = self.get_output().split()
         if line[0] != "ex":
             return False, list()
         return True, line[1:]
@@ -112,26 +124,64 @@ class Tree(object):
         return ['get', self.key()]
 
 
-def main(argv):
-    if len(argv) != 1:
-        print "expected path of avl program"
-        sys.exit(1)
-    print argv
-    avl_path = argv[0]
-    t = Tree(Remote(avl_path))
+@optutils.main(
+'random_tree.py -o <output-dir> <program>',
+'''
+Options
+-h, --help                              show this message
+-o, --output-dir=<path>                 output directory
+''',
+'ho:',
+['help', 'output='],
+)
+def main(argv, util, parser):
+    output = None
+    opts, args = parser(argv)
+    for opt, arg in opts:
+        if opt in ('-h', '--help',):
+            util.usage()
+        elif opt in ('-o', '--output',):
+            output = util.assert_dir_exists(arg)
+        else:
+            util.log("unknown option %s" % (opt))
+            util.usage(1)
+
+
+    if output is None:
+        util.log("must supply an output directory")
+        util.usage(1)
+
+    if len(args) != 1:
+        util.log("you  must supply a path to the program")
+        util.usage(1)
+
+    program = args[0]
+    t = Tree(Remote(program, os.path.join(output, 'dynamic-callgraph.dot')))
+
+    fail = False
     for x in xrange(random.randint(10, 1000)):
         ok = t.op()
         if not ok:
-            print "FAIL"
-            sys.exit(1)
-    ok = t.verify()
-    if not ok:
-        print 'FAIL'
-        sys.exit(1)
+            fail = True
+            break
+    if not t.verify():
+        fail = True
     print t.string()
     t.remote.close()
-    print 'OK'
-    sys.exit(0)
 
-if __name__ == "__main__":
-    main(sys.argv[1:])
+    with open(os.path.join(output, 'input'), 'w') as f:
+        for line in t.remote.input:
+            print >>f, line
+    with open(os.path.join(output, 'output'), 'w') as f:
+        for line in t.remote.output:
+            print >>f, line
+    with open(os.path.join(output, 'result'), 'w') as result:
+        if fail:
+            print >>result, "FAIL"
+            return 1
+        else:
+            print >>result, "OK"
+            return 0
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))
