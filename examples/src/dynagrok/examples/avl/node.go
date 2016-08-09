@@ -4,6 +4,8 @@ import (
 	"fmt"
 )
 
+const maxSep = 2
+
 type Node struct {
 	Key, Value int
 	left, right *Node
@@ -47,7 +49,7 @@ func (n *Node) Verify() bool {
 	if n.height != max(n.right.Height(), n.left.Height()) + 1 {
 		return false
 	}
-	if abs(n.right.Height() - n.left.Height()) >= 2 {
+	if abs(n.right.Height() - n.left.Height()) >= maxSep {
 		fmt.Println("bad")
 		fmt.Println("tree:", n)
 		fmt.Println("left:", n.left, n.left.Height())
@@ -175,7 +177,7 @@ func (n *Node) balance() *Node {
 	if n == nil {
 		return nil
 	}
-	if abs(n.left.Height() - n.right.Height()) < 2 {
+	if abs(n.left.Height() - n.right.Height()) < maxSep {
 		return n
 	} else if n.left.Height() < n.right.Height() {
 		return n.rotateLeft()

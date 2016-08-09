@@ -61,11 +61,12 @@ func cmd(t *Avl, cmd string, args []string) {
 		t.Remove(k)
 		fmt.Println("ex rm", k)
 	case "print":
-		fmt.Println(t)
+		fmt.Println("ex print", t)
+	case "verify":
+		fmt.Println("ex verify", t.Verify())
 	default:
 		fmt.Printf("err not a command: %v\n", cmd)
 	}
-	verify(t)
 }
 
 func verify(v interface{ Verify() bool }) {
