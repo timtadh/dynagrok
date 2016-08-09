@@ -44,6 +44,16 @@ func (n *Node) Verify() bool {
 	if n.right != nil && n.right.Key < n.Key {
 		return false
 	}
+	if n.height != max(n.right.Height(), n.left.Height()) + 1 {
+		return false
+	}
+	if abs(n.right.Height() - n.left.Height()) >= 2 {
+		fmt.Println("bad")
+		fmt.Println("tree:", n)
+		fmt.Println("left:", n.left, n.left.Height())
+		fmt.Println("right:", n.right, n.right.Height())
+		return false
+	}
 	return n.right.Verify() && n.left.Verify()
 }
 
@@ -64,6 +74,31 @@ func (n *Node) Has(k int) bool {
 	} else {
 		return n.right.Has(k)
 	}
+}
+
+type Iterator func() (k, v int, next Iterator)
+
+func (n *Node) Iterate() (it Iterator) {
+	pop := func(stack []*Node) (*Node, []*Node) {
+		return stack[len(stack)-1], stack[:len(stack)-1]
+	}
+	stack := make([]*Node, 0, n.Height())
+	cur := n
+	it = func() (k, v int, _ Iterator) {
+		if cur == nil && len(stack) <= 0 {
+			return 0, 0, nil
+		}
+		for cur != nil {
+			stack = append(stack, cur)
+			cur = cur.left
+		}
+		cur, stack = pop(stack)
+		k = cur.Key
+		v = cur.Value
+		cur = cur.right
+		return k, v, it
+	}
+	return it
 }
 
 func (n *Node) Get(k int) (v int, has bool) {
@@ -195,7 +230,7 @@ func (n *Node) pushNode(x *Node) *Node {
 		n.right = n.right.pushNode(x)
 	}
 	n.height = max(n.left.Height(), n.right.Height()) + 1
-	return n
+	return n.balance()
 }
 
 func (n *Node) popNode(x *Node) *Node {
@@ -215,7 +250,7 @@ func (n *Node) popNode(x *Node) *Node {
 		}
 		n.left = nil
 		n.right = nil
-		return k
+		return k.balance()
 	} else if x.Key == n.Key {
 		panic("popping a node with the same key")
 	} else if x.Key < n.Key {
@@ -224,7 +259,7 @@ func (n *Node) popNode(x *Node) *Node {
 		n.right = n.right.popNode(x)
 	}
 	n.height = max(n.left.Height(), n.right.Height()) + 1
-	return n
+	return n.balance()
 }
 
 func (n *Node) rightmostDescendent() *Node {
@@ -255,13 +290,13 @@ func (n *Node) String() string {
 	left := n.left.String();
 	right := n.right.String();
 	if left == "" && right == "" {
-		return fmt.Sprintf("%v:%v:%v", n.Key, n.Value, n.Height())
+		return fmt.Sprintf("%v", n.Key)
 	} else if left == "" {
-		return fmt.Sprintf("(%v:%v:%v () %v)", n.Key, n.Value, n.Height(), right)
+		return fmt.Sprintf("(%v _ %v)", n.Key, right)
 	} else if right == "" {
-		return fmt.Sprintf("(%v:%v:%v %v)", n.Key, n.Value, n.Height(), left)
+		return fmt.Sprintf("(%v %v _)", n.Key, left)
 	} else {
-		return fmt.Sprintf("(%v:%v:%v %v %v)", n.Key, n.Value, n.Height(), left, right)
+		return fmt.Sprintf("(%v %v %v)", n.Key, left, right)
 	}
 }
 

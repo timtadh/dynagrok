@@ -2,31 +2,77 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"bufio"
+	"strings"
+	"strconv"
 )
 
 
 func main() {
 	t := New()
-	t.Put(1,1)
-	t.Put(2,2)
-	fmt.Println(t)
-	t.Put(3,3)
-	t.Put(4,4)
-	t.Put(5,5)
-	t.Put(6,6)
-	t.Put(7,7)
-	t.Put(8,8)
-	t.Put(9,9)
-	t.Put(10,10)
-	t.Put(11,11)
-	fmt.Println(t)
-	for i := 13; i > -2; i-- {
-		fmt.Println(t.Get(i))
-		t.Remove(i)
-		fmt.Println(t)
+	s := bufio.NewScanner(os.Stdin)
+	for s.Scan() {
+		line := s.Text()
+		split := strings.Split(line, " ")
+		cmd(t, split[0], split[1:])
+	}
+	if err := s.Err(); err != nil {
+		panic(err)
 	}
 }
 
+func cmd(t *Avl, cmd string, args []string) {
+	switch cmd {
+	case "put":
+		k, err := strconv.Atoi(args[0])
+		if err != nil {
+			fmt.Println("err", err)
+			return
+		}
+		v, err := strconv.Atoi(args[1])
+		if err != nil {
+			fmt.Println("err", err)
+			return
+		}
+		t.Put(k, v)
+		fmt.Println("ex put", k, v)
+	case "has":
+		k, err := strconv.Atoi(args[0])
+		if err != nil {
+			fmt.Println("err", err)
+			return
+		}
+		fmt.Println("ex has", t.Has(k))
+	case "get":
+		k, err := strconv.Atoi(args[0])
+		if err != nil {
+			fmt.Println("err", err)
+			return
+		}
+		v, has := t.Get(k)
+		fmt.Println("ex get", v, has)
+	case "rm":
+		k, err := strconv.Atoi(args[0])
+		if err != nil {
+			fmt.Println("err", err)
+			return
+		}
+		t.Remove(k)
+		fmt.Println("ex rm", k)
+	case "print":
+		fmt.Println(t)
+	default:
+		fmt.Printf("err not a command: %v\n", cmd)
+	}
+	verify(t)
+}
+
+func verify(v interface{ Verify() bool }) {
+	if !v.Verify() {
+		panic(fmt.Errorf("Bad %v", v))
+	}
+}
 
 type Avl struct {
 	root *Node
@@ -37,7 +83,28 @@ func New() *Avl {
 }
 
 func (a *Avl) Verify() bool {
-	return a.root.Verify()
+	if !a.root.Verify() {
+		return false
+	}
+	i := 0
+	p := 0
+	for k, _, next := a.Iterate()(); next != nil; k, _, next = next() {
+		if i > 0 {
+			if p < k {
+				// ok
+			} else {
+				// not ok, previous key should alwasy be less than current
+				return false
+			}
+		}
+		p = k
+		i++
+	}
+	return true
+}
+
+func (a *Avl) Iterate() Iterator {
+	return a.root.Iterate()
 }
 
 func (a *Avl) Has(k int) bool {
@@ -57,6 +124,12 @@ func (a *Avl) Remove(k int) {
 }
 
 func (a *Avl) String() string {
-	return a.root.String()
+	s := a.root.String()
+	if s == "" {
+		return "()"
+	} else if s[0] == '(' {
+		return s
+	}
+	return fmt.Sprintf("(%v _ _)", s)
 }
 
