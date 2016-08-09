@@ -119,7 +119,7 @@ func (n *Node) Put(k, v int) *Node {
 	if n == nil {
 		return NewNode(k, v)
 	} else if k == n.Key {
-		n.Value = k
+		n.Value = v
 		return n
 	} else if k < n.Key {
 		n.left = n.left.Put(k, v)
