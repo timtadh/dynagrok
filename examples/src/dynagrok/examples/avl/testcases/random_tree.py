@@ -30,11 +30,11 @@ class Remote(object):
     def get_output(self):
         line = self.p.stdout.readline().strip()
         self.output.append(line)
-        print '>', line
+        #print '>', line
         return line
 
     def send_input(self, inp):
-        print '$', inp
+        #print '$', inp
         self.p.stdin.write(inp)
         self.p.stdin.write('\n')
         self.input.append(inp)
@@ -42,15 +42,17 @@ class Remote(object):
     def ex(self, op):
         self.send_input(self.render(op))
         line = self.get_output().split()
+        if not line:
+            return False, list()
         if line[0] != "ex":
             return False, list()
         return True, line[1:]
 
     def close(self):
-        print self.p.communicate()[0]
+        self.p.communicate()[0]
 
 
-class Tree(object):
+class Map(object):
 
     def __init__(self, remote):
         self.model = dict()
@@ -66,7 +68,6 @@ class Tree(object):
         if not ok:
             print 'exec failed of verify'
             return False
-        print res
         if res[1] != 'true':
             return False
         return True
@@ -156,7 +157,7 @@ def main(argv, util, parser):
         util.usage(1)
 
     program = args[0]
-    t = Tree(Remote(program, os.path.join(output, 'dynamic-callgraph.dot')))
+    t = Map(Remote(program, os.path.join(output, 'dynamic-callgraph.dot')))
 
     fail = False
     for x in xrange(random.randint(10, 1000)):
