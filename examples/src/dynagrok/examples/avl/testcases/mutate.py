@@ -6,7 +6,7 @@ random.seed()
 
 import optutils
 
-from random_tree import Remote, Map
+from map_tester import Remote, Map
 
 class Testcase(object):
 
@@ -25,12 +25,26 @@ class Testcase(object):
         self.executed = True
         return self.i, self.ok
 
+    def ops(self):
+        ops = list()
+        for line in self.case.split('\n'):
+            if line == 'verify': continue
+            if line == 'print': continue
+            ops.append(line.split(' '))
+        return ops
+
+    def valid(self):
+        return all(Map.valid(op) for op in self.ops())
+
     def _execute(self):
         remote = Remote(self.binary, '/tmp/dynamic-callgraph.dot')
         table = Map(remote)
         success = True
-        for i, op in enumerate(self.case):
-            #print 'executing', op
+        if not self.valid():
+            raise Exception("Not a valid case")
+        i = 0
+        for i, op in enumerate(self.ops()):
+            #print 'executing', i, op
             ok = table.do(op)
             if not ok:
                 success = False
@@ -44,102 +58,74 @@ class Testcase(object):
         remote.close()
         return i, success
 
+    def static_case(self):
+        return self.case
+
+    def __eq__(self, b):
+        return self.static_case == b.static_case
+
+    def __hash__(self):
+        return self.hash()
+
     def hash(self):
         if self._hash is None:
-            self._hash = hash(tuple(tuple(line) for line in self.case))
+            self._hash = hash(self.static_case())
         return self._hash
 
     def mutations(self):
-        self.trim()
         prefix = [
             (0, i)
-            for i in xrange(1, len(self.case)-2)
+            for i in xrange(1, len(self.case)-1)
         ]
         blocks = [
             (i, j)
-            for i in xrange(1, len(self.case)-1)
-            for j in xrange(i+1, min(i+min(max(2, int(.02*len(self.case))), 10), len(self.case)))
+            for i in xrange(1, len(self.case))
+            for j in xrange(i+1, min(i+min(max(15, int(.1*len(self.case))), 100), len(self.case)+1))
         ]
         return prefix + blocks
-
-    def kids(self):
-        cases = list()
-        for m in self.mutations():
-            m = self.remove_block(*m)
-            _, ok = m.execute()
-            if not ok:
-                m.trim()
-                cases.append(m)
-        return cases
 
     def trim(self):
         i, ok = self.execute()
         self.case = self.case[:i+1]
-
-    def remove(self, i):
-        return Testcase(self.binary, self.case[:i] + self.case[i+1:])
-
-    def remove_prefix(self, i):
-        return Testcase(self.binary, self.case[i+1:])
+        self.hash()
 
     def remove_block(self, i, j):
         return Testcase(self.binary, self.case[:i] + self.case[j:])
-
-def minimize(testcase):
-    _, ok = testcase.execute()
-    if ok:
-        raise Exception, "non failing test case"
-    testcase.trim()
-    stack = list()
-    stack.append(testcase)
-    min_case = None
-    seen = set()
-    while len(stack) > 0:
-        c = stack.pop()
-        if c.hash() in seen:
-            continue
-        seen.add(c.hash())
-        print "cur case", len(c.case)
-        if min_case is None or len(c.case) < len(min_case.case):
-            min_case = c
-            with open("/tmp/min.case", "w") as f:
-                for line in c.case:
-                    print >>f, ' '.join(line)
-        for k in c.kids():
-            if k.hash() in seen:
-                continue
-            stack.append(k)
-    return min_case
 
 def walk(testcase):
     _, ok = testcase.execute()
     if ok:
         raise Exception, "non failing test case"
-    testcase.trim()
     p = testcase
     c = testcase
+    mut = None
+    tries = 0
     while c is not None:
-        print 'cur', len(c.case)
+        print 'cur', len(c.case), mut, tries
+        with open("/tmp/cur.case", "w") as f:
+            print >>f, c.case
         p = c
         kid = None
-        seen = set()
         mutations = c.mutations()
+        tries = 0
         while kid is None and len(mutations) > 0:
+            tries += 1
             i = random.randint(0, len(mutations) - 1)
-            kid = mutations.pop(i)
-            kid = c.remove_block(*kid)
-            _, ok = kid.execute()
-            if ok:
-                kid = None
+            mut = mutations.pop(i)
+            kid = c.remove_block(*mut)
+            if kid.valid():
+                #print 'valid', kid.case
+                _, ok = kid.execute()
+                if ok:
+                    kid = None
+                else:
+                    break
             else:
-                kid.trim()
-                break
+                kid = None
         c = kid
-    print mutations
-    print 'found', len(p.case)
+    print 'found', len(p.case), mut, tries #, p.mutations()
     with open("/tmp/min-%d.case" % len(p.case), "w") as f:
-        for line in p.case:
-            print >>f, ' '.join(line)
+        print >>f, p.case
     return p
 
 def sample(testcase, n):
@@ -180,20 +166,16 @@ def main(argv, util, parser):
         util.usage(1)
 
     with open(testcase) as f:
-        case = [
-            line.strip().split(' ')
-            for line in f
-            if line.strip()
-        ]
+        case = f.read().strip()
     t = Testcase(args[0], case)
+    #t.trim()
     #print minimize(t)
     c = min(
         sample(t, 1),
         key=lambda c: len(c.case),
     )
     print "min case", len(c.case)
-    for line in c.case:
-        print ' '.join(line)
+    print c.case
 
 
 if __name__ == "__main__":
