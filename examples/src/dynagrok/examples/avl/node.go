@@ -148,16 +148,17 @@ func (n *Node) Remove(k int) *Node {
 	if n == nil {
 		return nil
 	} else if k == n.Key {
-		// found remove this node
-		return n.remove()
+		n = n.remove() // found remove this node
 	} else if k < n.Key {
-		// it would be on the left
 		n.left = n.left.Remove(k)
 	} else {
 		n.right = n.right.Remove(k)
 	}
-	n.height = max(n.left.Height(), n.right.Height()) + 1
-	return n.balance()
+	if n != nil {
+		n.height = max(n.left.Height(), n.right.Height()) + 1
+		n = n.balance()
+	}
+	return n
 }
 
 func (n *Node) remove() *Node {
@@ -170,19 +171,23 @@ func (n *Node) remove() *Node {
 	} else if n.right == nil {
 		return n.left
 	} else {
-		var r *Node
-		if n.left.Height() < n.right.Height() {
-			// promote from the right side
-			r = n.right.leftmostDescendent()
-		} else {
-			// promote from the left side
-			r = n.left.rightmostDescendent()
-		}
-		n = n.Remove(r.Key)
+		// NON BUGGY
+		// var r *Node
+		// if n.left.Height() < n.right.Height() {
+		// 	// promote from the right side
+		// 	r = n.right.leftmostDescendent()
+		// } else {
+		// 	// promote from the left side
+		// 	r = n.left.rightmostDescendent()
+		// }
+		// buggy with n.Remove instead of n.right.Remove
+		r := n.left.rightmostDescendent()
+		// fmt.Println("new root", r)
+		n = n.Remove(r.Key) // because we are removing from the taller side will not cause a rebalance
+		// fmt.Println("remove root\n", n.Serialize())
 		r.left = n.left;
 		r.right = n.right;
-		r.height = max(r.left.Height(), r.right.Height()) + 1
-		return r.balance()
+		return r
 	}
 }
 

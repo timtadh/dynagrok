@@ -1,0 +1,12 @@
+put 8 2
+put 3 1
+put 5959 8
+put 5009 0
+put 8636 2
+put 9263 6
+put 7930 1
+verify
+serialize
+rm 5009
+verify
+serialize
