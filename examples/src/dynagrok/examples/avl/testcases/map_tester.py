@@ -4,6 +4,11 @@ import os
 import sys
 import subprocess
 import random
+import time
+import resource
+import signal
+import fcntl
+import errno
 
 import optutils
 
@@ -17,18 +22,61 @@ def isint(a):
     except ValueError, e:
         return False
 
+def _eintr_retry_call(func, *args):
+    while True:
+        try: 
+            return func(*args)
+        except (OSError, IOError) as e:
+            if e.errno == errno.EINTR:
+                time.sleep(.00001)
+                continue
+            if e.errno == errno.EAGAIN:
+                return ''
+            raise
+
 class Remote(object):
+
+    MEM_LIMIT = int(5 * 10**7) ### 50 MB
+    TIME_LIMIT = 2 ### 2 seconds
 
     def __init__(self, path, dgpath):
         env = os.environ
         env['DGPROF'] = dgpath
-        self.p = subprocess.Popen([path],
+        self.p = subprocess.Popen(
+                [path],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 env=env,
+                #bufsize=4096,
         )
+        fd = self.p.stdout.fileno()
+        fl = fcntl.fcntl(fd, fcntl.F_GETFL)
+        fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
         self.input = list()
         self.output = list()
+        self.buf = ''
+
+    def kill(self):
+        self.p.kill()
+        self.p.wait()
+
+    def getmem(self):
+        ### memory usage as measure in pages
+        path = '/proc/%s/statm' % str(self.p.pid)
+        with open(path, 'r') as f:
+            statm = f.read()
+        total = int(statm.split(' ')[1]) ## resident size
+        return total * resource.getpagesize()
+
+    def over_time(self, start_time):
+        mem = self.getmem()
+        if mem > self.MEM_LIMIT:
+            print "You used too much memory, killing"
+            return True
+        if time.time() - start_time > self.TIME_LIMIT:
+            print "You used too much time, killing"
+            return True
+        return False
 
     def render(self, op):
         op = [str(arg) if not isint(arg) else str(int(arg))
@@ -36,18 +84,35 @@ class Remote(object):
         return ' '.join(op)
 
     def get_output(self):
-        line = self.p.stdout.readline().strip()
+        if self.p.returncode is not None:
+            raise Exception("read on closed process")
+        start_time = time.time()
+        while '\n' not in self.buf:
+            if self.over_time(start_time):
+                self.kill()
+                return ''
+            text = _eintr_retry_call(self.p.stdout.read, 1)
+            if text != '':
+                self.buf += text
+            else:
+                time.sleep(.0001)
+        line, self.buf = self.buf.split('\n', 1)
+        line = line.strip()
         self.output.append(line)
         #print '>', line
         return line
 
     def send_input(self, inp):
+        if self.p.returncode is not None:
+            raise Exception("send on closed process")
         #print '$', inp
         self.p.stdin.write(inp)
         self.p.stdin.write('\n')
         self.input.append(inp)
 
     def ex(self, op):
+        if self.p.returncode is not None:
+            return False, list()
         self.send_input(self.render(op))
         line = self.get_output().split()
         if not line:
@@ -57,7 +122,8 @@ class Remote(object):
         return True, line[1:]
 
     def close(self):
-        self.p.communicate()[0]
+        if self.p.returncode is None:
+            self.p.communicate()
 
 
 class Map(object):
@@ -74,7 +140,7 @@ class Map(object):
     def verify(self):
         ok, res = self.remote.ex(['verify'])
         if not ok:
-            raise Exception('exec failed of verify')
+            print 'exec failed of verify'
             return False
         if res[1] != 'true':
             return False
@@ -201,12 +267,12 @@ def main(argv, util, parser):
     with open(os.path.join(output, 'output'), 'w') as f:
         for line in t.remote.output:
             print >>f, line
-    with open(os.path.join(output, 'result'), 'w') as result:
+    with open(os.path.join(output, 'result'), 'w') as f:
         if fail:
-            print >>result, "FAIL"
+            print >>f, "FAIL"
             return 1
         else:
-            print >>result, "OK"
+            print >>f, "OK"
             return 0
 
 if __name__ == '__main__':
