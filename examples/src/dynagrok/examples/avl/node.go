@@ -224,7 +224,6 @@ func (n *Node) rotateLeft() *Node {
 func (n *Node) doRotate(r *Node) *Node {
 	r.left = n.left
 	r.right = n.right
-	r.height = max(n.left.Height(), n.right.Height()) + 1
 	return r.Put(n.Key, n.Value)
 }
 
