@@ -1,7 +1,9 @@
 package main
 
 import (
+	"os"
 	"fmt"
+	"strings"
 )
 
 const maxSep = 2
@@ -41,19 +43,31 @@ func (n *Node) Verify() bool {
 		return true
 	}
 	if n.left != nil && n.left.Key > n.Key {
+		fmt.Fprintln(os.Stderr, "out of order (on left)")
+		fmt.Fprintln(os.Stderr, "tree:", n)
+		fmt.Fprintln(os.Stderr, "left:", n.left, n.left.Height())
+		fmt.Fprintln(os.Stderr, "right:", n.right, n.right.Height())
 		return false
 	}
 	if n.right != nil && n.right.Key < n.Key {
+		fmt.Fprintln(os.Stderr, "out of order (on right)")
+		fmt.Fprintln(os.Stderr, "tree:", n)
+		fmt.Fprintln(os.Stderr, "left:", n.left, n.left.Height())
+		fmt.Fprintln(os.Stderr, "right:", n.right, n.right.Height())
 		return false
 	}
 	if n.height != max(n.right.Height(), n.left.Height()) + 1 {
+		fmt.Fprintln(os.Stderr, "bad height")
+		fmt.Fprintln(os.Stderr, "tree:", n)
+		fmt.Fprintln(os.Stderr, "left:", n.left, n.left.Height())
+		fmt.Fprintln(os.Stderr, "right:", n.right, n.right.Height())
 		return false
 	}
 	if abs(n.right.Height() - n.left.Height()) >= maxSep {
-		fmt.Println("bad")
-		fmt.Println("tree:", n)
-		fmt.Println("left:", n.left, n.left.Height())
-		fmt.Println("right:", n.right, n.right.Height())
+		fmt.Fprintln(os.Stderr, "bad")
+		fmt.Fprintln(os.Stderr, "tree:", n)
+		fmt.Fprintln(os.Stderr, "left:", n.left, n.left.Height())
+		fmt.Fprintln(os.Stderr, "right:", n.right, n.right.Height())
 		return false
 	}
 	return n.right.Verify() && n.left.Verify()
@@ -160,12 +174,11 @@ func (n *Node) remove() *Node {
 		if n.left.Height() < n.right.Height() {
 			// promote from the right side
 			r = n.right.leftmostDescendent()
-			n.right = n.right.popNode(r)
 		} else {
 			// promote from the left side
 			r = n.left.rightmostDescendent()
-			n.left = n.left.popNode(r)
 		}
+		n = n.Remove(r.Key)
 		r.left = n.left;
 		r.right = n.right;
 		r.height = max(r.left.Height(), r.right.Height()) + 1
@@ -193,13 +206,8 @@ func (n *Node) rotateRight() *Node {
 		return n
 	}
 	r := n.left.rightmostDescendent()
-	n = n.popNode(r)
-	r.left = n.left
-	r.right = n.right
-	n.left = nil
-	n.right = nil
-	n.height = 1
-	return r.pushNode(n)
+	n.left = n.left.Remove(r.Key)
+	return n.doRotate(r)
 }
 
 func (n *Node) rotateLeft() *Node {
@@ -209,59 +217,15 @@ func (n *Node) rotateLeft() *Node {
 		return n
 	}
 	r := n.right.leftmostDescendent()
-	n = n.popNode(r)
+	n.right = n.right.Remove(r.Key)
+	return n.doRotate(r)
+}
+
+func (n *Node) doRotate(r *Node) *Node {
 	r.left = n.left
 	r.right = n.right
-	n.left = nil
-	n.right = nil
-	n.height = 1
-	return r.pushNode(n)
-}
-
-func (n *Node) pushNode(x *Node) *Node {
-	if x == nil {
-		return n
-	} else if n == nil {
-		return x
-	}
-	if x.Key == n.Key {
-		panic("pushing a node to the same node")
-	} else if x.Key < n.Key {
-		n.left = n.left.pushNode(x)
-	} else {
-		n.right = n.right.pushNode(x)
-	}
-	n.height = max(n.left.Height(), n.right.Height()) + 1
-	return n.balance()
-}
-
-func (n *Node) popNode(x *Node) *Node {
-	if n == nil {
-		return nil
-	} else if x == nil {
-		return n
-	} else if x.left != nil && x.right != nil {
-		panic("x may have left or right but not both subtrees")
-	}
-	if n == x {
-		var k *Node = nil
-		if n.left != nil {
-			k = n.left
-		} else if n.right != nil {
-			k = n.right
-		}
-		n.left = nil
-		n.right = nil
-		return k.balance()
-	} else if x.Key == n.Key {
-		panic("popping a node with the same key")
-	} else if x.Key < n.Key {
-		n.left = n.left.popNode(x)
-	} else {
-		n.right = n.right.popNode(x)
-	}
-	n.height = max(n.left.Height(), n.right.Height()) + 1
-	return n.balance()
+	r.height = max(n.left.Height(), n.right.Height()) + 1
+	return r.Put(n.Key, n.Value)
 }
 
 func (n *Node) rightmostDescendent() *Node {
@@ -273,7 +237,6 @@ func (n *Node) rightmostDescendent() *Node {
 		return n.right.rightmostDescendent()
 	}
 }
-
 
 func (n *Node) leftmostDescendent() *Node {
 	if n == nil {
@@ -300,5 +263,53 @@ func (n *Node) String() string {
 	} else {
 		return fmt.Sprintf("(%v %v %v)", n.Key, left, right)
 	}
+}
+
+func (n *Node) Serialize() string {
+	if n == nil {
+		return ""
+	}
+	type item struct {
+		n *Node
+		depth int
+	}
+	pop := func(stack []*item) (*item, []*item) {
+		return stack[len(stack)-1], stack[:len(stack)-1]
+	}
+	list := make([]string, 0, 10)
+	stack := make([]*item, 0, 10)
+	stack = append(stack, &item{n, 0})
+	for len(stack) > 0 {
+		var c *item
+		c, stack = pop(stack)
+		kids := ""
+		for i := 0; i < c.depth*4; i++ {
+			kids += " "
+		}
+		if c.n.left != nil {
+			kids += "l"
+		} else {
+			kids += "-"
+		}
+		if c.n.right != nil {
+			kids += "r"
+		} else {
+			kids += "-"
+		}
+		if c.n.right != nil {
+			stack = append(stack, &item{c.n.right, c.depth+1})
+		}
+		if c.n.left != nil {
+			stack = append(stack, &item{c.n.left, c.depth+1})
+		}
+		list = append(list, fmt.Sprintf(
+			"%v:%v:%v:%v",
+			kids,
+			c.n.Key,
+			c.n.Value,
+			c.n.Height(),
+		))
+	}
+	return strings.Join(list, "\n")
 }
 

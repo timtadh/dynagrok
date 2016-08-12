@@ -74,7 +74,7 @@ class Map(object):
     def verify(self):
         ok, res = self.remote.ex(['verify'])
         if not ok:
-            print 'exec failed of verify'
+            raise Exception('exec failed of verify')
             return False
         if res[1] != 'true':
             return False

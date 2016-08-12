@@ -23,6 +23,7 @@ func main() {
 }
 
 func cmd(t *Avl, cmd string, args []string) {
+	// fmt.Fprintln(os.Stderr, cmd, args)
 	switch cmd {
 	case "put":
 		k, err := strconv.Atoi(args[0])
@@ -64,6 +65,8 @@ func cmd(t *Avl, cmd string, args []string) {
 		fmt.Println("ex print", t)
 	case "verify":
 		fmt.Println("ex verify", t.Verify())
+	case "serialize":
+		fmt.Println(t.root.Serialize())
 	default:
 		fmt.Printf("err not a command: %v\n", cmd)
 	}
@@ -84,9 +87,7 @@ func New() *Avl {
 }
 
 func (a *Avl) Verify() bool {
-	if !a.root.Verify() {
-		return false
-	}
+	verify := a.root.Verify()
 	i := 0
 	p := 0
 	for k, _, next := a.Iterate()(); next != nil; k, _, next = next() {
@@ -94,6 +95,9 @@ func (a *Avl) Verify() bool {
 			if p < k {
 				// ok
 			} else {
+				fmt.Fprintln(os.Stderr, "prev key not less than current")
+				fmt.Fprintln(os.Stderr, "prev:", p)
+				fmt.Fprintln(os.Stderr, "cur:", k)
 				// not ok, previous key should alwasy be less than current
 				return false
 			}
@@ -101,7 +105,7 @@ func (a *Avl) Verify() bool {
 		p = k
 		i++
 	}
-	return true
+	return verify
 }
 
 func (a *Avl) Iterate() Iterator {

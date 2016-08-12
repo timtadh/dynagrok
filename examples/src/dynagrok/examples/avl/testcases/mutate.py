@@ -30,6 +30,7 @@ class Testcase(object):
         for line in self.case.split('\n'):
             if line == 'verify': continue
             if line == 'print': continue
+            if line == 'serialize': continue
             ops.append(line.split(' '))
         return ops
 
