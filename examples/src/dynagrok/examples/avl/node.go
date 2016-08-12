@@ -206,7 +206,6 @@ func (n *Node) rotateRight() *Node {
 		return n
 	}
 	r := n.left.rightmostDescendent()
-	n.left = n.left.Remove(r.Key)
 	return n.doRotate(r)
 }
 
@@ -217,11 +216,11 @@ func (n *Node) rotateLeft() *Node {
 		return n
 	}
 	r := n.right.leftmostDescendent()
-	n.right = n.right.Remove(r.Key)
 	return n.doRotate(r)
 }
 
 func (n *Node) doRotate(r *Node) *Node {
+	n = n.Remove(r.Key)
 	r.left = n.left
 	r.right = n.right
 	return r.Put(n.Key, n.Value)

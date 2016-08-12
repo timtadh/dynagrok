@@ -1,0 +1,25 @@
+put 773 4
+put 71 6
+put 3 1
+put 792 2
+put 137 9
+put 951 7
+put 703 6
+put 915 3
+put 86 2
+put 793 6
+put 822 3
+put 92 8
+put 992 5
+put 1 4
+put 85 6
+put 454 8
+put 8 9
+put 117 9
+put 5 8
+put 410 0
+put 472 7
+put 96 9
+rm 822
+verify
+serialize
