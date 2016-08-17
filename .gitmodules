@@ -7,3 +7,12 @@
 [submodule "src/github.com/timtadh/data-structures"]
 	path = src/github.com/timtadh/data-structures
 	url = git@github.com:timtadh/data-structures
+[submodule "examples/src/github.com/timtadh/lexmachine"]
+	path = examples/src/github.com/timtadh/lexmachine
+	url = git@github.com:timtadh/lexmachine
+[submodule "examples/src/github.com/timtadh/dot"]
+	path = examples/src/github.com/timtadh/dot
+	url = git@github.com:timtadh/dot
+[submodule "examples/src/github.com/timtadh/combos"]
+	path = examples/src/github.com/timtadh/combos
+	url = git@github.com:timtadh/combos
