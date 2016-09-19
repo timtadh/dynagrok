@@ -10,7 +10,9 @@ type Goroutine struct {
 	Closed    bool
 	Stack     []*FuncCall
 	Calls     map[Call]int
+	Flows     map[FlowEdge]int
 	Funcs     map[uintptr]*Function
+	Positions map[BlkEntrance]string
 	CallCount int
 }
 
@@ -25,6 +27,8 @@ func newGoroutine(id int64) *Goroutine {
 		Stack: make([]*FuncCall, 0, 10),
 		Calls: make(map[Call]int),
 		Funcs: make(map[uintptr]*Function),
+		Flows: make(map[FlowEdge]int),
+		Positions: make(map[BlkEntrance]string),
 	}
 	g.Stack = append(g.Stack, &FuncCall{
 		Name: "<entry>",

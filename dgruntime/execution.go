@@ -39,6 +39,8 @@ func newExecution() *Execution {
 		Profile: &Profile{
 			Calls: make(map[Call]int),
 			Funcs: make(map[uintptr]*Function),
+			Flows: make(map[FlowEdge]int),
+			Positions: make(map[BlkEntrance]string),
 		},
 		OutputPath: output,
 		mergeCh: make(chan *Goroutine, 15),
@@ -102,6 +104,12 @@ func (e *Execution) merge(g *Goroutine) {
 	}
 	for call, count := range g.Calls {
 		e.Profile.Calls[call] += count
+	}
+	for edge, count := range g.Flows {
+		e.Profile.Flows[edge] += count
+	}
+	for be, pos := range g.Positions {
+		e.Profile.Positions[be] = pos
 	}
 }
 

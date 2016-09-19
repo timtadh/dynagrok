@@ -98,7 +98,7 @@ func (i *instrumenter) instrument() (err error) {
 }
 
 func (i instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.Node, fnBody *[]ast.Stmt) error {
-	if false {
+	if true {
 		err := blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
 			var pos token.Pos = fnAst.Pos()
 			if len(*blk) > 0 {
@@ -108,6 +108,11 @@ func (i instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.N
 				*blk = insert(*blk, 0, i.mkEnterBlk(pos, id))
 			}
 			for j := 0; j < len(*blk) - 1; j++ {
+				if j+1 < len(*blk) {
+					pos = (*blk)[j+1].Pos()
+				} else {
+					pos = (*blk)[j].Pos()
+				}
 				switch stmt := (*blk)[j].(type) {
 				case *ast.BranchStmt:
 					// *blk = insert(*blk, j, i.mkPrint(pos, fmt.Sprintf("exit-blk:\t %d\t of %v", id, fnName)))
@@ -205,7 +210,8 @@ func (i instrumenter) mkDeferPrint(pos token.Pos, data string) ast.Stmt {
 }
 
 func (i instrumenter) mkEnterFunc(pos token.Pos, name string) ast.Stmt {
-	s := fmt.Sprintf("dgruntime.EnterFunc(%v)", strconv.Quote(name))
+	p := i.program.Fset.Position(pos)
+	s := fmt.Sprintf("dgruntime.EnterFunc(%v, %v)", strconv.Quote(name), strconv.Quote(p.String()))
 	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
 	if err != nil {
 		panic(fmt.Errorf("mkEnterFunc (%v) error: %v", s, err))
@@ -232,7 +238,8 @@ func (i instrumenter) mkShutdown(pos token.Pos) ast.Stmt {
 }
 
 func (i instrumenter) mkEnterBlk(pos token.Pos, blkid int) ast.Stmt {
-	s := fmt.Sprintf("dgruntime.EnterBlk(%d)", blkid)
+	p := i.program.Fset.Position(pos)
+	s := fmt.Sprintf("dgruntime.EnterBlk(%d, %v)", blkid, strconv.Quote(p.String()))
 	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
 	if err != nil {
 		panic(fmt.Errorf("mkEnterBlk (%v) error: %v", s, err))
@@ -241,7 +248,8 @@ func (i instrumenter) mkEnterBlk(pos token.Pos, blkid int) ast.Stmt {
 }
 
 func (i instrumenter) mkRe_enterBlk(pos token.Pos, blkid, at int) ast.Stmt {
-	s := fmt.Sprintf("dgruntime.Re_enterBlk(%d, %d)", blkid, at)
+	p := i.program.Fset.Position(pos)
+	s := fmt.Sprintf("dgruntime.Re_enterBlk(%d, %d, %v) // %v", blkid, at, strconv.Quote(p.String()))
 	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
 	if err != nil {
 		panic(fmt.Errorf("mkEnterBlk (%v) error: %v", s, err))
