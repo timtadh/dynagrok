@@ -9,7 +9,7 @@ type Function struct {
 type FuncCall struct {
 	Name   string
 	FuncPc uintptr
-	Flow   []BlkEntrance
+	Last   BlkEntrance
 }
 
 func newFunction(fc *FuncCall) *Function {

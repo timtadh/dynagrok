@@ -6,7 +6,13 @@ import (
 
 type Flow []BlkEntrance
 
+type FlowEdge struct {
+	Src BlkEntrance
+	Targ BlkEntrance
+}
+
 type BlkEntrance struct {
+	In uintptr
 	BlkId, At int
 }
 
