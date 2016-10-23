@@ -10,6 +10,8 @@ type Goroutine struct {
 	Closed    bool
 	Stack     []*FuncCall
 	Calls     map[Call]int
+	Types     map[string]ObjectType
+	Instances map[uintptr]*Instance
 	Flows     map[FlowEdge]int
 	Funcs     map[uintptr]*Function
 	Positions map[BlkEntrance]string
@@ -23,11 +25,11 @@ type Call struct {
 
 func newGoroutine(id int64) *Goroutine {
 	g := &Goroutine{
-		GoID: id,
-		Stack: make([]*FuncCall, 0, 10),
-		Calls: make(map[Call]int),
-		Funcs: make(map[uintptr]*Function),
-		Flows: make(map[FlowEdge]int),
+		GoID:      id,
+		Stack:     make([]*FuncCall, 0, 10),
+		Calls:     make(map[Call]int),
+		Funcs:     make(map[uintptr]*Function),
+		Flows:     make(map[FlowEdge]int),
 		Positions: make(map[BlkEntrance]string),
 	}
 	g.Stack = append(g.Stack, &FuncCall{
@@ -46,5 +48,3 @@ func (g *Goroutine) Exit() {
 	exec.Merge(g)
 	// Println(fmt.Sprintf("exit goroutine %d", g.GoID))
 }
-
-

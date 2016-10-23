@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"go/ast"
 	"go/parser"
-	"go/types"
 	"go/token"
+	"go/types"
 	"strconv"
 )
 
@@ -23,8 +23,8 @@ import (
 
 type instrumenter struct {
 	program *loader.Program
-	ssa *ssa.Program
-	entry string
+	ssa     *ssa.Program
+	entry   string
 }
 
 func buildSSA(program *loader.Program) *ssa.Program {
@@ -43,18 +43,17 @@ func Instrument(entryPkgName string, program *loader.Program) (err error) {
 	}
 	i := &instrumenter{
 		program: program,
-		ssa: buildSSA(program),
-		entry: entryPkgName,
+		ssa:     buildSSA(program),
+		entry:   entryPkgName,
 	}
 	return i.instrument()
 }
 
-
 func (i *instrumenter) instrument() (err error) {
 	for _, pkg := range i.program.AllPackages {
-		if len(pkg.BuildPackage.CgoFiles) > 0 {
-			continue
-		}
+		//if len(pkg.BuildPackage.CgoFiles) > 0 {
+		//	continue
+		//}
 		if dgruntime.ExcludedPkg(pkg.Pkg.Path()) {
 			continue
 		}
@@ -97,6 +96,15 @@ func (i *instrumenter) instrument() (err error) {
 	return nil
 }
 
+func exprFuncGenerator(blk *[]ast.Stmt, j int) func(*ast.Expr) error {
+	return func(expr *ast.Expr) {
+		if selExpr, ok := expr.(*ast.SelectorExpr); ok {
+			*blk = insert(*blk, j+1, i.mkCall())
+		}
+	}
+	return nil
+}
+
 func (i instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.Node, fnBody *[]ast.Stmt) error {
 	if true {
 		err := blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
@@ -107,12 +115,13 @@ func (i instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.N
 			if id != 0 {
 				*blk = insert(*blk, 0, i.mkEnterBlk(pos, id))
 			}
-			for j := 0; j < len(*blk) - 1; j++ {
+			for j := 0; j < len(*blk)-1; j++ {
 				if j+1 < len(*blk) {
 					pos = (*blk)[j+1].Pos()
 				} else {
 					pos = (*blk)[j].Pos()
 				}
+				statement((*blk)[j], exprFuncGenerator(*blk, j))
 				switch stmt := (*blk)[j].(type) {
 				case *ast.BranchStmt:
 					// *blk = insert(*blk, j, i.mkPrint(pos, fmt.Sprintf("exit-blk:\t %d\t of %v", id, fnName)))
@@ -172,13 +181,13 @@ func insert(blk []ast.Stmt, j int, stmt ast.Stmt) []ast.Stmt {
 	if j < 0 {
 		j = 0
 	}
-	if cap(blk) <= len(blk) + 1 {
+	if cap(blk) <= len(blk)+1 {
 		nblk := make([]ast.Stmt, len(blk), (cap(blk)+1)*2)
 		copy(nblk, blk)
 		blk = nblk
 	}
 	blk = blk[:len(blk)+1]
-	for i := len(blk)-1; i > 0; i-- {
+	for i := len(blk) - 1; i > 0; i-- {
 		if j == i {
 			blk[i] = stmt
 			break
@@ -257,3 +266,11 @@ func (i instrumenter) mkRe_enterBlk(pos token.Pos, blkid, at int) ast.Stmt {
 	return &ast.ExprStmt{e}
 }
 
+func (i instrumenter) mkCall(pos token.pos) ast.Stmt {
+	s := "func() { dgruntime.Shutdown() }()"
+	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
+	if err != nil {
+		panic(fmt.Errorf("mkShutdown (%v) error: %v", s, err))
+	}
+	return &ast.DeferStmt{Call: e.(*ast.CallExpr)}
+}

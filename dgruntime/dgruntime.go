@@ -1,6 +1,5 @@
 package dgruntime
 
-
 import (
 	"fmt"
 	"runtime"
@@ -8,13 +7,13 @@ import (
 )
 
 var excludedPackages = map[string]bool{
-	"fmt": true,
+	"fmt":     true,
 	"runtime": true,
-	"sync": true,
+	"sync":    true,
 	"strconv": true,
-	"io": true,
-	"os": true,
-	"unsafe": true,
+	"io":      true,
+	"os":      true,
+	"unsafe":  true,
 }
 
 const MAXFLOW = 10
@@ -67,14 +66,45 @@ func EnterFunc(name, pos string) {
 	fpc := f.Entry()
 	cur := BlkEntrance{In: fpc, BlkId: 0, At: 0}
 	g.Stack = append(g.Stack, &FuncCall{
-		Name: name,
+		Name:   name,
 		FuncPc: fpc,
-		Last: cur,
+		Last:   cur,
 	})
 	g.Flows[FlowEdge{Src: g.Stack[len(g.Stack)-2].Last, Targ: cur}]++
 	g.Calls[Call{Caller: g.Stack[len(g.Stack)-2].FuncPc, Callee: fpc}]++
 	g.Positions[cur] = pos
 	// g.m.Unlock()
+}
+
+func StructDecl(name string, fields []ObjectType) {
+	execCheck()
+	g := exec.Goroutine(runtime.GoID())
+	t := newObjectType(name, fields)
+	g.Types[name] = *t
+}
+
+func InstanceDecl(name string, tipe string, initVals []interface{}, ptr uintptr) {
+	execCheck()
+	g := exec.Goroutine(runtime.GoID())
+	_ = name
+	if t, has := g.Types[name]; has {
+		o := newInstance(t, initVals)
+		g.Instances[ptr] = o
+	} else {
+		panic("Type Undeclared")
+	}
+}
+
+func MethodCall(field string, parameters []string, ptr uintptr) {
+	execCheck()
+	g := exec.Goroutine(runtime.GoID())
+	_ = parameters
+	if instance, has := g.Instances[ptr]; has {
+		instance.addCall(field)
+		instance.snap(ptr)
+	} else {
+		panic("Undeclared object")
+	}
 }
 
 func ExitFunc(name string) {
@@ -111,4 +141,3 @@ func Println(data string) {
 	defer exec.m.Unlock()
 	fmt.Printf("goid %v:\t %v\n", runtime.GoID(), data)
 }
-

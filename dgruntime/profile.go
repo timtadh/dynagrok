@@ -1,20 +1,20 @@
 package dgruntime
 
 import (
-	"io"
-	"strconv"
-	"runtime"
 	"fmt"
+	"io"
+	"runtime"
+	"strconv"
 )
 
 type Profile struct {
+	Objects   map[string]ObjectType
 	Funcs     map[uintptr]*Function
 	Calls     map[Call]int
 	Flows     map[FlowEdge]int
 	Positions map[BlkEntrance]string
 	CallCount int
 }
-
 
 func (p *Profile) Serialize(fout io.Writer) {
 	runtime_name := func(pc uintptr) string {
@@ -29,7 +29,7 @@ func (p *Profile) Serialize(fout io.Writer) {
 		} else {
 			return fmt.Sprintf("%v blk %d:%d", runtime_name(n.In), n.BlkId, n.At)
 		}
-		
+
 	}
 	// flowlist := func(flows []Flow) string {
 	// 	items := make([]string, 0, len(flows))
@@ -42,7 +42,7 @@ func (p *Profile) Serialize(fout io.Writer) {
 	// fids := make(map[uintptr]int)
 	// fids[0] = 0
 	blks := make(map[BlkEntrance]int)
-	fmt.Fprintf(fout, "digraph {\n",)
+	fmt.Fprintf(fout, "digraph {\n")
 	entry := blk_name(BlkEntrance{})
 	fmt.Fprintf(fout, "%d [label=%v, shape=rect];\n",
 		0,

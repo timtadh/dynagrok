@@ -1,16 +1,16 @@
 package instrument
 
 import (
-	"os"
-	"os/exec"
-	"io"
-	"io/ioutil"
-	"path/filepath"
 	"fmt"
 	"go/ast"
-	"go/printer"
 	"go/build"
+	"go/printer"
 	"go/types"
+	"io"
+	"io/ioutil"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -27,16 +27,14 @@ import (
 // var config = printer.Config{Mode: printer.UseSpaces | printer.TabIndent | printer.SourcePos, Tabwidth: 8}
 var config = printer.Config{Tabwidth: 8}
 
-
 type binaryBuilder struct {
-	config *cmd.Config
+	config       *cmd.Config
 	buildContext *build.Context
-	program *loader.Program
-	entry string
-	work string
-	output string
+	program      *loader.Program
+	entry        string
+	work         string
+	output       string
 }
-
 
 func BuildBinary(c *cmd.Config, keepWork bool, work, entryPkgName, output string, program *loader.Program) (err error) {
 	if work == "" {
@@ -50,16 +48,15 @@ func BuildBinary(c *cmd.Config, keepWork bool, work, entryPkgName, output string
 	}
 	errors.Logf("INFO", "work-dir %v", work)
 	b := &binaryBuilder{
-		config: c,
+		config:       c,
 		buildContext: cmd.BuildContext(c),
-		program: program,
-		entry: entryPkgName,
-		work: work,
-		output: output,
+		program:      program,
+		entry:        entryPkgName,
+		work:         work,
+		output:       output,
 	}
 	return b.Build()
 }
-
 
 func (b *binaryBuilder) basePaths() paths {
 	basePaths := make([]string, 0, 10)
@@ -95,7 +92,7 @@ func (ps paths) PrefixedBy(s string) string {
 
 func (b *binaryBuilder) Build() error {
 	err := b.copyDir(
-		filepath.Join(b.config.DGPATH, "dgruntime"), 
+		filepath.Join(b.config.DGPATH, "dgruntime"),
 		filepath.Join(b.work, "src", "github.com", "timtadh", "dynagrok", "dgruntime"),
 	)
 	if err != nil {
@@ -106,9 +103,9 @@ func (b *binaryBuilder) Build() error {
 		if err := b.createDir(basePaths, pkgType, pkgInfo.Files); err != nil {
 			return err
 		}
-		if len(pkgInfo.BuildPackage.CgoFiles) > 0 {
-			continue
-		}
+		//if len(pkgInfo.BuildPackage.CgoFiles) > 0 {
+		//	continue
+		//}
 		if dgruntime.ExcludedPkg(pkgInfo.Pkg.Path()) {
 			continue
 		}
@@ -231,4 +228,3 @@ func (b *binaryBuilder) copyDir(src, targ string) error {
 	}
 	return nil
 }
-
