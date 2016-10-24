@@ -6,6 +6,7 @@ import (
 	"go/parser"
 	"go/token"
 	"go/types"
+	"reflect"
 	"strconv"
 )
 
@@ -96,11 +97,16 @@ func (i *instrumenter) instrument() (err error) {
 	return nil
 }
 
-func exprFuncGenerator(blk *[]ast.Stmt, j int) func(*ast.Expr) error {
-	return func(expr *ast.Expr) {
-		if selExpr, ok := expr.(*ast.SelectorExpr); ok {
-			*blk = insert(*blk, j+1, i.mkCall())
+func (i instrumenter) exprFuncGenerator(blk *[]ast.Stmt, j int, pos token.Pos) func(*ast.SelectorExpr) error {
+	r := reflect.TypeOf
+	return func(selExpr *ast.SelectorExpr) error {
+		println(r(selExpr).String())
+		println("\t", r(selExpr.X).String())
+		if ident, ok := selExpr.X.(*ast.Ident); ok {
+			callName := selExpr.Sel.Name
+			*blk = insert(*blk, j+1, i.mkMethodCall(pos, ident.Name, callName))
 		}
+		return nil
 	}
 	return nil
 }
@@ -121,7 +127,7 @@ func (i instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.N
 				} else {
 					pos = (*blk)[j].Pos()
 				}
-				statement((*blk)[j], exprFuncGenerator(*blk, j))
+				statement(&(*blk)[j], i.exprFuncGenerator(blk, j, pos))
 				switch stmt := (*blk)[j].(type) {
 				case *ast.BranchStmt:
 					// *blk = insert(*blk, j, i.mkPrint(pos, fmt.Sprintf("exit-blk:\t %d\t of %v", id, fnName)))
@@ -266,11 +272,21 @@ func (i instrumenter) mkRe_enterBlk(pos token.Pos, blkid, at int) ast.Stmt {
 	return &ast.ExprStmt{e}
 }
 
-func (i instrumenter) mkCall(pos token.pos) ast.Stmt {
-	s := "func() { dgruntime.Shutdown() }()"
+func (i instrumenter) mkInstanceDecl(pos token.Pos, name string, instance uintptr) ast.Stmt {
+	s := fmt.Sprintf("dgruntime.InstanceDecl(%s, %d)", name, instance)
 	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
 	if err != nil {
-		panic(fmt.Errorf("mkShutdown (%v) error: %v", s, err))
+		panic(fmt.Errorf("mkInstanceDecl (%v) error: %v", s, err))
 	}
-	return &ast.DeferStmt{Call: e.(*ast.CallExpr)}
+	return &ast.ExprStmt{e}
+}
+
+func (i instrumenter) mkMethodCall(pos token.Pos, name string, callName string) ast.Stmt {
+	p := i.program.Fset.Position(pos)
+	s := fmt.Sprintf("dgruntime.MethodCall(%s, %s, %d)", callName, strconv.Quote(p.String()), &name)
+	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
+	if err != nil {
+		panic(fmt.Errorf("mkMethodCall (%v) error: %v", s, err))
+	}
+	return &ast.ExprStmt{e}
 }

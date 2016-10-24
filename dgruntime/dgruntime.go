@@ -2,6 +2,7 @@ package dgruntime
 
 import (
 	"fmt"
+	"reflect"
 	"runtime"
 	"unsafe"
 )
@@ -76,32 +77,61 @@ func EnterFunc(name, pos string) {
 	// g.m.Unlock()
 }
 
-func StructDecl(name string, fields []ObjectType) {
+// StructDecl may not be usable because you can't insert
+// instrumentation code within a struct declaration
+func StructDecl(name string, fieldTypes []string) {
 	execCheck()
 	g := exec.Goroutine(runtime.GoID())
-	t := newObjectType(name, fields)
+	// TODO: Lookup objecttpes from fieldType strings
+	t := newObjectType(name, nil)
 	g.Types[name] = *t
-}
-
-func InstanceDecl(name string, tipe string, initVals []interface{}, ptr uintptr) {
-	execCheck()
-	g := exec.Goroutine(runtime.GoID())
-	_ = name
-	if t, has := g.Types[name]; has {
-		o := newInstance(t, initVals)
-		g.Instances[ptr] = o
-	} else {
-		panic("Type Undeclared")
+	for _, field := range fieldTypes {
+		if ft, has := g.Types[field]; has {
+			t.Fields = append(t.Fields, ft)
+		}
 	}
 }
 
-func MethodCall(field string, parameters []string, ptr uintptr) {
+func getType(name string, ptr uintptr) *ObjectType {
+	return newObjectType(reflect.ValueOf(ptr).Elem().Type().Name(), nil)
+}
+
+func InstanceDecl(name string, ptr uintptr) {
 	execCheck()
 	g := exec.Goroutine(runtime.GoID())
-	_ = parameters
+	_ = name
+	fields := deriveFields(ptr)
+	t := getType(name, ptr)
+	o := newInstance(*t, fields, ptr)
+	g.Instances[ptr] = o
+	/*
+		if t, has := g.Types[name]; has {
+			o := newInstance(t, initVals)
+			g.Instances[ptr] = o
+		} else {
+			panic("Type Undeclared")
+		}
+	*/
+}
+
+func deriveFields(ptr uintptr) map[string]interface{} {
+	s := reflect.ValueOf(ptr).Elem()
+	fields := *new(map[string]interface{})
+	typeOfT := s.Type()
+	for i := 0; i < s.NumField(); i++ {
+		f := s.Field(i)
+		fmt.Printf("%d: %s %s = %v\n", i, typeOfT.Field(i).Name, f.Type(), f.Interface())
+		fields[f.Type().Name()] = f.Interface()
+	}
+	return fields
+}
+
+func MethodCall(field string, pos string, ptr uintptr) {
+	execCheck()
+	g := exec.Goroutine(runtime.GoID())
 	if instance, has := g.Instances[ptr]; has {
 		instance.addCall(field)
-		instance.snap(ptr)
+		instance.snap(pos)
 	} else {
 		panic("Undeclared object")
 	}
