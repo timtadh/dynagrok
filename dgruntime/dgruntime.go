@@ -2,6 +2,7 @@ package dgruntime
 
 import (
 	"fmt"
+	"go/types"
 	"reflect"
 	"runtime"
 	"unsafe"
@@ -92,8 +93,10 @@ func StructDecl(name string, fieldTypes []string) {
 	}
 }
 
+// getType gets the type of the object named 'name' at 'ptr'
 func getType(name string, ptr uintptr) *ObjectType {
-	return newObjectType(reflect.ValueOf(ptr).Elem().Type().Name(), nil)
+	// uses reflection to determine the typename
+	return newObjectType(reflect.ValueOf((*types.Struct)(unsafe.Pointer(ptr))).Elem().Type().Name(), nil)
 }
 
 func InstanceDecl(name string, ptr uintptr) {
@@ -114,18 +117,27 @@ func InstanceDecl(name string, ptr uintptr) {
 	*/
 }
 
+// deriveFields takes an object reference and returns
+// a mapping of field typeNames to the corresponding ?concretization?
 func deriveFields(ptr uintptr) map[string]interface{} {
-	s := reflect.ValueOf(ptr).Elem()
+	s := reflect.ValueOf((*types.Struct)(unsafe.Pointer(ptr))).Elem()
 	fields := *new(map[string]interface{})
 	typeOfT := s.Type()
 	for i := 0; i < s.NumField(); i++ {
 		f := s.Field(i)
-		fmt.Printf("%d: %s %s = %v\n", i, typeOfT.Field(i).Name, f.Type(), f.Interface())
-		fields[f.Type().Name()] = f.Interface()
+		if f.CanSet() {
+			fmt.Printf("%d: %s %s = %v\n", i, typeOfT.Field(i).Name, f.Type(), f.Interface())
+			fields[f.Type().Name()] = f.Interface()
+		}
+
 	}
 	return fields
 }
 
+// MethodCall takes the name of the call, the position,
+// and a pointer to the object-receiver. It adds this call
+// to the method-call sequence for this particular receiver,
+// and uses the opportunity to take a snapshot of object state
 func MethodCall(field string, pos string, ptr uintptr) {
 	execCheck()
 	g := exec.Goroutine(runtime.GoID())
@@ -133,7 +145,12 @@ func MethodCall(field string, pos string, ptr uintptr) {
 		instance.addCall(field)
 		instance.snap(pos)
 	} else {
-		panic("Undeclared object")
+		t := getType("", ptr)
+		o := newInstance(*t, deriveFields(ptr), ptr)
+		g.Instances[ptr] = o
+		o.addCall(field)
+		o.snap(pos)
+		//panic("Undeclared object")
 	}
 }
 

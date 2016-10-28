@@ -2,13 +2,14 @@ package dgruntime
 
 import (
 	"fmt"
+	"io"
 	"os"
-	"sync"
 	"runtime"
+	"sync"
 )
 
 type Execution struct {
-	m sync.Mutex
+	m          sync.Mutex
 	Goroutines []*Goroutine
 	Profile    *Profile
 	OutputPath string
@@ -31,19 +32,20 @@ func execCheck() {
 }
 
 func newExecution() *Execution {
-	output := "/tmp/dynagrok-profile.dot"
+	output := "/tmp/"
 	if os.Getenv("DGPROF") != "" {
 		output = os.Getenv("DGPROF")
 	}
 	e := &Execution{
 		Profile: &Profile{
-			Calls: make(map[Call]int),
-			Funcs: make(map[uintptr]*Function),
-			Flows: make(map[FlowEdge]int),
+			Calls:     make(map[Call]int),
+			Funcs:     make(map[uintptr]*Function),
+			Flows:     make(map[FlowEdge]int),
 			Positions: make(map[BlkEntrance]string),
+			Instances: make(map[string]*Instance),
 		},
 		OutputPath: output,
-		mergeCh: make(chan *Goroutine, 15),
+		mergeCh:    make(chan *Goroutine, 15),
 	}
 	e.growGoroutines()
 	go func() {
@@ -85,7 +87,7 @@ func (e *Execution) growGoroutines() {
 }
 
 func (e *Execution) Merge(g *Goroutine) {
-	e.mergeCh<-g
+	e.mergeCh <- g
 }
 
 func (e *Execution) merge(g *Goroutine) {
@@ -134,12 +136,18 @@ func shutdown(e *Execution) {
 	e.async.Wait()
 	e.m.Lock()
 	defer e.m.Unlock()
-	fmt.Println("writing to:", e.OutputPath)
-	fout, err := os.Create(e.OutputPath)
+	files := []string{"dynagrok-profile.dot", "object-states.txt"}
+	writeOut(e, files[0], e.Profile.Serialize)
+	writeOut(e, files[1], e.Profile.SerializeObjectState)
+	fmt.Println("done shutting down")
+}
+func writeOut(e *Execution, filename string, serializeFunc func(io.Writer)) {
+	filepath := fmt.Sprintf("%s%s", e.OutputPath, filename)
+	fmt.Println("writing to:", filepath)
+	fout, err := os.Create(filepath)
 	if err != nil {
 		panic(err)
 	}
-	e.Profile.Serialize(fout)
+	serializeFunc(fout)
 	fout.Close()
-	fmt.Println("done shutting down")
 }

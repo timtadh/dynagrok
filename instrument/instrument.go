@@ -6,7 +6,6 @@ import (
 	"go/parser"
 	"go/token"
 	"go/types"
-	"reflect"
 	"strconv"
 )
 
@@ -49,6 +48,10 @@ func Instrument(entryPkgName string, program *loader.Program) (err error) {
 	}
 	return i.instrument()
 }
+
+var (
+	methodCallLoc = make(map[token.Pos]ast.Stmt)
+)
 
 func (i *instrumenter) instrument() (err error) {
 	for _, pkg := range i.program.AllPackages {
@@ -97,16 +100,23 @@ func (i *instrumenter) instrument() (err error) {
 	return nil
 }
 
-func (i instrumenter) exprFuncGenerator(blk *[]ast.Stmt, j int, pos token.Pos) func(*ast.SelectorExpr) error {
-	r := reflect.TypeOf
-	return func(selExpr *ast.SelectorExpr) error {
-		println(r(selExpr).String())
-		println("\t", r(selExpr.X).String())
-		if ident, ok := selExpr.X.(*ast.Ident); ok {
-			callName := selExpr.Sel.Name
-			*blk = insert(*blk, j+1, i.mkMethodCall(pos, ident.Name, callName))
+func (i instrumenter) exprFuncGenerator(blk *[]ast.Stmt, j int, pos token.Pos) func(ast.Expr) error {
+	return func(e ast.Expr) error {
+		switch expr := e.(type) {
+		case *ast.SelectorExpr:
+			selExpr := expr
+			if ident, ok := selExpr.X.(*ast.Ident); ok && ident.Name != "dgruntime" {
+				fmt.Printf("\t %v %v %v\n", ident, i.program.Fset.Position(ident.Pos()), ident.Name)
+				callName := selExpr.Sel.Name
+				// Possible that the following call causes infinite looping
+				// *blk = insert(*blk, j, i.mkMethodCall(pos, ident.Name, callName))
+				stmt, _ := i.mkMethodCall(pos, ident.Name, callName)
+				methodCallLoc[pos] = stmt
+			}
+			return nil
+		default:
+			return errors.Errorf("Unexpected type %v, %T", e, e)
 		}
-		return nil
 	}
 	return nil
 }
@@ -144,6 +154,11 @@ func (i instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.N
 						*blk = insert(*blk, j+1, stmt.Stmt)
 						stmt.Stmt = i.mkRe_enterBlk(pos, id, 2+j)
 					}
+				}
+			}
+			for j := len(*blk) - 1; j >= 0; j-- {
+				if stmt, has := methodCallLoc[(*blk)[j].Pos()]; has {
+					*blk = insert(*blk, j, stmt)
 				}
 			}
 			return nil
@@ -281,12 +296,12 @@ func (i instrumenter) mkInstanceDecl(pos token.Pos, name string, instance uintpt
 	return &ast.ExprStmt{e}
 }
 
-func (i instrumenter) mkMethodCall(pos token.Pos, name string, callName string) ast.Stmt {
+func (i instrumenter) mkMethodCall(pos token.Pos, name string, callName string) (ast.Stmt, string) {
 	p := i.program.Fset.Position(pos)
-	s := fmt.Sprintf("dgruntime.MethodCall(%s, %s, %d)", callName, strconv.Quote(p.String()), &name)
+	s := fmt.Sprintf("dgruntime.MethodCall(\"%s\", %s, %d)", callName, strconv.Quote(p.String()), &name)
 	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
 	if err != nil {
 		panic(fmt.Errorf("mkMethodCall (%v) error: %v", s, err))
 	}
-	return &ast.ExprStmt{e}
+	return &ast.ExprStmt{e}, s
 }
