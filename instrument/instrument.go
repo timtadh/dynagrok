@@ -94,13 +94,14 @@ func (i *instrumenter) instrument() (err error) {
 			}
 			if hadFunc {
 				astutil.AddImport(i.program.Fset, fileAst, "github.com/timtadh/dynagrok/dgruntime")
+				// astutil.AddImport(i.program.Fset, fileAst, "unsafe")
 			}
 		}
 	}
 	return nil
 }
 
-func (i instrumenter) exprFuncGenerator(blk *[]ast.Stmt, j int, pos token.Pos) func(ast.Expr) error {
+func (i instrumenter) exprFuncGenerator(pkg *loader.PackageInfo, blk *[]ast.Stmt, j int, pos token.Pos) func(ast.Expr) error {
 	return func(e ast.Expr) error {
 		switch expr := e.(type) {
 		case *ast.SelectorExpr:
@@ -110,7 +111,9 @@ func (i instrumenter) exprFuncGenerator(blk *[]ast.Stmt, j int, pos token.Pos) f
 				callName := selExpr.Sel.Name
 				// Possible that the following call causes infinite looping
 				// *blk = insert(*blk, j, i.mkMethodCall(pos, ident.Name, callName))
-				stmt, _ := i.mkMethodCall(pos, ident.Name, callName)
+				fmt.Printf("Type of receiver: %s\n", pkg.Info.Selections[selExpr].Recv().String())
+				tipe := pkg.Info.Selections[selExpr].Recv()
+				stmt, _ := i.mkMethodCall(pos, tipe, ident.Name, callName)
 				methodCallLoc[pos] = stmt
 			}
 			return nil
@@ -137,7 +140,7 @@ func (i instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.N
 				} else {
 					pos = (*blk)[j].Pos()
 				}
-				statement(&(*blk)[j], i.exprFuncGenerator(blk, j, pos))
+				statement(&(*blk)[j], i.exprFuncGenerator(pkg, blk, j, pos))
 				switch stmt := (*blk)[j].(type) {
 				case *ast.BranchStmt:
 					// *blk = insert(*blk, j, i.mkPrint(pos, fmt.Sprintf("exit-blk:\t %d\t of %v", id, fnName)))
@@ -296,9 +299,9 @@ func (i instrumenter) mkInstanceDecl(pos token.Pos, name string, instance uintpt
 	return &ast.ExprStmt{e}
 }
 
-func (i instrumenter) mkMethodCall(pos token.Pos, name string, callName string) (ast.Stmt, string) {
+func (i instrumenter) mkMethodCall(pos token.Pos, tipe types.Type, name string, callName string) (ast.Stmt, string) {
 	p := i.program.Fset.Position(pos)
-	s := fmt.Sprintf("dgruntime.MethodCall(\"%s\", %s, %d)", callName, strconv.Quote(p.String()), &name)
+	s := fmt.Sprintf("dgruntime.MethodCall(\"%s\", \"%s\", %s, %s)", callName, tipe, strconv.Quote(p.String()), name)
 	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
 	if err != nil {
 		panic(fmt.Errorf("mkMethodCall (%v) error: %v", s, err))

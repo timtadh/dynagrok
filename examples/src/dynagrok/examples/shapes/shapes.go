@@ -31,11 +31,11 @@ const (
 )
 
 func main() {
-	rectangle := Rectangle{Point{0, 0}, WindowHeight, WindowWidth}
-	circle := Circle{Origin: Point{rectangle.GetHeight() / 2, rectangle.GetWidth() / 2}}
+	rectangle := &Rectangle{Point{0, 0}, WindowHeight, WindowWidth}
+	circle := &Circle{Origin: Point{rectangle.GetHeight() / 2, rectangle.GetWidth() / 2}}
 	circle.SetRadius(5)
 	circle.Move(Point{4, 4})
-	w := Window{rectangle, make([]Shape, 10)}
+	w := Window{*rectangle, make([]Shape, 10)}
 	w.Elements = append(w.Elements, circle)
 }
 

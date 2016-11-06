@@ -2,7 +2,6 @@ package dgruntime
 
 import (
 	"fmt"
-	"go/types"
 	"reflect"
 	"runtime"
 	"unsafe"
@@ -78,79 +77,95 @@ func EnterFunc(name, pos string) {
 	// g.m.Unlock()
 }
 
-// StructDecl may not be usable because you can't insert
-// instrumentation code within a struct declaration
-func StructDecl(name string, fieldTypes []string) {
+func InstanceDecl(name string, ptr *interface{}) {
 	execCheck()
-	g := exec.Goroutine(runtime.GoID())
-	// TODO: Lookup objecttpes from fieldType strings
-	t := newObjectType(name, nil)
-	g.Types[name] = *t
-	for _, field := range fieldTypes {
-		if ft, has := g.Types[field]; has {
-			t.Fields = append(t.Fields, ft)
-		}
-	}
-}
-
-// getType gets the type of the object named 'name' at 'ptr'
-func getType(name string, ptr uintptr) *ObjectType {
-	// uses reflection to determine the typename
-	return newObjectType(reflect.ValueOf((*types.Struct)(unsafe.Pointer(ptr))).Elem().Type().Name(), nil)
-}
-
-func InstanceDecl(name string, ptr uintptr) {
-	execCheck()
-	g := exec.Goroutine(runtime.GoID())
-	_ = name
-	fields := deriveFields(ptr)
-	t := getType(name, ptr)
-	o := newInstance(*t, fields, ptr)
-	g.Instances[ptr] = o
+	// g := exec.Goroutine(runtime.GoID())
 	/*
-		if t, has := g.Types[name]; has {
-			o := newInstance(t, initVals)
-			g.Instances[ptr] = o
-		} else {
-			panic("Type Undeclared")
-		}
+		_ = name
+		fields := deriveFields(ptr)
+		t := getType(name, ptr)
+		o := newInstance(*t, fields, ptr)
+		g.Instances[ptr] = o
+			if t, has := g.Types[name]; has {
+				o := newInstance(t, initVals)
+				g.Instances[ptr] = o
+			} else {
+				panic("Type Undeclared")
+			}
 	*/
 }
 
 // deriveFields takes an object reference and returns
 // a mapping of field typeNames to the corresponding ?concretization?
-func deriveFields(ptr uintptr) map[string]interface{} {
-	s := reflect.ValueOf((*types.Struct)(unsafe.Pointer(ptr))).Elem()
+/*func deriveFields(ptr *interface{}) map[string]interface{} {
+	s := reflect.ValueOf(ptr).Elem()
 	fields := *new(map[string]interface{})
 	typeOfT := s.Type()
-	for i := 0; i < s.NumField(); i++ {
-		f := s.Field(i)
-		if f.CanSet() {
-			fmt.Printf("%d: %s %s = %v\n", i, typeOfT.Field(i).Name, f.Type(), f.Interface())
-			fields[f.Type().Name()] = f.Interface()
-		}
+	str, ok := (*ptr).(types.Struct)
+	if ok == true {
+		for i := 0; i < s.NumField(); i++ {
+			f := s.Field(i)
+			if f.CanSet() {
+				fmt.Printf("%d: %s %s = %v\n", i, typeOfT.Field(i).Name, f.Type(), f.Interface())
+				fields[f.Type().Name()] = f.Interface()
+			}
 
+		}
+	}
+	fmt.Printf("Object: %s, Kind: %s, %t, %v", typeOfT, s.Kind().String(), ok, str)
+	return fields
+}
+*/
+func deriveFields(t *ObjectType, obj *interface{}) map[string]interface{} {
+	var v reflect.Value
+	if (*t).Pointer {
+		v = reflect.ValueOf(*obj).Elem()
+	} else {
+		v = reflect.ValueOf(*obj)
+	}
+
+	fields := make(map[string]interface{})
+	typeOfObj := v.Type()
+	if typeOfObj.Kind() == reflect.Struct {
+		for i := 0; i < v.NumField(); i++ {
+			f := v.Field(i)
+			if f.CanSet() {
+				fields[typeOfObj.Field(i).Name] = f.Interface()
+			}
+		}
 	}
 	return fields
+}
+
+// getType gets the type of the object at 'obj'
+func getType(obj interface{}) *ObjectType {
+	// uses reflection to determine the typename
+	tipe := reflect.ValueOf(obj).Type()
+	if tipe.Kind() == reflect.Ptr {
+		return newObjectType("*"+reflect.ValueOf(obj).Elem().Type().Name(), true, nil)
+	}
+	return newObjectType(reflect.ValueOf(obj).Type().Name(), false, nil)
 }
 
 // MethodCall takes the name of the call, the position,
 // and a pointer to the object-receiver. It adds this call
 // to the method-call sequence for this particular receiver,
 // and uses the opportunity to take a snapshot of object state
-func MethodCall(field string, pos string, ptr uintptr) {
+func MethodCall(field string, tipe string, pos string, obj interface{}) {
 	execCheck()
 	g := exec.Goroutine(runtime.GoID())
-	if instance, has := g.Instances[ptr]; has {
+	o := *(*[2]uintptr)(unsafe.Pointer(&obj))
+	data_ptr := o[1]
+	if instance, has := g.Instances[data_ptr]; has {
 		instance.addCall(field)
 		instance.snap(pos)
 	} else {
-		t := getType("", ptr)
-		o := newInstance(*t, deriveFields(ptr), ptr)
-		g.Instances[ptr] = o
+		t := getType(obj)
+		fields := deriveFields(t, &obj)
+		o := newInstance(*t, fields, data_ptr)
+		g.Instances[data_ptr] = o
 		o.addCall(field)
 		o.snap(pos)
-		//panic("Undeclared object")
 	}
 }
 

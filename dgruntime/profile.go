@@ -116,6 +116,7 @@ func (p *Profile) Serialize(fout io.Writer) {
 
 func (p *Profile) SerializeObjectState(fout io.Writer) {
 	for pos, inst := range p.Instances {
+		fmt.Fprintln(fout)
 		fmt.Fprintln(fout, pos)
 		fmt.Fprintln(fout, inst)
 	}
