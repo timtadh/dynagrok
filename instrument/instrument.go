@@ -107,13 +107,8 @@ func (i instrumenter) exprFuncGenerator(pkg *loader.PackageInfo, blk *[]ast.Stmt
 		case *ast.SelectorExpr:
 			selExpr := expr
 			if ident, ok := selExpr.X.(*ast.Ident); ok && ident.Name != "dgruntime" {
-				fmt.Printf("\t %v %v %v\n", ident, i.program.Fset.Position(ident.Pos()), ident.Name)
 				callName := selExpr.Sel.Name
-				// Possible that the following call causes infinite looping
-				// *blk = insert(*blk, j, i.mkMethodCall(pos, ident.Name, callName))
-				fmt.Printf("Type of receiver: %s\n", pkg.Info.Selections[selExpr].Recv().String())
-				tipe := pkg.Info.Selections[selExpr].Recv()
-				stmt, _ := i.mkMethodCall(pos, tipe, ident.Name, callName)
+				stmt, _ := i.mkMethodCall(pos, ident.Name, callName)
 				methodCallLoc[pos] = stmt
 			}
 			return nil
@@ -290,18 +285,9 @@ func (i instrumenter) mkRe_enterBlk(pos token.Pos, blkid, at int) ast.Stmt {
 	return &ast.ExprStmt{e}
 }
 
-func (i instrumenter) mkInstanceDecl(pos token.Pos, name string, instance uintptr) ast.Stmt {
-	s := fmt.Sprintf("dgruntime.InstanceDecl(%s, %d)", name, instance)
-	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
-	if err != nil {
-		panic(fmt.Errorf("mkInstanceDecl (%v) error: %v", s, err))
-	}
-	return &ast.ExprStmt{e}
-}
-
-func (i instrumenter) mkMethodCall(pos token.Pos, tipe types.Type, name string, callName string) (ast.Stmt, string) {
+func (i instrumenter) mkMethodCall(pos token.Pos, name string, callName string) (ast.Stmt, string) {
 	p := i.program.Fset.Position(pos)
-	s := fmt.Sprintf("dgruntime.MethodCall(\"%s\", \"%s\", %s, %s)", callName, tipe, strconv.Quote(p.String()), name)
+	s := fmt.Sprintf("dgruntime.MethodCall(\"%s\", %s, %s)", callName, strconv.Quote(p.String()), name)
 	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
 	if err != nil {
 		panic(fmt.Errorf("mkMethodCall (%v) error: %v", s, err))

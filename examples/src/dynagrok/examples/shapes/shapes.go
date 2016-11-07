@@ -1,6 +1,10 @@
 package main
 
-type Shape interface {
+import "fmt"
+
+type Shape Element
+
+type Element interface {
 	Location() Point
 }
 
@@ -10,7 +14,7 @@ type Point struct {
 }
 
 type Window struct {
-	Area     Rectangle
+	Area     *Rectangle
 	Elements []Shape
 }
 
@@ -30,13 +34,26 @@ const (
 	WindowWidth  = 600
 )
 
+func initWindow(x, y int) *Window {
+	rectangle := &Rectangle{Point{0, 0}, x, y}
+	return &Window{rectangle, make([]Shape, 0)}
+}
+
 func main() {
-	rectangle := &Rectangle{Point{0, 0}, WindowHeight, WindowWidth}
-	circle := &Circle{Origin: Point{rectangle.GetHeight() / 2, rectangle.GetWidth() / 2}}
+	w := initWindow(WindowHeight, WindowWidth)
+	circle := &Circle{Origin: Point{w.Height() / 2, w.Width() / 2}}
 	circle.SetRadius(5)
-	circle.Move(Point{4, 4})
-	w := Window{*rectangle, make([]Shape, 10)}
-	w.Elements = append(w.Elements, circle)
+	w.AddElement(circle)
+	for {
+		circle.Move(Point{4, 4})
+		if !w.Area.Includes(circle.Location()) {
+			break
+		}
+	}
+	w.AddElement(circle)
+	w.AddElement(circle)
+	w.AddElement(circle)
+	fmt.Printf("%v\n", w.Elements)
 }
 
 func (r *Rectangle) GetHeight() int {
@@ -45,6 +62,10 @@ func (r *Rectangle) GetHeight() int {
 
 func (r *Rectangle) GetWidth() int {
 	return r.Width
+}
+
+func (r *Rectangle) Includes(p Point) bool {
+	return p.X < r.Height && p.X > 0 && p.Y < r.Width && p.Y > 0
 }
 
 func (r Rectangle) Location() Point {
@@ -62,4 +83,16 @@ func (c *Circle) Move(p Point) {
 
 func (c Circle) Location() Point {
 	return c.Origin
+}
+
+func (w *Window) AddElement(s Element) {
+	w.Elements = append(w.Elements, s)
+}
+
+func (w *Window) Height() int {
+	return w.Area.Height
+}
+
+func (w *Window) Width() int {
+	return w.Area.Width
 }
