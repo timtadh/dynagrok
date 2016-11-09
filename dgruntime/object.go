@@ -44,7 +44,7 @@ func (o *Instance) addCall(method string) {
 }
 
 func (o *Instance) snap(pos string) {
-	exec.Profile.Instances[pos] = o
+	exec.Profile.Instances[pos] = append(exec.Profile.Instances[pos], *o)
 }
 func (o *Instance) String() string {
 	return o.Serialize(0)

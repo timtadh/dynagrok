@@ -9,7 +9,7 @@ import (
 
 type Profile struct {
 	Objects   map[string]ObjectType
-	Instances map[string]*Instance
+	Instances map[string][]Instance
 	Funcs     map[uintptr]*Function
 	Calls     map[Call]int
 	Flows     map[FlowEdge]int

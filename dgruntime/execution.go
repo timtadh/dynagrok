@@ -42,7 +42,7 @@ func newExecution() *Execution {
 			Funcs:     make(map[uintptr]*Function),
 			Flows:     make(map[FlowEdge]int),
 			Positions: make(map[BlkEntrance]string),
-			Instances: make(map[string]*Instance),
+			Instances: make(map[string][]Instance),
 		},
 		OutputPath: output,
 		mergeCh:    make(chan *Goroutine, 15),

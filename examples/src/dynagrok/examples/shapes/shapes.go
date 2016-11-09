@@ -45,7 +45,7 @@ func main() {
 	circle.SetRadius(5)
 	w.AddElement(circle)
 	for {
-		circle.Move(Point{4, 4})
+		circle.Move(Point{15, 15})
 		if !w.Area.Includes(circle.Location()) {
 			break
 		}

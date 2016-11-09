@@ -11,7 +11,7 @@ type Goroutine struct {
 	Stack     []*FuncCall
 	Calls     map[Call]int
 	Types     map[string]ObjectType
-	Instances map[uintptr]*Instance
+	Instances map[uintptr][]Instance
 	Flows     map[FlowEdge]int
 	Funcs     map[uintptr]*Function
 	Positions map[BlkEntrance]string
@@ -28,7 +28,7 @@ func newGoroutine(id int64) *Goroutine {
 		GoID:      id,
 		Stack:     make([]*FuncCall, 0, 10),
 		Calls:     make(map[Call]int),
-		Instances: make(map[uintptr]*Instance),
+		Instances: make(map[uintptr][]Instance),
 		Funcs:     make(map[uintptr]*Function),
 		Flows:     make(map[FlowEdge]int),
 		Positions: make(map[BlkEntrance]string),
