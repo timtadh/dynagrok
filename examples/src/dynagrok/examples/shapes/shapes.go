@@ -1,6 +1,4 @@
-package main
-
-import "fmt"
+package shapes
 
 type Shape Element
 
@@ -34,13 +32,14 @@ const (
 	WindowWidth  = 600
 )
 
-func initWindow(x, y int) *Window {
+func InitWindow(x, y int) *Window {
 	rectangle := &Rectangle{Point{0, 0}, x, y}
 	return &Window{rectangle, make([]Shape, 0)}
 }
 
+/*
 func main() {
-	w := initWindow(WindowHeight, WindowWidth)
+	w := InitWindow(WindowHeight, WindowWidth)
 	circle := &Circle{Origin: Point{w.Height() / 2, w.Width() / 2}}
 	circle.SetRadius(5)
 	w.AddElement(circle)
@@ -55,6 +54,7 @@ func main() {
 	w.AddElement(circle)
 	fmt.Printf("%v\n", w.Elements)
 }
+*/
 
 func (r *Rectangle) GetHeight() int {
 	return r.Height
