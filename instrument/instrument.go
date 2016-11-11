@@ -106,7 +106,12 @@ func (i instrumenter) exprFuncGenerator(pkg *loader.PackageInfo, blk *[]ast.Stmt
 		switch expr := e.(type) {
 		case *ast.SelectorExpr:
 			selExpr := expr
-			if ident, ok := selExpr.X.(*ast.Ident); ok && ident.Name != "dgruntime" {
+			if ident, ok := selExpr.X.(*ast.Ident); ok {
+				for pkg := range i.program.AllPackages {
+					if ident.Name == pkg.Name() || ident.Name == "dgruntime" {
+						return nil
+					}
+				}
 				callName := selExpr.Sel.Name
 				stmt, _ := i.mkMethodCall(pos, ident.Name, callName)
 				methodCallLoc[pos] = stmt
