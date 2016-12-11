@@ -136,9 +136,10 @@ func shutdown(e *Execution) {
 	e.async.Wait()
 	e.m.Lock()
 	defer e.m.Unlock()
-	files := []string{"dynagrok-profile.dot", "object-states.txt"}
+	files := []string{"dynagrok-profile.dot", "object-states.txt", "object-states.json"}
 	writeOut(e, files[0], e.Profile.Serialize)
-	writeOut(e, files[1], e.Profile.SerializeObjectState)
+	writeOut(e, files[1], e.Profile.PrettyObjectState)
+	writeOut(e, files[2], e.Profile.SerializeObjectState)
 	fmt.Println("done shutting down")
 }
 func writeOut(e *Execution, filename string, serializeFunc func(io.Writer)) {

@@ -114,10 +114,20 @@ func (p *Profile) Serialize(fout io.Writer) {
 	fmt.Fprintln(fout, "}\n\n")
 }
 
-func (p *Profile) SerializeObjectState(fout io.Writer) {
-	for pos, inst := range p.Instances {
+func (p *Profile) PrettyObjectState(fout io.Writer) {
+	for pos, instslice := range p.Instances {
 		fmt.Fprintln(fout)
 		fmt.Fprintln(fout, pos)
-		fmt.Fprintln(fout, inst)
+		for _, inst := range instslice {
+			fmt.Fprintln(fout, inst.PrettyString())
+		}
+	}
+}
+
+func (p *Profile) SerializeObjectState(fout io.Writer) {
+	for pos, instslice := range p.Instances {
+		for _, inst := range instslice {
+			fmt.Fprint(fout, inst.Serialize(pos))
+		}
 	}
 }

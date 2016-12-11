@@ -2,6 +2,7 @@ package dgruntime
 
 import (
 	"fmt"
+	"log"
 	"reflect"
 	"runtime"
 	"unsafe"
@@ -92,17 +93,22 @@ func deriveFields(t *ObjectType, obj *interface{}) []Field {
 	if typeOfObj.Kind() == reflect.Struct {
 		for i := 0; i < v.NumField(); i++ {
 			f := v.Field(i)
-			if f.CanSet() {
+			name := typeOfObj.Field(i).Name
+			fieldType := typeOfObj.Field(i).Type
+			if f.CanInterface() { // f.Interface() will fail otherwise
 				ft := *getType(f.Interface())
 				if f.Kind() == reflect.Slice {
-					fields = append(fields, Field{Type: ft, Slice: f.UnsafeAddr()})
+					fields = append(fields, Field{Exported: true, Name: name, Type: ft, Slice: f.UnsafeAddr()})
 				} else if f.Kind() == reflect.Ptr {
-					fields = append(fields, Field{Type: ft, Pointer: f.UnsafeAddr()})
+					fields = append(fields, Field{Exported: true, Name: name, Type: ft, Pointer: f.UnsafeAddr()})
 				} else if f.Kind() == reflect.Struct {
-					fields = append(fields, Field{Type: ft, Struct: newShallowInstance(ft, f.UnsafeAddr())})
+					fields = append(fields, Field{Exported: true, Name: name, Type: ft, Struct: newShallowInstance(ft, f.UnsafeAddr())})
 				} else {
-					fields = append(fields, Field{Type: ft, Other: f.Interface()})
+					fields = append(fields, Field{Exported: true, Name: name, Type: ft, Other: f.Interface()})
 				}
+			} else {
+				fields = append(fields, Field{Exported: false, Name: name, Type: *newObjectType(fieldType.Name(), false)})
+				log.Printf("Could not access unexported %v field: %v", f.Kind(), f)
 			}
 		}
 	}
@@ -114,11 +120,11 @@ func getType(obj interface{}) *ObjectType {
 	// uses reflection to determine the typename
 	tipe := reflect.ValueOf(obj).Type()
 	if tipe.Kind() == reflect.Ptr {
-		return newObjectType("*"+reflect.ValueOf(obj).Elem().Type().Name(), true, nil)
+		return newObjectType("*"+reflect.ValueOf(obj).Elem().Type().Name(), true)
 	} else if tipe.Kind() == reflect.Struct {
-		return newObjectType(reflect.TypeOf(obj).Name(), false, nil)
+		return newObjectType(reflect.TypeOf(obj).Name(), false)
 	}
-	return newObjectType(reflect.ValueOf(obj).Type().String(), false, nil)
+	return newObjectType(reflect.ValueOf(obj).Type().String(), false)
 }
 
 // MethodCall takes the name of the call, the position,

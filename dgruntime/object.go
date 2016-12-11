@@ -1,12 +1,12 @@
 package dgruntime
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type ObjectType struct {
 	Name    string
 	Pointer bool
-	Fields  []ObjectType
-	Methods []string
 }
 
 type Instance struct {
@@ -17,18 +17,20 @@ type Instance struct {
 }
 
 type Field struct {
-	Type    ObjectType
-	Struct  *Instance
-	Pointer uintptr
-	Slice   uintptr
-	Other   interface{}
+	Name     string
+	Type     ObjectType
+	Exported bool
+	Struct   *Instance
+	Pointer  uintptr
+	Slice    uintptr
+	Other    interface{}
 }
 
-func newObjectType(n string, isPtr bool, f []ObjectType) *ObjectType {
+func newObjectType(n string, isPtr bool) *ObjectType {
 	if n == "" {
-		return &ObjectType{Name: "Unnamed Type", Pointer: isPtr, Fields: f}
+		return &ObjectType{Name: "Unnamed Type", Pointer: isPtr}
 	}
-	return &ObjectType{Name: n, Pointer: isPtr, Fields: f}
+	return &ObjectType{Name: n, Pointer: isPtr}
 }
 
 func newInstance(tipe ObjectType, initValues []Field, data_ptr uintptr) *Instance {
@@ -47,25 +49,45 @@ func (o *Instance) snap(pos string) {
 	exec.Profile.Instances[pos] = append(exec.Profile.Instances[pos], *o)
 }
 func (o *Instance) String() string {
-	return o.Serialize(0)
+	return o.Serialize("")
 }
 
-func (o *Instance) Serialize(depth int) string {
+func (o *Instance) PrettyString() string {
+	return o.PrettySerialize(0)
+}
+
+func (o *Instance) getExportedFields() []Field {
+	var exported []Field = make([]Field, 0)
+	for _, f := range o.Fields {
+		if f.Exported {
+			exported = append(exported, f)
+		}
+	}
+	return exported
+}
+
+func (o *Instance) Serialize(pos string) string {
+	obj := NewObject(o.Interface.Name, 0, pos, o.getExportedFields(), o.History)
+	return SerializeObject(obj)
+}
+
+func (o *Instance) PrettySerialize(depth int) string {
 	space := ""
 	for i := 0; i < depth; i++ {
 		space += "\t"
 	}
-	str := fmt.Sprintf("%s{ Reference: %d\n", space, o.Reference)
-	//if len(o.Fields) > 0 {
+	str := fmt.Sprintf("%s%s: { Reference: %d\n", space, o.Interface.Name, o.Reference)
 	str += space + "  Fields: \n"
 	for _, f := range o.Fields {
-		str += fmt.Sprintf("%s%v\n", space, f.Serialize(depth+1))
+		str += fmt.Sprintf("%s%v\n", space, f.PrettySerialize(depth+1))
 	}
-	//}
+	if len(o.Fields) == 0 {
+		str += space + "\t<no fields>" + "\n"
+	}
 	if len(o.History) > 0 {
 		str += fmt.Sprintf("%s  Method Sequence: %s\n", space, o.History)
 	}
-	return str + fmt.Sprintf("%s } %s", space, o.Interface.Name)
+	return str + fmt.Sprintf("%s }", space)
 }
 
 func (f *Field) Kind() Kind {
@@ -81,24 +103,24 @@ func (f *Field) Kind() Kind {
 	return Other
 }
 
-func (f Field) String() string {
-	return f.Serialize(0)
+func (f Field) PrettyString() string {
+	return f.PrettySerialize(0)
 }
 
-func (f Field) Serialize(depth int) string {
+func (f Field) PrettySerialize(depth int) string {
 	space := ""
 	for i := 0; i < depth; i++ {
 		space += "\t"
 	}
 	switch f.Kind() {
 	case Struct:
-		return fmt.Sprintf("%s", f.Struct.Serialize(depth))
+		return fmt.Sprintf("%s(%s): %s", f.Name, f.Type.Name, f.Struct.PrettySerialize(depth))
 	case Pointer:
-		return fmt.Sprintf("%s%d", space, f.Pointer)
+		return fmt.Sprintf("%s%s(%s): %d", space, f.Name, f.Type.Name, f.Pointer)
 	case Slice:
-		return fmt.Sprintf("%s[]%d", space, f.Slice)
+		return fmt.Sprintf("%s%s(%s): %d", space, f.Name, f.Type.Name, f.Slice)
 	case Other:
-		return fmt.Sprintf("%s%v", space, f.Other)
+		return fmt.Sprintf("%s%s(%s): %v", space, f.Name, f.Type.Name, f.Other)
 	}
 	panic("Trying to print an uninitialized field")
 }
