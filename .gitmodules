@@ -1,22 +1,25 @@
 [submodule "src/golang.org/x/tools"]
 	path = src/golang.org/x/tools
-	url = https://www.github.com:golang/tools
+	url = https://www.github.com/golang/tools
 [submodule "src/github.com/timtadh/getopt"]
 	path = src/github.com/timtadh/getopt
-	url = https://www.github.com:timtadh/getopt
+	url = https://www.github.com/timtadh/getopt
 [submodule "src/github.com/timtadh/data-structures"]
 	path = src/github.com/timtadh/data-structures
-	url = https://www.github.com:timtadh/data-structures
+	url = https://www.github.com/timtadh/data-structures
 [submodule "examples/src/github.com/timtadh/lexmachine"]
 	path = examples/src/github.com/timtadh/lexmachine
-	url = https://www.github.com:timtadh/lexmachine
+	url = https://www.github.com/timtadh/lexmachine
 [submodule "examples/src/github.com/timtadh/dot"]
 	path = examples/src/github.com/timtadh/dot
-	url = https://www.github.com:timtadh/dot
+	url = https://www.github.com/timtadh/dot
 [submodule "examples/src/github.com/timtadh/combos"]
 	path = examples/src/github.com/timtadh/combos
-	url = https://www.github.com:timtadh/combos
+	url = https://www.github.com/timtadh/combos
 [submodule "examples/src/dynagrok/examples/shapes"]
 	path = examples/src/dynagrok/examples/shapes
 	url = http://github.com/jkobyp/shapes
 	branch = dynagrok
+[submodule "examples/src/github.com/stretchr/testify"]
+	path = examples/src/github.com/stretchr/testify
+	url = http://github.com/stretchr/testify
