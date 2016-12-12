@@ -101,6 +101,9 @@ func (i *instrumenter) instrument() (err error) {
 	return nil
 }
 
+// exprFuncGenerator defines a function to be called on ast.Expressions
+// if relevant, the returned function inserts a dgruntime.mkMethodCall into the
+// source line directly after the passed ast.Expression
 func (i instrumenter) exprFuncGenerator(pkg *loader.PackageInfo, blk *[]ast.Stmt, j int, pos token.Pos) func(ast.Expr) error {
 	return func(e ast.Expr) error {
 		switch expr := e.(type) {
