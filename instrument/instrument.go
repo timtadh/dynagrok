@@ -143,7 +143,6 @@ func (i instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.N
 				} else {
 					pos = (*blk)[j].Pos()
 				}
-				statement(&(*blk)[j], i.exprFuncGenerator(pkg, blk, j, pos))
 				switch stmt := (*blk)[j].(type) {
 				case *ast.BranchStmt:
 					// *blk = insert(*blk, j, i.mkPrint(pos, fmt.Sprintf("exit-blk:\t %d\t of %v", id, fnName)))
@@ -161,10 +160,15 @@ func (i instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.N
 						stmt.Stmt = i.mkRe_enterBlk(pos, id, 2+j)
 					}
 				}
+				statement(&(*blk)[j], i.exprFuncGenerator(pkg, blk, j, (*blk)[j].Pos()))
+			}
+			if len(*blk) > 0 {
+				statement(&(*blk)[len(*blk)-1], i.exprFuncGenerator(pkg, blk, len(*blk)-1, (*blk)[len(*blk)-1].Pos()))
 			}
 			for j := len(*blk) - 1; j >= 0; j-- {
-				if stmt, has := methodCallLoc[(*blk)[j].Pos()]; has {
-					*blk = insert(*blk, j, stmt)
+				pos = (*blk)[j].Pos()
+				if stmt, has := methodCallLoc[pos]; has {
+					*blk = insert(*blk, j+1, stmt)
 				}
 			}
 			return nil

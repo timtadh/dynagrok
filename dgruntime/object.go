@@ -23,7 +23,11 @@ type Field struct {
 	Struct   *Instance
 	Pointer  uintptr
 	Slice    uintptr
-	Other    interface{}
+	Map      bool
+	Func     bool
+	// TODO distinguish types that are 'uncomparable': slices, maps, and
+	// functions
+	Other interface{}
 }
 
 func newObjectType(n string, isPtr bool) *ObjectType {
@@ -100,7 +104,31 @@ func (f *Field) Kind() Kind {
 	if f.Slice != 0 {
 		return Slice
 	}
+	if f.Map != false {
+		return Map
+	}
+	if f.Func != false {
+		return Func
+	}
 	return Other
+}
+
+func (f Field) CompactString() string {
+	switch f.Kind() {
+	case Struct:
+		return fmt.Sprintf("{%s(%s)}", f.Name, f.Type.Name)
+	case Pointer:
+		return fmt.Sprintf("{%s(%s)}", f.Name, f.Type.Name)
+	case Slice:
+		return fmt.Sprintf("{%s(%s)}", f.Name, f.Type.Name)
+	case Map:
+		return fmt.Sprintf("{%s(%s): %s}", f.Name, f.Type.Name, "Map")
+	case Func:
+		return fmt.Sprintf("{%s(%s): %s}", f.Name, f.Type.Name, "Func")
+	case Other:
+		return fmt.Sprintf("{%s(%s): %v}", f.Name, f.Type.Name, f.Other)
+	}
+	return "{invalid field}"
 }
 
 func (f Field) PrettyString() string {
@@ -119,6 +147,10 @@ func (f Field) PrettySerialize(depth int) string {
 		return fmt.Sprintf("%s%s(%s): %d", space, f.Name, f.Type.Name, f.Pointer)
 	case Slice:
 		return fmt.Sprintf("%s%s(%s): %d", space, f.Name, f.Type.Name, f.Slice)
+	case Map:
+		return fmt.Sprintf("%s%s(%s): %s", space, f.Name, f.Type.Name, "Map")
+	case Func:
+		return fmt.Sprintf("%s%s(%s): %s", space, f.Name, f.Type.Name, "Func")
 	case Other:
 		return fmt.Sprintf("%s%s(%s): %v", space, f.Name, f.Type.Name, f.Other)
 	}
@@ -131,5 +163,7 @@ const (
 	Pointer Kind = iota
 	Struct
 	Slice
+	Map
+	Func
 	Other
 )

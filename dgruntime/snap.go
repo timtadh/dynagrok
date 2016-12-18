@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
+	"strings"
 )
 
 type Object struct {
@@ -17,9 +19,9 @@ type Object struct {
 }
 
 func (o Object) String() string {
-	b := fmt.Sprintf("{Type: %v, Ref: %v, Pos: %v, Fields: [%v", o.TypeName, o.Ptr, o.Pos, o.Data[0])
+	b := fmt.Sprintf("{Type: %v, Pos: %v, Fields: [%v", o.TypeName, trimPos(o.Pos), o.Data[0].CompactString())
 	for i := 1; i < o.NumFields; i++ {
-		b += fmt.Sprintf(", %v", o.Data[i])
+		b += fmt.Sprintf(", %v", o.Data[i].CompactString())
 	}
 	b += fmt.Sprintf("], Call Sequence: [%v", o.CallSequence[0])
 	for i := 1; i < o.NumCalls; i++ {
@@ -74,4 +76,14 @@ func iSliceToArray(sl []Field) ([50]Field, int) {
 		a[i] = e
 	}
 	return a, len(sl) - bound
+}
+
+func trimPos(pos string) string {
+	elements := strings.Split(pos, ":")
+	if len(elements) >= 3 {
+		return filepath.Join(filepath.Base(filepath.Dir(elements[0])),
+			filepath.Base(elements[0])) + ":" + elements[1] + ":" + elements[2]
+	} else {
+		return pos
+	}
 }
