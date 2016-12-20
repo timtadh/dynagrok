@@ -22,9 +22,10 @@ import (
 )
 
 type instrumenter struct {
-	program *loader.Program
-	ssa     *ssa.Program
-	entry   string
+	program     *loader.Program
+	ssa         *ssa.Program
+	entry       string
+	currentFile *ast.File
 }
 
 func buildSSA(program *loader.Program) *ssa.Program {
@@ -62,6 +63,7 @@ func (i *instrumenter) instrument() (err error) {
 			continue
 		}
 		for _, fileAst := range pkg.Files {
+			i.currentFile = fileAst
 			hadFunc := false
 			err = functions(fileAst, func(fn ast.Node, parent *ast.FuncDecl, count int) error {
 				hadFunc = true
@@ -110,21 +112,30 @@ func (i instrumenter) exprFuncGenerator(pkg *loader.PackageInfo, blk *[]ast.Stmt
 		case *ast.SelectorExpr:
 			selExpr := expr
 			if ident, ok := selExpr.X.(*ast.Ident); ok {
-				for pkg := range i.program.AllPackages {
-					if ident.Name == pkg.Name() || ident.Name == "dgruntime" {
+				if ident.Name == "dgruntime" {
+					return nil
+				}
+				for pkgName := range i.program.AllPackages {
+					if pkgName.Name() == ident.Name {
 						return nil
+					}
+				}
+				for _, imports := range astutil.Imports(i.program.Fset, i.currentFile) {
+					for _, importSpec := range imports {
+						if importSpec.Name != nil && importSpec.Name.Name == ident.Name {
+							return nil
+						}
 					}
 				}
 				callName := selExpr.Sel.Name
 				stmt, _ := i.mkMethodCall(pos, ident.Name, callName)
 				methodCallLoc[pos] = stmt
 			}
-			return nil
 		default:
 			return errors.Errorf("Unexpected type %v, %T", e, e)
 		}
+		return nil
 	}
-	return nil
 }
 
 func (i instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.Node, fnBody *[]ast.Stmt) error {
@@ -159,11 +170,16 @@ func (i instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.N
 						*blk = insert(*blk, j+1, stmt.Stmt)
 						stmt.Stmt = i.mkRe_enterBlk(pos, id, 2+j)
 					}
+				default:
+					statement(&stmt, i.exprFuncGenerator(pkg, blk, j, stmt.Pos()))
 				}
-				statement(&(*blk)[j], i.exprFuncGenerator(pkg, blk, j, (*blk)[j].Pos()))
 			}
 			if len(*blk) > 0 {
-				statement(&(*blk)[len(*blk)-1], i.exprFuncGenerator(pkg, blk, len(*blk)-1, (*blk)[len(*blk)-1].Pos()))
+				switch stmt := (*blk)[len(*blk)-1].(type) {
+				case *ast.IfStmt, *ast.ForStmt, *ast.SelectStmt, *ast.SwitchStmt, *ast.TypeSwitchStmt, *ast.RangeStmt, *ast.LabeledStmt:
+				default:
+					statement(&stmt, i.exprFuncGenerator(pkg, blk, len(*blk)-1, stmt.Pos()))
+				}
 			}
 			for j := len(*blk) - 1; j >= 0; j-- {
 				pos = (*blk)[j].Pos()

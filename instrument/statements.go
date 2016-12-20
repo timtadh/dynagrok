@@ -27,10 +27,12 @@ type stmtVisitor struct {
 // Visit executes the visitor's function onto selector statements
 // and returns otherwise
 func (v *stmtVisitor) Visit(n ast.Node) ast.Visitor {
-	if expr, ok := n.(*ast.SelectorExpr); ok {
+	switch expr := n.(type) {
+	case *ast.SelectorExpr:
 		v.do(expr)
 		return v
-	} else {
-		return v
+	case *ast.ForStmt, *ast.SwitchStmt, *ast.FuncLit:
+		return nil
 	}
+	return v
 }

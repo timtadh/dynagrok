@@ -98,17 +98,30 @@ func deriveFields(t *ObjectType, obj *interface{}) []Field {
 			if f.CanInterface() { // f.Interface() will fail otherwise
 				ft := *getType(f.Interface())
 				if f.Kind() == reflect.Slice {
-					fields = append(fields, Field{Exported: true, Name: name, Type: ft, Slice: f.UnsafeAddr()})
+					if f.CanAddr() {
+						fields = append(fields, Field{Exported: true, Name: name, Type: ft, Slice: f.UnsafeAddr()})
+					} else {
+						fields = append(fields, Field{Exported: true, Name: name, Type: ft, Slice: 1})
+					}
 				} else if f.Kind() == reflect.Ptr {
-					fields = append(fields, Field{Exported: true, Name: name, Type: ft, Pointer: f.UnsafeAddr()})
+					if f.CanAddr() {
+						fields = append(fields, Field{Exported: true, Name: name, Type: ft, Pointer: f.UnsafeAddr()})
+					} else {
+						fields = append(fields, Field{Exported: true, Name: name, Type: ft, Pointer: 1})
+
+					}
 				} else if f.Kind() == reflect.Struct {
-					fields = append(fields, Field{Exported: true, Name: name, Type: ft, Struct: newShallowInstance(ft, f.UnsafeAddr())})
+					if f.CanAddr() {
+						fields = append(fields, Field{Exported: true, Name: name, Type: ft, Struct: newShallowInstance(ft, f.UnsafeAddr())})
+					} else {
+						fields = append(fields, Field{Exported: true, Name: name, Type: ft, Struct: newShallowInstance(ft, 1)})
+					}
 				} else {
 					fields = append(fields, Field{Exported: true, Name: name, Type: ft, Other: f.Interface()})
 				}
 			} else {
 				fields = append(fields, Field{Exported: false, Name: name, Type: *newObjectType(fieldType.Name(), false)})
-				log.Printf("Could not access unexported %v field: %v", f.Kind(), f)
+				log.Printf("Could not access unexported %v field: %v", f.Kind(), name)
 			}
 		}
 	}
@@ -118,13 +131,21 @@ func deriveFields(t *ObjectType, obj *interface{}) []Field {
 // getType gets the type of the object at 'obj'
 func getType(obj interface{}) *ObjectType {
 	// uses reflection to determine the typename
-	tipe := reflect.ValueOf(obj).Type()
+	value := reflect.ValueOf(obj)
+	zero := reflect.Value{}
+	if value == zero {
+		return &ObjectType{}
+	}
+	tipe := value.Type()
 	if tipe.Kind() == reflect.Ptr {
-		return newObjectType("*"+reflect.ValueOf(obj).Elem().Type().Name(), true)
+		if value.Elem() == zero {
+			return &ObjectType{}
+		}
+		return newObjectType("*"+value.Elem().Type().Name(), true)
 	} else if tipe.Kind() == reflect.Struct {
 		return newObjectType(reflect.TypeOf(obj).Name(), false)
 	}
-	return newObjectType(reflect.ValueOf(obj).Type().String(), false)
+	return newObjectType(value.Type().String(), false)
 }
 
 // MethodCall takes the name of the call, the position,

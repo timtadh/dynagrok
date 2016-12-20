@@ -13,3 +13,6 @@ clientgood:
 	dynagrok -g $(DIR)/examples -d $(DIR) instrument -w /tmp/work --keep-work -o clientgood.instr dynagrok/examples/shapes/client
 
 run: install clientgood
+
+html:
+	dynagrok -g /home/koby/dev/repos/dynagrok/examples -d /home/koby/dev/repos/dynagrok instrument -w /tmp/work --keep-work -o html.instr dynagrok/examples/html/main

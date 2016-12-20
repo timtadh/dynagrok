@@ -4,8 +4,7 @@ import (
 	"go/ast"
 )
 
-import (
-)
+import ()
 
 func blocks(blk *[]ast.Stmt, id *int, do func(*[]ast.Stmt, int) error) error {
 	var idspot int
@@ -15,7 +14,7 @@ func blocks(blk *[]ast.Stmt, id *int, do func(*[]ast.Stmt, int) error) error {
 	cId := *id
 	(*id)++
 	for _, stmt := range *blk {
-		v := &blocksVisitor{do:do, count: id}
+		v := &blocksVisitor{do: do, count: id}
 		ast.Walk(v, stmt)
 		if v.err != nil {
 			return v.err
@@ -25,12 +24,12 @@ func blocks(blk *[]ast.Stmt, id *int, do func(*[]ast.Stmt, int) error) error {
 }
 
 type blocksVisitor struct {
-	err error
-	do func(*[]ast.Stmt, int) error
+	err   error
+	do    func(*[]ast.Stmt, int) error
 	count *int
 }
 
-func (v *blocksVisitor) Visit(n ast.Node) (ast.Visitor) {
+func (v *blocksVisitor) Visit(n ast.Node) ast.Visitor {
 	if n == nil || v.err != nil {
 		return nil
 	}
@@ -42,6 +41,8 @@ func (v *blocksVisitor) Visit(n ast.Node) (ast.Visitor) {
 		blk = &x.Body
 	case *ast.CaseClause:
 		blk = &x.Body
+	case *ast.ForStmt:
+		blk = &x.Body.List
 	case *ast.FuncLit:
 		return nil
 	// prevent putting stmts in blocks that can't recieve them
@@ -70,4 +71,3 @@ func (v *blocksVisitor) Visit(n ast.Node) (ast.Visitor) {
 	}
 	return v
 }
-
