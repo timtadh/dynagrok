@@ -157,20 +157,16 @@ func MethodCall(field string, pos string, obj interface{}) {
 	g := exec.Goroutine(runtime.GoID())
 	o := *(*[2]uintptr)(unsafe.Pointer(&obj))
 	data_ptr := o[1]
-	if instances, has := g.Instances[data_ptr]; has {
-		instances[len(instances)-1].addCall(field)
-		instances[len(instances)-1].snap(pos)
+	if instance, has := g.Instances[data_ptr]; has {
+		instance.addCall(field)
+		instance.snap(pos)
 	} else {
 		t := getType(obj)
 		fields := deriveFields(t, &obj)
 		o := newInstance(*t, fields, data_ptr)
 		o.addCall(field)
 		o.snap(pos)
-		if instances, has := g.Instances[data_ptr]; has {
-			instances = append(instances, *o)
-		} else {
-			g.Instances[data_ptr] = append(make([]Instance, 0), *o)
-		}
+		g.Instances[data_ptr] = *o
 	}
 }
 

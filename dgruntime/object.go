@@ -51,6 +51,9 @@ func (o *Instance) addCall(method string) {
 
 func (o *Instance) snap(pos string) {
 	exec.Profile.Instances[pos] = append(exec.Profile.Instances[pos], *o)
+	if len(exec.Profile.Instances[pos]) > 50 {
+		exec.Profile.Instances[pos] = exec.Profile.Instances[pos][1:]
+	}
 }
 func (o *Instance) String() string {
 	return o.Serialize("")
@@ -116,17 +119,21 @@ func (f *Field) Kind() Kind {
 func (f Field) CompactString() string {
 	switch f.Kind() {
 	case Struct:
-		return fmt.Sprintf("{%s(%s)}", f.Name, f.Type.Name)
+		return fmt.Sprintf("{%s: %s}", f.Name, f.Type.Name)
 	case Pointer:
-		return fmt.Sprintf("{%s(%s)}", f.Name, f.Type.Name)
+		return fmt.Sprintf("{%s: %s}", f.Name, f.Type.Name)
 	case Slice:
-		return fmt.Sprintf("{%s(%s)}", f.Name, f.Type.Name)
+		return fmt.Sprintf("{%s: %s}", f.Name, f.Type.Name)
 	case Map:
-		return fmt.Sprintf("{%s(%s): %s}", f.Name, f.Type.Name, "Map")
+		return fmt.Sprintf("{%s: %s}", f.Name, f.Type.Name)
 	case Func:
-		return fmt.Sprintf("{%s(%s): %s}", f.Name, f.Type.Name, "Func")
+		return fmt.Sprintf("{%s: %s}", f.Name, f.Type.Name)
 	case Other:
-		return fmt.Sprintf("{%s(%s): %v}", f.Name, f.Type.Name, f.Other)
+		if f.Other != nil {
+			return fmt.Sprintf("{%s(%s): %v}", f.Name, f.Type.Name, f.Other)
+		} else {
+			return fmt.Sprintf("{%s: %s}", f.Name, f.Type.Name)
+		}
 	}
 	return "{invalid field}"
 }
