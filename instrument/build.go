@@ -33,7 +33,7 @@ type binaryBuilder struct {
 	buildContext *build.Context
 	program *loader.Program
 	entry string
-	work string
+	_work, root, path string
 	output string
 }
 
@@ -54,7 +54,9 @@ func BuildBinary(c *cmd.Config, keepWork bool, work, entryPkgName, output string
 		buildContext: cmd.BuildContext(c),
 		program: program,
 		entry: entryPkgName,
-		work: work,
+		_work: work,
+		root: filepath.Join(work, "goroot"),
+		path: filepath.Join(work, "gopath"),
 		output: output,
 	}
 	return b.Build()
@@ -95,24 +97,31 @@ func (ps paths) PrefixedBy(s string) string {
 
 func (b *binaryBuilder) Build() error {
 	err := b.copyDir(
-		filepath.Join(b.config.DGPATH, "dgruntime"),
-		filepath.Join(b.work, "src", "dgruntime"),
+		filepath.Join(b.config.GOROOT),
+		filepath.Join(b.root),
 	)
 	if err != nil {
 		return err
 	}
-	if b.config.ROOT {
-		err := b.copyDir(
-			filepath.Join(b.config.GOPATH),
-			filepath.Join(b.work),
-		)
-		if err != nil {
-			return err
-		}
+	err = b.copyDir(
+		filepath.Join(b.config.DGPATH, "dgruntime"),
+		filepath.Join(b.root, "src", "dgruntime"),
+	)
+	if err != nil {
+		return err
+	}
+	err = b.copyDir(
+		filepath.Join(b.config.DGPATH, "src", "runtime"),
+		filepath.Join(b.root, "src", "runtime"),
+	)
+	if err != nil {
+		return err
 	}
 	basePaths := b.basePaths()
 	for pkgType, pkgInfo := range b.program.AllPackages {
-		if err := b.createDir(basePaths, pkgType, pkgInfo.Files); err != nil {
+		root, err := b.createDir(basePaths, pkgType, pkgInfo.Files)
+		errors.Logf("DEBUG", "pkgInfo %v %v", pkgInfo, root)
+		if err != nil {
 			return err
 		}
 		if len(pkgInfo.BuildPackage.CgoFiles) > 0 {
@@ -122,7 +131,7 @@ func (b *binaryBuilder) Build() error {
 			continue
 		}
 		for _, f := range pkgInfo.Files {
-			to := filepath.Join(b.work, basePaths.TrimPrefix(b.program.Fset.File(f.Pos()).Name()))
+			to := filepath.Join(root, basePaths.TrimPrefix(b.program.Fset.File(f.Pos()).Name()))
 			fout, err := os.Create(to)
 			if err != nil {
 				return err
@@ -134,11 +143,14 @@ func (b *binaryBuilder) Build() error {
 			}
 		}
 	}
+	err = b.goInstallRuntime()
+	if err != nil {
+		return err
+	}
 	return b.goBuild()
 }
 
-func (b *binaryBuilder) goBuild() error {
-	c := exec.Command("go", "build", "-o", b.output, b.entry)
+func (b *binaryBuilder) goEnv() []string {
 	env := make([]string, 0, len(os.Environ()))
 	for _, item := range os.Environ() {
 		if strings.HasPrefix(item, "GOPATH=") {
@@ -149,61 +161,77 @@ func (b *binaryBuilder) goBuild() error {
 		}
 		env = append(env, item)
 	}
-	if b.config.ROOT {
-		c.Env = append(env, fmt.Sprintf("GOROOT=%v", b.work))
-	} else {
-		c.Env = append(env, fmt.Sprintf("GOPATH=%v", b.work))
-	}
-	output, err := c.CombinedOutput()
+	env = append(env, fmt.Sprintf("GOROOT=%v", b.root))
+	env = append(env, fmt.Sprintf("GOPATH=%v", b.path))
+	return env
+}
+
+func (b *binaryBuilder) goInstallRuntime() error {
+	goProg := filepath.Join(b.root, "bin", "go")
+	c := exec.Command(goProg, "build", "-i", b.entry)
+	c.Env = b.goEnv()
 	fmt.Fprintln(os.Stderr, c.Path, strings.Join(c.Args[1:], " "))
+	output, err := c.CombinedOutput()
+	fmt.Fprintln(os.Stderr, string(output))
+	return err
+}
+func (b *binaryBuilder) goBuild() error {
+	goProg := filepath.Join(b.root, "bin", "go")
+	c := exec.Command(goProg, "build", "-o", b.output, b.entry)
+	c.Env = b.goEnv()
+	fmt.Fprintln(os.Stderr, c.Path, strings.Join(c.Args[1:], " "))
+	output, err := c.CombinedOutput()
 	fmt.Fprintln(os.Stderr, string(output))
 	return err
 }
 
-func (b *binaryBuilder) createDir(basePaths paths, pkg *types.Package, pkgFiles []*ast.File) error {
-	path := filepath.Join(b.work, "src", pkg.Path())
-	err := os.MkdirAll(path, os.ModeDir|os.ModeTemporary|0775)
-	if err != nil {
-		return err
-	}
-	var srcPath string
+func (b *binaryBuilder) createDir(basePaths paths, pkg *types.Package, pkgFiles []*ast.File) (root string, err error) {
+	var src string
 	for _, path := range basePaths {
 		if _, err := os.Stat(filepath.Join(path, "src", pkg.Path())); err == nil {
-			srcPath = filepath.Join(path, "src")
+			src = path
 			break
 		}
 	}
-	srcDir, err := os.Open(filepath.Join(srcPath, pkg.Path()))
+	srcDir, err := os.Open(filepath.Join(src, "src", pkg.Path()))
 	if err != nil {
-		return err
+		return "", err
 	}
 	files, err := srcDir.Readdir(0)
 	srcDir.Close()
 	if err != nil {
-		return err
+		return "", err
+	}
+	root = b.path
+	if filepath.Clean(src) == filepath.Clean(b.buildContext.GOROOT) {
+		root = b.root
+	}
+	err = os.MkdirAll(filepath.Join(root, "src", pkg.Path()), os.ModeDir|os.ModeTemporary|0775)
+	if err != nil {
+		return "", err
 	}
 	for _, f := range files {
 		if f.IsDir() {
 			continue
 		}
 		name := f.Name()
-		from, err := os.Open(filepath.Join(srcPath, pkg.Path(), name))
+		from, err := os.Open(filepath.Join(src, "src", pkg.Path(), name))
 		if err != nil {
-			return err
+			return "", err
 		}
-		to, err := os.Create(filepath.Join(b.work, "src", pkg.Path(), name))
+		to, err := os.Create(filepath.Join(root, "src", pkg.Path(), name))
 		if err != nil {
 			from.Close()
-			return err
+			return "", err
 		}
 		_, err = io.Copy(to, from)
 		from.Close()
 		to.Close()
 		if err != nil {
-			return err
+			return "", err
 		}
 	}
-	return nil
+	return root, nil
 }
 
 func (b *binaryBuilder) copyDir(src, targ string) error {

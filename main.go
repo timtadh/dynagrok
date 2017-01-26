@@ -30,21 +30,21 @@ var Main = cmd.Cmd(os.Args[0],
 Option Flags
     -h,--help                         Show this message
     -p,--cpu-profile=<path>           Path to write the cpu-profile
+    -r,--go-root=<path>               go root
     -g,--go-path=<path>               go path
     -d,--dynagrok-path=<path>         dynagrok path
-    --root                            instrument a root binary (cmd/compile)
 `,
-	"p:g:d:",
+	"p:r:g:d:",
 	[]string{
 		"cpu-profile=",
+		"go-root=",
 		"go-path=",
 		"dynagrok-path=",
-		"root",
 	},
 	func(r cmd.Runnable, args []string, optargs []getopt.OptArg, _ ...interface{}) ([]string, interface{}, *cmd.Error) {
+		GOROOT := os.Getenv("GOROOT")
 		GOPATH := os.Getenv("GOPATH")
 		DGPATH := os.Getenv("DGPATH")
-		ROOT := false
 		cpuProfile := ""
 		for _, oa := range optargs {
 			switch oa.Opt() {
@@ -54,8 +54,8 @@ Option Flags
 				GOPATH = oa.Arg()
 			case "-d", "--dynagrok-path":
 				DGPATH = oa.Arg()
-			case "--root":
-				ROOT = true
+			case "-r", "--go-root":
+				GOROOT = oa.Arg()
 			}
 		}
 		if cpuProfile != "" {
@@ -66,9 +66,9 @@ Option Flags
 			defer cleanup()
 		}
 		c := &cmd.Config{
+			GOROOT: GOROOT,
 			GOPATH: GOPATH,
 			DGPATH: DGPATH,
-			ROOT: ROOT,
 		}
 		return args, c, nil
 	},

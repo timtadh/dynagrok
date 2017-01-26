@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+if ! go install github.com/timtadh/dynagrok; then
+	echo "failed to compile dynagrok"
+	exit 1
+fi
+VERSION=release-1.8rc2
+TARGET=/tmp/$VERSION
+export GOROOT=$HOME/srcs/go-research
+export GOPATH=/tmp/fake-go-path
+rm -rf $TARGET
+dynagrok -d $HOME/stuff/research/dynagrok \
+	instrument \
+		--keep-work -w $TARGET \
+		-o $TARGET/goroot/pkg/tool/linux_amd64/compile \
+		cmd/compile
+
