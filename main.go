@@ -32,16 +32,19 @@ Option Flags
     -p,--cpu-profile=<path>           Path to write the cpu-profile
     -g,--go-path=<path>               go path
     -d,--dynagrok-path=<path>         dynagrok path
+    --root                            instrument a root binary (cmd/compile)
 `,
 	"p:g:d:",
 	[]string{
 		"cpu-profile=",
 		"go-path=",
 		"dynagrok-path=",
+		"root",
 	},
 	func(r cmd.Runnable, args []string, optargs []getopt.OptArg, _ ...interface{}) ([]string, interface{}, *cmd.Error) {
 		GOPATH := os.Getenv("GOPATH")
 		DGPATH := os.Getenv("DGPATH")
+		ROOT := false
 		cpuProfile := ""
 		for _, oa := range optargs {
 			switch oa.Opt() {
@@ -51,6 +54,8 @@ Option Flags
 				GOPATH = oa.Arg()
 			case "-d", "--dynagrok-path":
 				DGPATH = oa.Arg()
+			case "--root":
+				ROOT = true
 			}
 		}
 		if cpuProfile != "" {
@@ -63,6 +68,7 @@ Option Flags
 		c := &cmd.Config{
 			GOPATH: GOPATH,
 			DGPATH: DGPATH,
+			ROOT: ROOT,
 		}
 		return args, c, nil
 	},

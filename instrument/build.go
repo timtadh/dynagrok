@@ -95,11 +95,20 @@ func (ps paths) PrefixedBy(s string) string {
 
 func (b *binaryBuilder) Build() error {
 	err := b.copyDir(
-		filepath.Join(b.config.DGPATH, "dgruntime"), 
-		filepath.Join(b.work, "src", "github.com", "timtadh", "dynagrok", "dgruntime"),
+		filepath.Join(b.config.DGPATH, "dgruntime"),
+		filepath.Join(b.work, "src", "dgruntime"),
 	)
 	if err != nil {
 		return err
+	}
+	if b.config.ROOT {
+		err := b.copyDir(
+			filepath.Join(b.config.GOPATH),
+			filepath.Join(b.work),
+		)
+		if err != nil {
+			return err
+		}
 	}
 	basePaths := b.basePaths()
 	for pkgType, pkgInfo := range b.program.AllPackages {
@@ -135,9 +144,16 @@ func (b *binaryBuilder) goBuild() error {
 		if strings.HasPrefix(item, "GOPATH=") {
 			continue
 		}
+		if strings.HasPrefix(item, "GOROOT=") {
+			continue
+		}
 		env = append(env, item)
 	}
-	c.Env = append(env, fmt.Sprintf("GOPATH=%v", b.work))
+	if b.config.ROOT {
+		c.Env = append(env, fmt.Sprintf("GOROOT=%v", b.work))
+	} else {
+		c.Env = append(env, fmt.Sprintf("GOPATH=%v", b.work))
+	}
 	output, err := c.CombinedOutput()
 	fmt.Fprintln(os.Stderr, c.Path, strings.Join(c.Args[1:], " "))
 	fmt.Fprintln(os.Stderr, string(output))
@@ -212,6 +228,10 @@ func (b *binaryBuilder) copyDir(src, targ string) error {
 				return nil
 			}
 		} else {
+			stat, err := os.Stat(filepath.Join(src, name))
+			if err != nil {
+				return err
+			}
 			from, err := os.Open(filepath.Join(src, name))
 			if err != nil {
 				return err
@@ -224,6 +244,10 @@ func (b *binaryBuilder) copyDir(src, targ string) error {
 			_, err = io.Copy(to, from)
 			from.Close()
 			to.Close()
+			if err != nil {
+				return err
+			}
+			err = os.Chmod(filepath.Join(targ, name), stat.Mode())
 			if err != nil {
 				return err
 			}

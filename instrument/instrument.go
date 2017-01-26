@@ -90,7 +90,7 @@ func (i *instrumenter) instrument() (err error) {
 				return err
 			}
 			if hadFunc {
-				astutil.AddImport(i.program.Fset, fileAst, "github.com/timtadh/dynagrok/dgruntime")
+				astutil.AddImport(i.program.Fset, fileAst, "dgruntime")
 			}
 		}
 	}
@@ -128,6 +128,27 @@ func (i instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.N
 						// errors.Logf("DEBUG", "label stmt %T %T in %v", stmt.Stmt, (*blk)[j+1], fnName)
 						*blk = insert(*blk, j+1, stmt.Stmt)
 						stmt.Stmt = i.mkRe_enterBlk(pos, id, 2+j)
+					}
+				}
+			}
+			for j := 0; j < len(*blk); j++ {
+				pos = (*blk)[j].Pos()
+				switch stmt := (*blk)[j].(type) {
+				default:
+					err := statement(stmt, func(expr ast.Expr) error {
+						switch e := expr.(type) {
+						case *ast.SelectorExpr:
+							if ident, ok := e.X.(*ast.Ident); ok {
+								if ident.Name == "os" && e.Sel.Name == "Exit" {
+									*blk = insert(*blk, j, i.mkShutdownNow(pos))
+									j++
+								}
+							}
+						}
+						return nil
+					})
+					if err != nil {
+						return err
 					}
 				}
 			}
@@ -235,6 +256,15 @@ func (i instrumenter) mkShutdown(pos token.Pos) ast.Stmt {
 		panic(fmt.Errorf("mkShutdown (%v) error: %v", s, err))
 	}
 	return &ast.DeferStmt{Call: e.(*ast.CallExpr)}
+}
+
+func (i instrumenter) mkShutdownNow(pos token.Pos) ast.Stmt {
+	s := "dgruntime.Shutdown()"
+	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
+	if err != nil {
+		panic(fmt.Errorf("mkShutdown (%v) error: %v", s, err))
+	}
+	return &ast.ExprStmt{e}
 }
 
 func (i instrumenter) mkEnterBlk(pos token.Pos, blkid int) ast.Stmt {
