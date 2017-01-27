@@ -103,6 +103,10 @@ func (b *binaryBuilder) Build() error {
 	if err != nil {
 		return err
 	}
+	err = b.rebuildGo()
+	if err != nil {
+		return err
+	}
 	err = b.copyDir(
 		filepath.Join(b.config.DGPATH, "dgruntime"),
 		filepath.Join(b.root, "src", "dgruntime"),
@@ -166,6 +170,23 @@ func (b *binaryBuilder) goEnv() []string {
 	return env
 }
 
+func (b *binaryBuilder) rebuildGo() error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	err = os.Chdir(filepath.Join(b.root, "src"))
+	if err != nil {
+		return err
+	}
+	defer os.Chdir(cwd)
+	c := exec.Command("bash", "make.bash", "--no-banner")
+	fmt.Fprintln(os.Stderr, c.Path, strings.Join(c.Args[1:], " "))
+	output, err := c.CombinedOutput()
+	fmt.Fprintln(os.Stderr, string(output))
+	return err
+}
+
 func (b *binaryBuilder) goInstallRuntime() error {
 	goProg := filepath.Join(b.root, "bin", "go")
 	c := exec.Command(goProg, "build", "-i", b.entry)
@@ -175,6 +196,7 @@ func (b *binaryBuilder) goInstallRuntime() error {
 	fmt.Fprintln(os.Stderr, string(output))
 	return err
 }
+
 func (b *binaryBuilder) goBuild() error {
 	goProg := filepath.Join(b.root, "bin", "go")
 	c := exec.Command(goProg, "build", "-o", b.output, b.entry)
