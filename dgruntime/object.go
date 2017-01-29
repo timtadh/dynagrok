@@ -1,3 +1,6 @@
+// Defines types that serve as our runtime interpretation of objects, types, and
+// fields.
+
 package dgruntime
 
 import (
@@ -16,6 +19,17 @@ type Instance struct {
 	Reference uintptr
 }
 
+type Kind uint
+
+const (
+	Pointer Kind = iota
+	Struct
+	Slice
+	Map
+	Func
+	Other
+)
+
 type Field struct {
 	Name     string
 	Type     ObjectType
@@ -28,6 +42,25 @@ type Field struct {
 	// TODO distinguish types that are 'uncomparable': slices, maps, and
 	// functions
 	Other interface{}
+}
+
+func (f *Field) Kind() Kind {
+	if f.Struct != nil {
+		return Struct
+	}
+	if f.Pointer != 0 {
+		return Pointer
+	}
+	if f.Slice != 0 {
+		return Slice
+	}
+	if f.Map != false {
+		return Map
+	}
+	if f.Func != false {
+		return Func
+	}
+	return Other
 }
 
 func newObjectType(n string, isPtr bool) *ObjectType {
@@ -49,6 +82,7 @@ func (o *Instance) addCall(method string) {
 	o.History = append(o.History, method)
 }
 
+// Takes a snapshot of the object state
 func (o *Instance) snap(pos string) {
 	exec.Profile.Instances[pos] = append(exec.Profile.Instances[pos], *o)
 	if len(exec.Profile.Instances[pos]) > 50 {
@@ -73,11 +107,15 @@ func (o *Instance) getExportedFields() []Field {
 	return exported
 }
 
+// Converts an instance into a snap.Object (the object type specifically defined
+// as an interface between dynagrok and other applications). Then, calls that
+// object's serialization method.
 func (o *Instance) Serialize(pos string) string {
 	obj := NewObject(o.Interface.Name, 0, pos, o.getExportedFields(), o.History)
 	return SerializeObject(obj)
 }
 
+// PrettyString() with nesting // TODO: rename
 func (o *Instance) PrettySerialize(depth int) string {
 	space := ""
 	for i := 0; i < depth; i++ {
@@ -97,25 +135,7 @@ func (o *Instance) PrettySerialize(depth int) string {
 	return str + fmt.Sprintf("%s }", space)
 }
 
-func (f *Field) Kind() Kind {
-	if f.Struct != nil {
-		return Struct
-	}
-	if f.Pointer != 0 {
-		return Pointer
-	}
-	if f.Slice != 0 {
-		return Slice
-	}
-	if f.Map != false {
-		return Map
-	}
-	if f.Func != false {
-		return Func
-	}
-	return Other
-}
-
+// A compact one-line representation of a field
 func (f Field) CompactString() string {
 	switch f.Kind() {
 	case Struct:
@@ -163,14 +183,3 @@ func (f Field) PrettySerialize(depth int) string {
 	}
 	panic("Trying to print an uninitialized field")
 }
-
-type Kind uint
-
-const (
-	Pointer Kind = iota
-	Struct
-	Slice
-	Map
-	Func
-	Other
-)

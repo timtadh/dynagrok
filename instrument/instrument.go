@@ -1,3 +1,6 @@
+// instrument walks a source program's AST to insert instrumentation
+// statements.
+
 package instrument
 
 import (
@@ -50,6 +53,8 @@ func Instrument(entryPkgName string, program *loader.Program) (err error) {
 	return i.instrument()
 }
 
+// methodCallLoc is a global map which allows blocks to be instrumented
+// in two passes
 var (
 	methodCallLoc = make(map[token.Pos]ast.Stmt)
 )
@@ -94,6 +99,8 @@ func (i *instrumenter) instrument() (err error) {
 			if err != nil {
 				return err
 			}
+			// imports dgruntime package into the files that have
+			// instrumentation added
 			if hadFunc {
 				astutil.AddImport(i.program.Fset, fileAst, "github.com/timtadh/dynagrok/dgruntime")
 				// astutil.AddImport(i.program.Fset, fileAst, "unsafe")
@@ -141,17 +148,25 @@ func (i instrumenter) exprFuncGenerator(pkg *loader.PackageInfo, blk *[]ast.Stmt
 func (i instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.Node, fnBody *[]ast.Stmt) error {
 	if true {
 		err := blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
+			// This unnamed function "instruments" a block.
+			// First, it calls mkEnterBlk in the first line of the block,
+			// unless it's a top-level block, in which case mkEnterFunc has
+			// already been called.
+			// Then, it iterates through the statements of the block, marking
+			// which points are re-entry points - the target of a goto, the end
+			// of a loop, etc.
 			var pos token.Pos = fnAst.Pos()
 			if len(*blk) > 0 {
 				pos = (*blk)[0].Pos()
 			}
+			// Enter goes at the beginning unless we're a function body
 			if id != 0 {
 				*blk = insert(*blk, 0, i.mkEnterBlk(pos, id))
 			}
 			for j := 0; j < len(*blk)-1; j++ {
 				if j+1 < len(*blk) {
 					pos = (*blk)[j+1].Pos()
-				} else {
+				} else { // can this ever happen?
 					pos = (*blk)[j].Pos()
 				}
 				switch stmt := (*blk)[j].(type) {
@@ -159,21 +174,32 @@ func (i instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.N
 					// *blk = insert(*blk, j, i.mkPrint(pos, fmt.Sprintf("exit-blk:\t %d\t of %v", id, fnName)))
 					// j++
 				case *ast.IfStmt, *ast.ForStmt, *ast.SelectStmt, *ast.SwitchStmt, *ast.TypeSwitchStmt, *ast.RangeStmt:
+					// In the case of a statement that defines its own block,
+					// make sure to insert a re-entry after it.
+					// (Why 2+j+1)? Do I break this with my MethodCall calls?
 					*blk = insert(*blk, j+1, i.mkRe_enterBlk(pos, id, 2+j+1))
-					j++
+					j++ // skip over the line we just created
 				case *ast.LabeledStmt:
 					switch stmt.Stmt.(type) {
 					case *ast.ForStmt, *ast.SwitchStmt, *ast.SelectStmt, *ast.TypeSwitchStmt, *ast.RangeStmt:
 						*blk = insert(*blk, j+1, i.mkRe_enterBlk(pos, id, 2+j+1))
 					default:
 						// errors.Logf("DEBUG", "label stmt %T %T in %v", stmt.Stmt, (*blk)[j+1], fnName)
+						// For labeled statements (targets of goto, break, etc.)
+						// control re-enters and then executes the line of the
+						// labeled statement. So we should mark the re-entry as
+						// the line above the LabeledStmt
 						*blk = insert(*blk, j+1, stmt.Stmt)
 						stmt.Stmt = i.mkRe_enterBlk(pos, id, 2+j)
 					}
+					// TODO : see if this placement of the call to statement()
+					// makes sense.
 				default:
 					statement(&stmt, i.exprFuncGenerator(pkg, blk, j, stmt.Pos()))
 				}
 			}
+			// The above leaves out the last line of the block, so we complete
+			// it below.
 			if len(*blk) > 0 {
 				switch stmt := (*blk)[len(*blk)-1].(type) {
 				case *ast.IfStmt, *ast.ForStmt, *ast.SelectStmt, *ast.SwitchStmt, *ast.TypeSwitchStmt, *ast.RangeStmt, *ast.LabeledStmt:
@@ -181,6 +207,9 @@ func (i instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.N
 					statement(&stmt, i.exprFuncGenerator(pkg, blk, len(*blk)-1, stmt.Pos()))
 				}
 			}
+
+			// This second bottom-up pass performs the insertions without any
+			// strange recursive issues.
 			for j := len(*blk) - 1; j >= 0; j-- {
 				pos = (*blk)[j].Pos()
 				if stmt, has := methodCallLoc[pos]; has {
@@ -221,6 +250,7 @@ func typeName(pkg *types.Package, t types.Type) string {
 	}
 }
 
+// insert inserts a statement stmt to block blk at index j
 func insert(blk []ast.Stmt, j int, stmt ast.Stmt) []ast.Stmt {
 	if j > len(blk) {
 		j = len(blk)

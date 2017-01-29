@@ -1,3 +1,5 @@
+// This file defines methods which will be called by the instrumented program
+
 package dgruntime
 
 import (
@@ -29,6 +31,7 @@ func Shutdown() {
 	shutdown(exec)
 }
 
+// EnterBlk denotes an entry to a syntactic block (that's { ... })
 func EnterBlk(bid int, pos string) {
 	execCheck()
 	g := exec.Goroutine(runtime.GoID())
@@ -42,6 +45,13 @@ func EnterBlk(bid int, pos string) {
 	g.Positions[cur] = pos
 }
 
+// Re_enterBlk is called after a child-block goes out of scope, eg
+//	func main() {
+//		if(cond) {
+//			noop
+//		}
+//		dgruntime.Re_enterBlk(...)
+//	...
 func Re_enterBlk(bid, at int, pos string) {
 	execCheck()
 	g := exec.Goroutine(runtime.GoID())
@@ -78,8 +88,9 @@ func EnterFunc(name, pos string) {
 	// g.m.Unlock()
 }
 
-// deriveFields takes an object reference and  ObjectType and returns
-// a mapping of field names to the corresponding interface values
+// deriveFields is a helper method which takes an object reference and ObjectType and
+// uses reflection to determine the fields of the object. It returns the results
+// in a slice.
 func deriveFields(t *ObjectType, obj *interface{}) []Field {
 	var v reflect.Value
 	if (*t).Pointer {
@@ -128,7 +139,7 @@ func deriveFields(t *ObjectType, obj *interface{}) []Field {
 	return fields
 }
 
-// getType gets the type of the object at 'obj'
+// getType uses reflection to find the type of the object at 'obj'.
 func getType(obj interface{}) *ObjectType {
 	// uses reflection to determine the typename
 	value := reflect.ValueOf(obj)

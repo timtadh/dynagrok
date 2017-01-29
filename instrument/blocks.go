@@ -4,8 +4,9 @@ import (
 	"go/ast"
 )
 
-import ()
-
+// blocks walks the ast of each statement in blk (sometimes recursively calling
+// blocks()), and then runs do(blk, cId) to do the instrumentation.
+// id and cId represent the nesting level of the block.
 func blocks(blk *[]ast.Stmt, id *int, do func(*[]ast.Stmt, int) error) error {
 	var idspot int
 	if id == nil {
@@ -41,8 +42,6 @@ func (v *blocksVisitor) Visit(n ast.Node) ast.Visitor {
 		blk = &x.Body
 	case *ast.CaseClause:
 		blk = &x.Body
-	case *ast.ForStmt:
-		blk = &x.Body.List
 	case *ast.FuncLit:
 		return nil
 	// prevent putting stmts in blocks that can't recieve them
@@ -62,6 +61,8 @@ func (v *blocksVisitor) Visit(n ast.Node) ast.Visitor {
 		}
 		return nil
 	}
+
+	// if the node n is one of {BlockStmt, CommClause, CaseClause}
 	if blk != nil {
 		err := blocks(blk, v.count, v.do)
 		if err != nil {
