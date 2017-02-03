@@ -110,6 +110,10 @@ func (b *binaryBuilder) Build() error {
 		if err != nil {
 			return err
 		}
+		err = b.dropVersion()
+		if err != nil {
+			return err
+		}
 	} else if err != nil {
 		return err
 	}
@@ -232,6 +236,8 @@ func (b *binaryBuilder) rebuildGo() error {
 		if err != nil {
 			return err
 		}
+	} else {
+		return nil
 	}
 	if goroot, err := b.getWorkingRoot(); err != nil {
 		return err
@@ -239,6 +245,37 @@ func (b *binaryBuilder) rebuildGo() error {
 		return errors.Errorf("%v env GOROOT -> %v != %v", filepath.Join(b.root,"bin","go"), goroot, b.root)
 	}
 	return nil
+}
+
+func (b *binaryBuilder) version() (string, error) {
+	goBin := filepath.Join(b.config.GOROOT, "bin", "go")
+	c := exec.Command(goBin, "version")
+	c.Env = b.noEnv()
+	fmt.Fprintf(os.Stderr, "%v %v\n", c.Path, strings.Join(c.Args[1:], " "))
+	if output, err := c.CombinedOutput(); err != nil {
+		return "", err
+	} else {
+		version := strings.TrimSpace(string(output))
+		parts := strings.Split(version, " ")
+		if len(parts) < 3 {
+			return "", errors.Errorf("unexpected output from `go version` -> %v", version)
+		}
+		return parts[2], nil
+	}
+}
+
+func (b *binaryBuilder) dropVersion() error {
+	version, err := b.version()
+	if err != nil {
+		return err
+	}
+	f, err := os.Create(filepath.Join(b.root, "VERSION"))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = f.Write([]byte(version))
+	return err
 }
 
 func (b *binaryBuilder) goBuild(stdlib bool) error {
