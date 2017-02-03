@@ -4,8 +4,12 @@
 package dgruntime
 
 import (
+	"encoding/binary"
 	"fmt"
+	"hash"
 )
+
+const Depth = 7
 
 type ObjectType struct {
 	Name    string
@@ -22,23 +26,31 @@ type Instance struct {
 type Kind uint
 
 const (
-	Pointer Kind = iota
-	Struct
-	Slice
-	Map
+	Invalid Kind = iota
+	Bool
+	Uint
+	Int
+	//Array
 	Func
+	//Interface
+	Map
+	Pointer
+	Slice
+	String
+	Struct
 	Other
+	Zero // nil value
 )
 
 type Field struct {
 	Name     string
 	Type     ObjectType
 	Exported bool
-	Struct   *Instance
+	Func     bool
+	Map      bool
 	Pointer  uintptr
 	Slice    uintptr
-	Map      bool
-	Func     bool
+	Struct   *Instance
 	// TODO distinguish types that are 'uncomparable': slices, maps, and
 	// functions
 	Other interface{}
@@ -60,7 +72,60 @@ func (f *Field) Kind() Kind {
 	if f.Func != false {
 		return Func
 	}
-	return Other
+	if f.Other != nil {
+		switch f.Other.(type) {
+		case uint:
+			return Uint
+		case int:
+			return Int
+		case bool:
+			return Bool
+		case string:
+			return String
+		default:
+			return Other
+		}
+	}
+	return Invalid
+}
+
+func (f Field) Hash(h hash.Hash) {
+	f.LeveledHash(h, Depth)
+}
+
+func (f Field) LeveledHash(h hash.Hash, n int) {
+	h.Write([]byte(f.Name))
+	h.Write([]byte(f.Type.Name))
+	switch f.Kind() {
+	case Bool:
+		if test, ok := f.Other.(bool); ok {
+			if test {
+				h.Write([]byte("1"))
+			} else {
+				h.Write([]byte("0"))
+			}
+		}
+	case Int, Uint:
+		binary.Write(h, binary.BigEndian, f.Other)
+	case String:
+		h.Write([]byte(f.Other.(string)))
+	case Func:
+		panic("not implemented")
+	case Map:
+		panic("not implemented")
+	case Pointer:
+		panic("not implemented")
+	case Slice:
+		panic("not implemented")
+	case Struct:
+		f.Struct.LeveledHash(h, n)
+	}
+}
+
+func (i *Instance) LeveledHash(h hash.Hash, n int) {
+	for _, f := range i.Fields {
+		f.LeveledHash(h, n-1)
+	}
 }
 
 func newObjectType(n string, isPtr bool) *ObjectType {
@@ -148,12 +213,14 @@ func (f Field) CompactString() string {
 		return fmt.Sprintf("{%s: %s}", f.Name, f.Type.Name)
 	case Func:
 		return fmt.Sprintf("{%s: %s}", f.Name, f.Type.Name)
-	case Other:
+	case Other, Int, Uint, String, Bool:
 		if f.Other != nil {
 			return fmt.Sprintf("{%s(%s): %v}", f.Name, f.Type.Name, f.Other)
 		} else {
 			return fmt.Sprintf("{%s: %s}", f.Name, f.Type.Name)
 		}
+	case Zero:
+		return fmt.Sprintf("{%s: nil}", f.Name)
 	}
 	return "{invalid field}"
 }

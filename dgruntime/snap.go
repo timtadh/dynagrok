@@ -2,8 +2,10 @@ package dgruntime
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
 	"path/filepath"
 	"strings"
 )
@@ -12,29 +14,48 @@ type Object struct {
 	TypeName     string
 	Ptr          uintptr
 	Pos          string
-	Data         [50]Field
-	CallSequence [50]string
+	Data         []Field
+	CallSequence []string
 	NumFields    int
 	NumCalls     int
 }
 
 func (o Object) String() string {
-	b := fmt.Sprintf("{Type: %v, Pos: %v, Fields: [%v", o.TypeName, trimPos(o.Pos), o.Data[0].CompactString())
-	for i := 1; i < o.NumFields; i++ {
-		b += fmt.Sprintf(", %v", o.Data[i].CompactString())
+	b := fmt.Sprintf("{Type: %v, Pos: %v, Fields: [", o.TypeName, trimPos(o.Pos))
+	for i, f := range o.Data {
+		if i != 0 {
+			b += fmt.Sprintf(", ")
+		}
+		b += fmt.Sprintf("%v", f.CompactString())
 	}
-	b += fmt.Sprintf("], Call Sequence: [%v", o.CallSequence[0])
-	for i := 1; i < o.NumCalls; i++ {
-		b += fmt.Sprintf(", %v", o.CallSequence[i])
+	b += fmt.Sprintf("], Call Sequence: [")
+	for i, c := range o.CallSequence {
+		if i != 0 {
+			b += fmt.Sprintf(", ")
+		}
+		b += fmt.Sprintf("%v", c)
 	}
 	b += "]}"
 	return b
 }
 
+func (obj Object) Hash() uint64 {
+	hash := fnv.New64a()
+	hash.Write([]byte(obj.TypeName))
+	binary.Write(hash, binary.BigEndian, obj.Ptr)
+	for _, call := range obj.CallSequence {
+		hash.Write([]byte(call))
+	}
+	for _, field := range obj.Data {
+		field.Hash(hash)
+	}
+	return hash.Sum64()
+}
+
 func NewObject(tname string, ptr uintptr, pos string, data []Field, callSequence []string) Object {
-	fields, nf := iSliceToArray(data)
-	calls, nc := sliceToArray(callSequence)
-	return Object{TypeName: tname, Ptr: ptr, Pos: pos, Data: fields, CallSequence: calls, NumFields: nf, NumCalls: nc}
+	_, nf := iSliceToArray(data)
+	_, nc := sliceToArray(callSequence)
+	return Object{TypeName: tname, Ptr: ptr, Pos: pos, Data: data, CallSequence: callSequence, NumFields: nf, NumCalls: nc}
 }
 
 func SerializeObject(obj Object) string {
