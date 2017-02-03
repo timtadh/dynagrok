@@ -53,7 +53,10 @@ if [[ $HEAD != $COMMIT ]]; then
 			exit 1
 		fi
 		OLDPATH=$PATH
-		source ./make.bash --no-banner
+		if ! source ./make.bash; then
+			echo "could not build $VERSION"
+			exit 1
+		fi
 	)
 fi
 
@@ -61,10 +64,27 @@ TARGET=/tmp/go-$VERSION
 export GOROOT=$goroot
 export GOPATH=/tmp/fake-go-path
 rm -rf $TARGET
+echo "dyangrok instrument"
 dynagrok -d $dgpath \
 	instrument \
 		--keep-work -w $TARGET \
 		-o $TARGET/goroot/pkg/tool/linux_amd64/compile \
 		cmd/compile
 
-git -C $goroot checkout $HEAD
+if [[ $HEAD != $COMMIT ]]; then
+	git -C $goroot checkout $HEAD
+	( #subshell for compiling the go version
+		unset GOROOT
+		unset GOPATH
+		cd $goroot/src
+		if [ ! -f make.bash ]; then
+			echo "not a real goroot $goroot/src/make.bash does not exist"
+			exit 1
+		fi
+		OLDPATH=$PATH
+		if ! source ./make.bash; then
+			echo "could not build $HEAD"
+			exit 1
+		fi
+	)
+fi

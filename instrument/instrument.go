@@ -18,7 +18,7 @@ import (
 )
 
 import (
-	"github.com/timtadh/dynagrok/dgruntime"
+	"github.com/timtadh/dynagrok/dgruntime/excludes"
 )
 
 type instrumenter struct {
@@ -55,7 +55,7 @@ func (i *instrumenter) instrument() (err error) {
 		if len(pkg.BuildPackage.CgoFiles) > 0 {
 			continue
 		}
-		if dgruntime.ExcludedPkg(pkg.Pkg.Path()) {
+		if excludes.ExcludedPkg(pkg.Pkg.Path()) {
 			continue
 		}
 		for _, fileAst := range pkg.Files {
