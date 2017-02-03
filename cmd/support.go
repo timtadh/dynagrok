@@ -26,6 +26,7 @@ func Main(r Runnable) {
 
 func BuildContext(c *Config) *build.Context {
 	b := &build.Default
+	b.GOROOT = c.GOROOT
 	b.GOPATH = c.GOPATH
 	return b
 }
