@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"hash"
+	"log"
 )
 
 const Depth = 7
@@ -94,6 +95,10 @@ func (f Field) Hash(h hash.Hash) {
 }
 
 func (f Field) LeveledHash(h hash.Hash, n int) {
+	if n == 0 {
+		log.Printf("Depth level reached while hashing")
+		return
+	}
 	h.Write([]byte(f.Name))
 	h.Write([]byte(f.Type.Name))
 	switch f.Kind() {
