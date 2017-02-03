@@ -21,13 +21,13 @@ Option Flags
 `,
 	"",
 	[]string{},
-	func(r cmd.Runnable, args []string, optargs []getopt.OptArg, xtra ...interface{}) ([]string, interface{}, *cmd.Error) {
+	func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
 		// for _, oa := range optargs {
 		// 	switch oa.Opt() {
 		// 	}
 		// }
-		fmt.Println("grokked", args, optargs, xtra)
-		return args, "grok", nil
+		fmt.Println("grokked", args, optargs)
+		return args, nil
 	},
 )
 

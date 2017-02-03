@@ -13,7 +13,8 @@ import (
 	"github.com/timtadh/dynagrok/cmd"
 )
 
-var Command = cmd.Cmd(
+func NewCommand(c *cmd.Config) cmd.Runnable {
+	return cmd.Cmd(
 	"instrument",
 	`[options] <pkg>`,
 	`
@@ -29,8 +30,9 @@ Option Flags
 		"work=",
 		"keep-work",
 	},
-	func(r cmd.Runnable, args []string, optargs []getopt.OptArg, xtra ...interface{}) ([]string, interface{}, *cmd.Error) {
-		c := xtra[0].(*cmd.Config)
+	func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
+		fmt.Println(c)
+		return nil, cmd.Errorf(1, "early exit")
 		output := ""
 		keepWork := false
 		work := ""
@@ -45,7 +47,7 @@ Option Flags
 			}
 		}
 		if len(args) != 1 {
-			return nil, nil, cmd.Usage(r, 5, "Expected one package name got %v", args)
+			return nil, cmd.Usage(r, 5, "Expected one package name got %v", args)
 		}
 		pkgName := args[0]
 		if output == "" {
@@ -54,16 +56,16 @@ Option Flags
 		fmt.Println("instrumenting", pkgName)
 		program, err := cmd.LoadPkg(c, pkgName)
 		if err != nil {
-			return nil, nil, cmd.Usage(r, 6, err.Error())
+			return nil, cmd.Usage(r, 6, err.Error())
 		}
 		err = Instrument(pkgName, program)
 		if err != nil {
-			return nil, nil, cmd.Errorf(7, err.Error())
+			return nil, cmd.Errorf(7, err.Error())
 		}
 		err = BuildBinary(c, keepWork, work, pkgName, output, program)
 		if err != nil {
-			return nil, nil, cmd.Errorf(8, err.Error())
+			return nil, cmd.Errorf(8, err.Error())
 		}
-		return nil, nil, nil
-	},
-)
+		return nil, nil
+	})
+}

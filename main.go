@@ -15,16 +15,20 @@ import (
 )
 
 func main() {
+	var config cmd.Config
+	main := NewMain(&config)
+	inst := instrument.NewCommand(&config)
 	cmd.Main(cmd.Concat(
-		Main,
+		main,
 		cmd.Commands(map[string]cmd.Runnable{
 			grok.Command.Name(): grok.Command,
-			instrument.Command.Name(): instrument.Command,
+			inst.Name(): inst,
 		}),
 	))
 }
 
-var Main = cmd.Cmd(os.Args[0],
+func NewMain(c *cmd.Config) cmd.Runnable {
+	return cmd.Cmd(os.Args[0],
 	`[options] <pkg>`,
 	`
 Option Flags
@@ -41,7 +45,7 @@ Option Flags
 		"go-path=",
 		"dynagrok-path=",
 	},
-	func(r cmd.Runnable, args []string, optargs []getopt.OptArg, _ ...interface{}) ([]string, interface{}, *cmd.Error) {
+	func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
 		GOROOT := os.Getenv("GOROOT")
 		GOPATH := os.Getenv("GOPATH")
 		DGPATH := os.Getenv("DGPATH")
@@ -61,15 +65,15 @@ Option Flags
 		if cpuProfile != "" {
 			cleanup, err := cmd.CPUProfile(cpuProfile)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 			defer cleanup()
 		}
-		c := &cmd.Config{
+		*c = cmd.Config{
 			GOROOT: GOROOT,
 			GOPATH: GOPATH,
 			DGPATH: DGPATH,
 		}
-		return args, c, nil
-	},
-)
+		return args, nil
+	})
+}
