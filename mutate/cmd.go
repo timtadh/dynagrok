@@ -27,6 +27,7 @@ Option Flags
     --keep-work                       Keep the work directory
     -m,--mutate-percent=<float>       Percentage of statements to mutate (defaults to .01)
     --instrument                      Also instrument the resulting program
+	--only-mutate-this-pkg            Don't mutate dependent packages, only the specified pkg
 `,
 	"o:w:m:",
 	[]string{
@@ -35,6 +36,7 @@ Option Flags
 		"keep-work",
 		"mutate=",
 		"instrument",
+		"only-mutate-this-pkg",
 	},
 	func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
 		output := ""
@@ -42,6 +44,7 @@ Option Flags
 		work := ""
 		mutate := .01
 		addInstrumentation := false
+		only := false
 		for _, oa := range optargs {
 			switch oa.Opt() {
 			case "-o", "--output":
@@ -63,6 +66,8 @@ Option Flags
 				mutate = f
 			case "--instrument":
 				addInstrumentation = true
+			case "--only-mutate-this-pkg":
+				only = true
 			}
 		}
 		if len(args) != 1 {
@@ -77,7 +82,7 @@ Option Flags
 		if err != nil {
 			return nil, cmd.Usage(r, 6, err.Error())
 		}
-		err = Mutate(mutate, pkgName, program)
+		err = Mutate(mutate, only, pkgName, program)
 		if err != nil {
 			return nil, cmd.Errorf(7, err.Error())
 		}

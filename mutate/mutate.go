@@ -42,6 +42,7 @@ type mutator struct {
 	program *loader.Program
 	ssa *ssa.Program
 	entry string
+	only bool
 }
 
 type counts struct {
@@ -66,7 +67,7 @@ func buildSSA(program *loader.Program) *ssa.Program {
 	return sp
 }
 
-func Mutate(mutate float64, entryPkgName string, program *loader.Program) (err error) {
+func Mutate(mutate float64, only bool, entryPkgName string, program *loader.Program) (err error) {
 	entry := program.Package(entryPkgName)
 	if entry == nil {
 		return errors.Errorf("The entry package was not found in the loaded program")
@@ -79,6 +80,7 @@ func Mutate(mutate float64, entryPkgName string, program *loader.Program) (err e
 		program: program,
 		ssa: buildSSA(program),
 		entry: entryPkgName,
+		only: only,
 	}
 	c, err := m.count()
 	if err != nil {
@@ -106,6 +108,10 @@ func (m *mutator) count() (c *counts, err error) {
 			continue
 		}
 		if excludes.ExcludedPkg(pkg.Pkg.Path()) {
+			continue
+		}
+		if m.only && pkg.Pkg.Path() != m.entry {
+			errors.Logf("DEBUG", "skipping %v", pkg.Pkg.Path())
 			continue
 		}
 		c.packages++
@@ -149,8 +155,7 @@ func (m *mutator) fnBodyCount(pkg *loader.PackageInfo, fnName string, fnBody *[]
 	return instrument.Blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
 		for j := 0; j < len(*blk); j++ {
 			switch (*blk)[j].(type) {
-			// case *ast.IfStmt, *ast.ForStmt:
-			case *ast.IfStmt:
+			case *ast.IfStmt, *ast.ForStmt:
 				c.branches++
 			}
 		}
@@ -164,6 +169,10 @@ func (m *mutator) mutate() (err error) {
 			continue
 		}
 		if excludes.ExcludedPkg(pkg.Pkg.Path()) {
+			continue
+		}
+		if m.only && pkg.Pkg.Path() != m.entry {
+			errors.Logf("DEBUG", "skipping %v", pkg.Pkg.Path())
 			continue
 		}
 		for _, fileAst := range pkg.Files {
@@ -205,7 +214,12 @@ func (m *mutator) fnBodyMutate(pkg *loader.PackageInfo, fnName string, fnBody *[
 		for j := 0; j < len(*blk); j++ {
 			pos := (*blk)[j].Pos()
 			switch stmt := (*blk)[j].(type) {
-			// case *ast.IfStmt, *ast.ForStmt:
+			case *ast.ForStmt:
+				p := m.program.Fset.Position(pos)
+				if rand.Float64() < m.mutateRate {
+					stmt.Cond = m.negate(stmt.Cond)
+					errors.Logf("DEBUG", "branch %T %v, neg %v", stmt, p, stmt.Cond)
+				}
 			case *ast.IfStmt:
 				p := m.program.Fset.Position(pos)
 				if rand.Float64() < m.mutateRate {
