@@ -8,7 +8,7 @@ import (
 import ()
 
 
-func functions(n ast.Node, do func(fn ast.Node, parent *ast.FuncDecl, count int) error) error {
+func Functions(n ast.Node, do func(fn ast.Node, parent *ast.FuncDecl, count int) error) error {
 	count := 0
 	v := &funcVisitor{
 		do: do,

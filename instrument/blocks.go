@@ -7,7 +7,7 @@ import (
 import (
 )
 
-func blocks(blk *[]ast.Stmt, id *int, do func(*[]ast.Stmt, int) error) error {
+func Blocks(blk *[]ast.Stmt, id *int, do func(*[]ast.Stmt, int) error) error {
 	var idspot int
 	if id == nil {
 		id = &idspot
@@ -62,7 +62,7 @@ func (v *blocksVisitor) Visit(n ast.Node) (ast.Visitor) {
 		return nil
 	}
 	if blk != nil {
-		err := blocks(blk, v.count, v.do)
+		err := Blocks(blk, v.count, v.do)
 		if err != nil {
 			v.err = err
 		}

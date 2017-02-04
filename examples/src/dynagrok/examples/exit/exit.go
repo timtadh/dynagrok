@@ -6,7 +6,9 @@ import (
 
 func main() {
 	println(fac(5))
-	os.Exit(5)
+	if true {
+		os.Exit(5)
+	}
 }
 
 func fac(x int) int {

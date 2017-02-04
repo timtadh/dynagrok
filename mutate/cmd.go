@@ -1,8 +1,9 @@
-package instrument
+package mutate
 
 import (
 	"path/filepath"
 	"fmt"
+	"strconv"
 )
 
 import (
@@ -11,11 +12,12 @@ import (
 
 import (
 	"github.com/timtadh/dynagrok/cmd"
+	"github.com/timtadh/dynagrok/instrument"
 )
 
 func NewCommand(c *cmd.Config) cmd.Runnable {
 	return cmd.Cmd(
-	"instrument",
+	"mutate",
 	`[options] <pkg>`,
 	`
 Option Flags
@@ -23,18 +25,23 @@ Option Flags
     -o,--output=<path>                Output file to create (defaults to pkg-name.instr)
     -w,--work=<path>                  Work directory to use (defaults to tempdir)
     --keep-work                       Keep the work directory
+    -m,--mutate-percent=<float>       Percentage of statements to mutate (defaults to .01)
+    --instrument                      Also instrument the resulting program
 `,
-	"o:w:",
+	"o:w:m:",
 	[]string{
 		"output=",
 		"work=",
 		"keep-work",
+		"mutate=",
+		"instrument",
 	},
 	func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
-		fmt.Println(c)
 		output := ""
 		keepWork := false
 		work := ""
+		mutate := .01
+		addInstrumentation := false
 		for _, oa := range optargs {
 			switch oa.Opt() {
 			case "-o", "--output":
@@ -43,6 +50,19 @@ Option Flags
 				work = oa.Arg()
 			case "-k", "--keep-work":
 				keepWork = true
+			case "-m", "--mutate":
+				f, err := strconv.ParseFloat(oa.Arg(), 64)
+				if err != nil {
+					return nil, cmd.Usage(r, 1, fmt.Sprintf(
+						"%v takes a float. %v", oa.Opt(), err.Error()))
+				}
+				if f <= 0 || f >= 1 {
+					return nil, cmd.Usage(r, 1, fmt.Sprintf(
+						"%v takes a float between 0 and 1, got: %v", oa.Opt(), f))
+				}
+				mutate = f
+			case "--instrument":
+				addInstrumentation = true
 			}
 		}
 		if len(args) != 1 {
@@ -52,18 +72,25 @@ Option Flags
 		if output == "" {
 			output = fmt.Sprintf("%v.instr", filepath.Base(pkgName))
 		}
-		fmt.Println("instrumenting", pkgName)
+		fmt.Println("mutating", pkgName)
 		program, err := cmd.LoadPkg(c, pkgName)
 		if err != nil {
 			return nil, cmd.Usage(r, 6, err.Error())
 		}
-		err = Instrument(pkgName, program)
+		err = Mutate(mutate, pkgName, program)
 		if err != nil {
 			return nil, cmd.Errorf(7, err.Error())
 		}
-		err = BuildBinary(c, keepWork, work, pkgName, output, program)
+		if addInstrumentation {
+			err = instrument.Instrument(pkgName, program)
+			if err != nil {
+				return nil, cmd.Errorf(8, err.Error())
+			}
+		}
+		// return nil, cmd.Errorf(1, "early exit for no build")
+		err = instrument.BuildBinary(c, keepWork, work, pkgName, output, program)
 		if err != nil {
-			return nil, cmd.Errorf(8, err.Error())
+			return nil, cmd.Errorf(9, err.Error())
 		}
 		return nil, nil
 	})

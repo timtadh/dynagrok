@@ -12,17 +12,20 @@ import (
 	"github.com/timtadh/dynagrok/cmd"
 	"github.com/timtadh/dynagrok/grok"
 	"github.com/timtadh/dynagrok/instrument"
+	"github.com/timtadh/dynagrok/mutate"
 )
 
 func main() {
 	var config cmd.Config
 	main := NewMain(&config)
 	inst := instrument.NewCommand(&config)
+	mut := mutate.NewCommand(&config)
 	cmd.Main(cmd.Concat(
 		main,
 		cmd.Commands(map[string]cmd.Runnable{
 			grok.Command.Name(): grok.Command,
 			inst.Name(): inst,
+			mut.Name(): mut,
 		}),
 	))
 }

@@ -5,7 +5,7 @@ import (
 )
 
 // statement walks a statement with the statementvisitor
-func statement(stmt ast.Stmt, do func(ast.Expr) error) error {
+func Statement(stmt ast.Stmt, do func(ast.Expr) error) error {
 	if _, ok := stmt.(*ast.ReturnStmt); ok {
 		return nil
 	}
