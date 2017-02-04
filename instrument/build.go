@@ -292,6 +292,21 @@ func (b *binaryBuilder) goBuild(stdlib bool) error {
 			return err
 		}
 	}
+	{
+		// ignore os.Remove errors because it is a best effort thing
+		os.Remove(filepath.Join(b.root, "pkg", "linux_amd64", "dgruntime.a"))
+		os.Remove(filepath.Join(b.root, "pkg", "linux_amd64", "dgruntime", "excludes.a"))
+		c := exec.Command(goBin, "install", "-v", "dgruntime")
+		c.Stdin = os.Stdin
+		c.Stdout = os.Stdout
+		c.Stderr = os.Stderr
+		c.Env = b.goEnv()
+		fmt.Fprintln(os.Stderr, strings.Join(c.Env, " "), c.Path, strings.Join(c.Args[1:], " "))
+		err := c.Run()
+		if err != nil {
+			return err
+		}
+	}
 	c := exec.Command(goBin, "build", "-o", b.output, b.entry)
 	c.Env = b.goEnv()
 	fmt.Fprintln(os.Stderr, c.Path, strings.Join(c.Args[1:], " "))

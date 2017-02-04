@@ -1,10 +1,24 @@
 package dgruntime
 
 import (
+	"os"
+	"syscall"
+	"os/signal"
 	"fmt"
 	"runtime"
 	"unsafe"
 )
+
+func init() {
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		sig:=<-sigs
+		fmt.Println("dynagrok got a sig", sig)
+		Shutdown()
+		panic(fmt.Errorf("dynagrok caught signal: %v", sig))
+	}()
+}
 
 func Shutdown() {
 	fmt.Println(runtime.Wacky())
