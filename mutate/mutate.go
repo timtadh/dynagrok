@@ -144,11 +144,15 @@ func (m *mutator) count() (c *counts, err error) {
 func (m *mutator) fnBodyCount(pkg *loader.PackageInfo, fnName string, fnBody *[]ast.Stmt, c *counts) error {
 	return instrument.Blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
 		for j := 0; j < len(*blk); j++ {
-			switch (*blk)[j].(type) {
+			switch stmt := (*blk)[j].(type) {
 			case *ast.ForStmt:
-				c.branches++
+				if stmt.Cond != nil {
+					c.branches++
+				}
 			case *ast.IfStmt:
-				c.branches++
+				if stmt.Cond != nil {
+					c.branches++
+				}
 			}
 			err := instrument.Exprs((*blk)[j], func(e ast.Expr) error {
 				switch expr := e.(type) {
@@ -204,13 +208,13 @@ func (m *mutator) fnBodyMutate(pkg *loader.PackageInfo, fnName string, fnBody *[
 			p := m.program.Fset.Position((*blk)[j].Pos())
 			switch stmt := (*blk)[j].(type) {
 			case *ast.ForStmt:
-				if rand.Float64() < m.mutateRate {
+				if stmt.Cond != nil && rand.Float64() < m.mutateRate {
 					c := m.negate(stmt.Cond)
 					errors.Logf("DEBUG", "\n\t\tmutating %T %v -> %v @ %v", stmt, m.stringNode(stmt.Cond), m.stringNode(c), p)
 					stmt.Cond = c
 				}
 			case *ast.IfStmt:
-				if rand.Float64() < m.mutateRate {
+				if stmt.Cond != nil && rand.Float64() < m.mutateRate {
 					c := m.negate(stmt.Cond)
 					errors.Logf("DEBUG", "\n\t\tmutating %T %v -> %v @ %v", stmt, m.stringNode(stmt.Cond), m.stringNode(c), p)
 					stmt.Cond = c
@@ -278,6 +282,7 @@ func (m *mutator) negate(cond ast.Expr) (ast.Expr) {
 	return &ast.UnaryExpr{
 		Op: token.NOT,
 		X: cond,
+		OpPos: cond.Pos(),
 	}
 }
 
@@ -290,6 +295,7 @@ func (m *mutator) plusOne(numeric ast.Expr, typeTok token.Token) (ast.Expr) {
 			Value: "1",
 		},
 		Op: token.ADD,
+		OpPos: numeric.Pos(),
 	}
 }
 
