@@ -13,8 +13,6 @@ import (
 	"github.com/timtadh/data-structures/errors"
 	"golang.org/x/tools/go/ast/astutil"
 	"golang.org/x/tools/go/loader"
-	"golang.org/x/tools/go/ssa"
-	"golang.org/x/tools/go/ssa/ssautil"
 )
 
 import (
@@ -23,14 +21,7 @@ import (
 
 type instrumenter struct {
 	program *loader.Program
-	ssa *ssa.Program
 	entry string
-}
-
-func buildSSA(program *loader.Program) *ssa.Program {
-	sp := ssautil.CreateProgram(program, ssa.GlobalDebug)
-	sp.Build()
-	return sp
 }
 
 func Instrument(entryPkgName string, program *loader.Program) (err error) {
@@ -43,7 +34,6 @@ func Instrument(entryPkgName string, program *loader.Program) (err error) {
 	}
 	i := &instrumenter{
 		program: program,
-		ssa: buildSSA(program),
 		entry: entryPkgName,
 	}
 	return i.instrument()
@@ -126,7 +116,7 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.
 				pos = (*blk)[j].Pos()
 				switch stmt := (*blk)[j].(type) {
 				default:
-					err := Statement(stmt, func(expr ast.Expr) error {
+					err := Exprs(stmt, func(expr ast.Expr) error {
 						switch e := expr.(type) {
 						case *ast.SelectorExpr:
 							if ident, ok := e.X.(*ast.Ident); ok {

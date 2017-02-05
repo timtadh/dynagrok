@@ -6,12 +6,9 @@ import (
 
 import ()
 
-// statement walks a statement with the statementvisitor
-func Statement(stmt ast.Stmt, do func(ast.Expr) error) error {
-	if _, ok := stmt.(*ast.ReturnStmt); ok {
-		return nil
-	}
-	v := &stmtVisitor{
+// Find all the exprs in the statement
+func Exprs(stmt ast.Stmt, do func(ast.Expr) error) error {
+	v := &exprVisitor{
 		do: do,
 	}
 	ast.Walk(v, stmt)
@@ -23,14 +20,14 @@ func Statement(stmt ast.Stmt, do func(ast.Expr) error) error {
 
 // A stmtVisitor visits ast.Nodes which are statements or expressions.
 // it executes its "do" function on certain of them
-type stmtVisitor struct {
+type exprVisitor struct {
 	err error
 	do  func(ast.Expr) error
 }
 
 // Visit executes the visitor's function onto selector statements
 // and returns otherwise
-func (v *stmtVisitor) Visit(n ast.Node) ast.Visitor {
+func (v *exprVisitor) Visit(n ast.Node) ast.Visitor {
 	switch expr := n.(type) {
 	case *ast.IfStmt, *ast.ForStmt, *ast.SelectStmt, *ast.SwitchStmt, *ast.TypeSwitchStmt, *ast.RangeStmt, *ast.FuncLit:
 		return nil

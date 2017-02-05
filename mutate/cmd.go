@@ -59,7 +59,7 @@ Option Flags
 					return nil, cmd.Usage(r, 1, fmt.Sprintf(
 						"%v takes a float. %v", oa.Opt(), err.Error()))
 				}
-				if f <= 0 || f >= 1 {
+				if f <= 0 || f > 1 {
 					return nil, cmd.Usage(r, 1, fmt.Sprintf(
 						"%v takes a float between 0 and 1, got: %v", oa.Opt(), f))
 				}

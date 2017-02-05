@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
+	"go/types"
 	"runtime"
 	"math/rand"
+	"go/printer"
+	"bytes"
 	"os"
 	"encoding/binary"
 )
@@ -13,8 +16,6 @@ import (
 import (
 	"github.com/timtadh/data-structures/errors"
 	"golang.org/x/tools/go/loader"
-	"golang.org/x/tools/go/ssa"
-	"golang.org/x/tools/go/ssa/ssautil"
 )
 
 import (
@@ -39,7 +40,6 @@ func init() {
 type mutator struct {
 	mutateRate float64
 	program *loader.Program
-	ssa *ssa.Program
 	entry string
 	only bool
 }
@@ -49,6 +49,7 @@ type counts struct {
 	functions int
 	files int
 	branches int
+	exprs int
 }
 
 func (c *counts) String() string {
@@ -58,12 +59,6 @@ func (c *counts) String() string {
 	files: %v,
 	branches: %v,
 }`, c.packages, c.functions, c.files, c.branches)
-}
-
-func buildSSA(program *loader.Program) *ssa.Program {
-	sp := ssautil.CreateProgram(program, ssa.GlobalDebug)
-	sp.Build()
-	return sp
 }
 
 func Mutate(mutate float64, only bool, entryPkgName string, program *loader.Program) (err error) {
@@ -77,7 +72,6 @@ func Mutate(mutate float64, only bool, entryPkgName string, program *loader.Prog
 	m := &mutator{
 		mutateRate: mutate,
 		program: program,
-		ssa: buildSSA(program),
 		entry: entryPkgName,
 		only: only,
 	}
@@ -85,18 +79,18 @@ func Mutate(mutate float64, only bool, entryPkgName string, program *loader.Prog
 	if err != nil {
 		return err
 	}
-	if c.branches <= 0 {
+	if (c.exprs + c.branches) <= 0 {
 		errors.Logf("ERROR", "%v", c)
-		return errors.Errorf("Can't mutate this program, there are no branches")
+		return errors.Errorf("Can't mutate this program, there are no mutation points")
 	}
-	for int(float64(c.branches) * m.mutateRate) <= 0 {
+	for int(float64(c.exprs + c.branches) * m.mutateRate) <= 0 {
 		m.mutateRate *= 1.01
 		if m.mutateRate > 1 {
 			m.mutateRate = 1
 			break
 		}
 	}
-	errors.Logf("INFO", "mutating %v branches", float64(c.branches)*m.mutateRate)
+	errors.Logf("INFO", "mutating %v points", float64(c.exprs + c.branches)*m.mutateRate)
 	return m.mutate()
 }
 
@@ -129,12 +123,12 @@ func (m *mutator) count() (c *counts, err error) {
 					if x.Body == nil {
 						return nil
 					}
-					return m.fnBodyCount(&x.Body.List, c)
+					return m.fnBodyCount(pkg, fnName, &x.Body.List, c)
 				case *ast.FuncLit:
 					if x.Body == nil {
 						return nil
 					}
-					return m.fnBodyCount(&x.Body.List, c)
+					return m.fnBodyCount(pkg, fnName, &x.Body.List, c)
 				default:
 					return errors.Errorf("unexpected type %T", x)
 				}
@@ -147,12 +141,27 @@ func (m *mutator) count() (c *counts, err error) {
 	return c, nil
 }
 
-func (m *mutator) fnBodyCount(fnBody *[]ast.Stmt, c *counts) error {
+func (m *mutator) fnBodyCount(pkg *loader.PackageInfo, fnName string, fnBody *[]ast.Stmt, c *counts) error {
 	return instrument.Blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
 		for j := 0; j < len(*blk); j++ {
 			switch (*blk)[j].(type) {
-			case *ast.IfStmt, *ast.ForStmt:
+			case *ast.ForStmt:
 				c.branches++
+			case *ast.IfStmt:
+				c.branches++
+			}
+			err := instrument.Exprs((*blk)[j], func(e ast.Expr) error {
+				switch expr := e.(type) {
+				case *ast.BinaryExpr:
+					m.exprCount(pkg, expr.X, c)
+					m.exprCount(pkg, expr.Y, c)
+				case *ast.UnaryExpr:
+					m.exprCount(pkg, expr.X, c)
+				}
+				return nil
+			})
+			if err != nil {
+				return err
 			}
 		}
 		return nil
@@ -192,19 +201,36 @@ func (m *mutator) mutate() (err error) {
 func (m *mutator) fnBodyMutate(pkg *loader.PackageInfo, fnName string, fnBody *[]ast.Stmt) error {
 	return instrument.Blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
 		for j := 0; j < len(*blk); j++ {
-			pos := (*blk)[j].Pos()
+			p := m.program.Fset.Position((*blk)[j].Pos())
 			switch stmt := (*blk)[j].(type) {
 			case *ast.ForStmt:
-				p := m.program.Fset.Position(pos)
 				if rand.Float64() < m.mutateRate {
-					stmt.Cond = m.negate(stmt.Cond)
-					errors.Logf("DEBUG", "branch %T %v, neg %v", stmt, p, stmt.Cond)
+					c := m.negate(stmt.Cond)
+					errors.Logf("DEBUG", "\n\t\tmutating %T %v -> %v @ %v", stmt, m.stringNode(stmt.Cond), m.stringNode(c), p)
+					stmt.Cond = c
 				}
 			case *ast.IfStmt:
-				p := m.program.Fset.Position(pos)
 				if rand.Float64() < m.mutateRate {
-					stmt.Cond = m.negate(stmt.Cond)
-					errors.Logf("DEBUG", "branch %T %v, neg %v", stmt, p, stmt.Cond)
+					c := m.negate(stmt.Cond)
+					errors.Logf("DEBUG", "\n\t\tmutating %T %v -> %v @ %v", stmt, m.stringNode(stmt.Cond), m.stringNode(c), p)
+					stmt.Cond = c
+				}
+			}
+			exprs := make([]ast.Expr, 0, 10)
+			err := instrument.Exprs((*blk)[j], func(e ast.Expr) error {
+				exprs = append(exprs, e)
+				return nil
+			})
+			if err != nil {
+				return err
+			}
+			for _, e := range exprs {
+				switch expr := e.(type) {
+				case *ast.BinaryExpr:
+					expr.X = m.exprMutate(pkg, expr.X)
+					expr.Y = m.exprMutate(pkg, expr.Y)
+				case *ast.UnaryExpr:
+					expr.X = m.exprMutate(pkg, expr.X)
 				}
 			}
 		}
@@ -212,9 +238,63 @@ func (m *mutator) fnBodyMutate(pkg *loader.PackageInfo, fnName string, fnBody *[
 	})
 }
 
+func (m *mutator) exprCount(pkg *loader.PackageInfo, expr ast.Expr, c *counts) {
+	exprType := pkg.Info.TypeOf(expr)
+	switch eT := exprType.(type) {
+	case *types.Basic:
+		i := eT.Info()
+		if (i & types.IsInteger) != 0 {
+			c.exprs++
+		} else if (i & types.IsFloat) != 0 {
+			c.exprs++
+		}
+	}
+}
+
+func (m *mutator) exprMutate(pkg *loader.PackageInfo, expr ast.Expr) ast.Expr {
+	p := m.program.Fset.Position(expr.Pos())
+	exprType := pkg.Info.TypeOf(expr)
+	switch eT := exprType.(type) {
+	case *types.Basic:
+		i := eT.Info()
+		if (i & types.IsInteger) != 0 {
+			if rand.Float64() < m.mutateRate {
+				out := m.plusOne(expr, token.INT)
+				errors.Logf("DEBUG", "\n\t\tmutating %v -> %v @ %v", m.stringNode(expr), m.stringNode(out), p)
+				return out
+			}
+		} else if (i & types.IsFloat) != 0 {
+			if rand.Float64() < m.mutateRate {
+				out := m.plusOne(expr, token.FLOAT)
+				errors.Logf("DEBUG", "\n\t\tmutating %v -> %v @ %v", m.stringNode(expr), m.stringNode(out), p)
+				return out
+			}
+		}
+	}
+	return expr
+}
+
 func (m *mutator) negate(cond ast.Expr) (ast.Expr) {
 	return &ast.UnaryExpr{
 		Op: token.NOT,
 		X: cond,
 	}
+}
+
+func (m *mutator) plusOne(numeric ast.Expr, typeTok token.Token) (ast.Expr) {
+	return &ast.BinaryExpr{
+		X: numeric,
+		Y: &ast.BasicLit{
+			ValuePos: numeric.Pos(),
+			Kind: typeTok,
+			Value: "1",
+		},
+		Op: token.ADD,
+	}
+}
+
+func (m *mutator) stringNode(n ast.Node) string {
+	var buf bytes.Buffer
+	printer.Fprint(&buf, m.program.Fset, n)
+	return buf.String()
 }
