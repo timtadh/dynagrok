@@ -3,7 +3,6 @@ package mutate
 import (
 	"fmt"
 	"go/ast"
-	"go/types"
 	"go/token"
 	"runtime"
 	"math/rand"
@@ -101,44 +100,41 @@ func Mutate(mutate float64, only bool, entryPkgName string, program *loader.Prog
 	return m.mutate()
 }
 
+func (m *mutator) pkgAllowed(pkg *loader.PackageInfo) bool {
+	if len(pkg.BuildPackage.CgoFiles) > 0 {
+		return false
+	}
+	if excludes.ExcludedPkg(pkg.Pkg.Path()) {
+		return false
+	}
+	if m.only && pkg.Pkg.Path() != m.entry {
+		return false
+	}
+	return true
+}
+
 func (m *mutator) count() (c *counts, err error) {
 	c = &counts{}
 	for _, pkg := range m.program.AllPackages {
-		if len(pkg.BuildPackage.CgoFiles) > 0 {
-			continue
-		}
-		if excludes.ExcludedPkg(pkg.Pkg.Path()) {
-			continue
-		}
-		if m.only && pkg.Pkg.Path() != m.entry {
-			errors.Logf("DEBUG", "skipping %v", pkg.Pkg.Path())
+		if !m.pkgAllowed(pkg) {
 			continue
 		}
 		c.packages++
 		for _, fileAst := range pkg.Files {
 			c.files++
-			err = instrument.Functions(fileAst, func(fn ast.Node, parent *ast.FuncDecl, count int) error {
+			err = instrument.Functions(pkg, fileAst, func(fn ast.Node, fnName string) error {
 				c.functions++
 				switch x := fn.(type) {
 				case *ast.FuncDecl:
 					if x.Body == nil {
 						return nil
 					}
-					fnName := instrument.FuncName(pkg.Pkg, pkg.Info.TypeOf(x.Name).(*types.Signature), x)
-					return m.fnBodyCount(pkg, fnName, &x.Body.List, c)
+					return m.fnBodyCount(&x.Body.List, c)
 				case *ast.FuncLit:
 					if x.Body == nil {
 						return nil
 					}
-					parentName := pkg.Pkg.Path()
-					if parent != nil {
-						parentType := pkg.Info.TypeOf(parent.Name)
-						if parentType != nil {
-							parentName = instrument.FuncName(pkg.Pkg, parentType.(*types.Signature), parent)
-						}
-					}
-					fnName := fmt.Sprintf("%v$%d", parentName, count)
-					return m.fnBodyCount(pkg, fnName, &x.Body.List, c)
+					return m.fnBodyCount(&x.Body.List, c)
 				default:
 					return errors.Errorf("unexpected type %T", x)
 				}
@@ -151,7 +147,7 @@ func (m *mutator) count() (c *counts, err error) {
 	return c, nil
 }
 
-func (m *mutator) fnBodyCount(pkg *loader.PackageInfo, fnName string, fnBody *[]ast.Stmt, c *counts) error {
+func (m *mutator) fnBodyCount(fnBody *[]ast.Stmt, c *counts) error {
 	return instrument.Blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
 		for j := 0; j < len(*blk); j++ {
 			switch (*blk)[j].(type) {
@@ -165,37 +161,21 @@ func (m *mutator) fnBodyCount(pkg *loader.PackageInfo, fnName string, fnBody *[]
 
 func (m *mutator) mutate() (err error) {
 	for _, pkg := range m.program.AllPackages {
-		if len(pkg.BuildPackage.CgoFiles) > 0 {
-			continue
-		}
-		if excludes.ExcludedPkg(pkg.Pkg.Path()) {
-			continue
-		}
-		if m.only && pkg.Pkg.Path() != m.entry {
-			errors.Logf("DEBUG", "skipping %v", pkg.Pkg.Path())
+		if !m.pkgAllowed(pkg) {
 			continue
 		}
 		for _, fileAst := range pkg.Files {
-			err = instrument.Functions(fileAst, func(fn ast.Node, parent *ast.FuncDecl, count int) error {
+			err = instrument.Functions(pkg, fileAst, func(fn ast.Node, fnName string) error {
 				switch x := fn.(type) {
 				case *ast.FuncDecl:
 					if x.Body == nil {
 						return nil
 					}
-					fnName := instrument.FuncName(pkg.Pkg, pkg.Info.TypeOf(x.Name).(*types.Signature), x)
 					return m.fnBodyMutate(pkg, fnName, &x.Body.List)
 				case *ast.FuncLit:
 					if x.Body == nil {
 						return nil
 					}
-					parentName := pkg.Pkg.Path()
-					if parent != nil {
-						parentType := pkg.Info.TypeOf(parent.Name)
-						if parentType != nil {
-							parentName = instrument.FuncName(pkg.Pkg, parentType.(*types.Signature), parent)
-						}
-					}
-					fnName := fmt.Sprintf("%v$%d", parentName)
 					return m.fnBodyMutate(pkg, fnName, &x.Body.List)
 				default:
 					return errors.Errorf("unexpected type %T", x)

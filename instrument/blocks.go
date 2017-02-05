@@ -1,11 +1,22 @@
 package instrument
 
 import (
+	"fmt"
+	"strings"
 	"go/ast"
 )
 
-import (
-)
+import ()
+
+type block []ast.Stmt
+
+func (blk *block) String() string {
+	parts := make([]string, 0, len(*blk))
+	for _, item := range *blk {
+		parts = append(parts, fmt.Sprintf("%T 0x%x", item, ptr(item)))
+	}
+	return fmt.Sprintf("[%v]", strings.Join(parts, ", "))
+}
 
 func Blocks(blk *[]ast.Stmt, id *int, do func(*[]ast.Stmt, int) error) error {
 	var idspot int
@@ -15,7 +26,10 @@ func Blocks(blk *[]ast.Stmt, id *int, do func(*[]ast.Stmt, int) error) error {
 	cId := *id
 	(*id)++
 	for _, stmt := range *blk {
-		v := &blocksVisitor{do:do, count: id}
+		v := &blocksVisitor{
+			do:do,
+			count: id,
+		}
 		ast.Walk(v, stmt)
 		if v.err != nil {
 			return v.err

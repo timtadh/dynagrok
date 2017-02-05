@@ -60,27 +60,18 @@ func (i *instrumenter) instrument() (err error) {
 		}
 		for _, fileAst := range pkg.Files {
 			hadFunc := false
-			err = Functions(fileAst, func(fn ast.Node, parent *ast.FuncDecl, count int) error {
+			err = Functions(pkg, fileAst, func(fn ast.Node, fnName string) error {
 				hadFunc = true
 				switch x := fn.(type) {
 				case *ast.FuncDecl:
 					if x.Body == nil {
 						return nil
 					}
-					fnName := FuncName(pkg.Pkg, pkg.Info.TypeOf(x.Name).(*types.Signature), x)
 					return i.fnBody(pkg, fnName, fn, &x.Body.List)
 				case *ast.FuncLit:
 					if x.Body == nil {
 						return nil
 					}
-					parentName := pkg.Pkg.Path()
-					if parent != nil {
-						parentType := pkg.Info.TypeOf(parent.Name)
-						if parentType != nil {
-							parentName = FuncName(pkg.Pkg, parentType.(*types.Signature), parent)
-						}
-					}
-					fnName := fmt.Sprintf("%v$%d", parentName, count)
 					return i.fnBody(pkg, fnName, fn, &x.Body.List)
 				default:
 					return errors.Errorf("unexpected type %T", x)

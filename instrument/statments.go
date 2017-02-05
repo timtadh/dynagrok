@@ -4,12 +4,16 @@ import (
 	"go/ast"
 )
 
+import ()
+
 // statement walks a statement with the statementvisitor
 func Statement(stmt ast.Stmt, do func(ast.Expr) error) error {
 	if _, ok := stmt.(*ast.ReturnStmt); ok {
 		return nil
 	}
-	v := &stmtVisitor{do: do}
+	v := &stmtVisitor{
+		do: do,
+	}
 	ast.Walk(v, stmt)
 	if v.err != nil {
 		return v.err
@@ -28,11 +32,11 @@ type stmtVisitor struct {
 // and returns otherwise
 func (v *stmtVisitor) Visit(n ast.Node) ast.Visitor {
 	switch expr := n.(type) {
-	case *ast.SelectorExpr:
+	case *ast.IfStmt, *ast.ForStmt, *ast.SelectStmt, *ast.SwitchStmt, *ast.TypeSwitchStmt, *ast.RangeStmt, *ast.FuncLit:
+		return nil
+	case ast.Expr:
 		v.do(expr)
 		return v
-	case *ast.ForStmt, *ast.SwitchStmt, *ast.FuncLit:
-		return nil
 	}
 	return v
 }
