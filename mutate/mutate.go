@@ -154,6 +154,17 @@ func (m *mutator) fnBodyCollect(pkg *loader.PackageInfo, fnName string, fnBody *
 					muts = m.exprCollect(muts, pkg, &expr.Y)
 				case *ast.UnaryExpr:
 					muts = m.exprCollect(muts, pkg, &expr.X)
+				case *ast.ParenExpr:
+					muts = m.exprCollect(muts, pkg, &expr.X)
+				case *ast.CallExpr:
+					for idx := range expr.Args {
+						muts = m.exprCollect(muts, pkg, &expr.Args[idx])
+					}
+				case *ast.IndexExpr:
+					muts = m.exprCollect(muts, pkg, &expr.Index)
+				case *ast.KeyValueExpr:
+					muts = m.exprCollect(muts, pkg, &expr.Key)
+					muts = m.exprCollect(muts, pkg, &expr.Value)
 				}
 			}
 		}
