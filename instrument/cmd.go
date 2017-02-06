@@ -61,7 +61,7 @@ Option Flags
 		if err != nil {
 			return nil, cmd.Errorf(7, err.Error())
 		}
-		err = BuildBinary(c, keepWork, work, pkgName, output, program)
+		_, err = BuildBinary(c, keepWork, work, pkgName, output, program)
 		if err != nil {
 			return nil, cmd.Errorf(8, err.Error())
 		}

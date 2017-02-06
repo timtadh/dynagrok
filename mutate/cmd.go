@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"os"
 )
 
 import (
@@ -86,7 +87,7 @@ Option Flags
 		if err != nil {
 			return nil, cmd.Usage(r, 6, err.Error())
 		}
-		err = Mutate(mutate, only, pkgName, program)
+		mutations, err := Mutate(mutate, only, pkgName, program)
 		if err != nil {
 			return nil, cmd.Errorf(7, err.Error())
 		}
@@ -97,9 +98,19 @@ Option Flags
 			}
 		}
 		// return nil, cmd.Errorf(1, "early exit for no build")
-		err = instrument.BuildBinary(c, keepWork, work, pkgName, output, program)
+		work, err = instrument.BuildBinary(c, keepWork, work, pkgName, output, program)
 		if err != nil {
 			return nil, cmd.Errorf(9, err.Error())
+		}
+		if keepWork {
+			f, err := os.Create(filepath.Join(work, "mutations"))
+			if err != nil {
+				return nil, nil
+			}
+			defer f.Close()
+			for _, m := range mutations {
+				fmt.Fprintln(f, m)
+			}
 		}
 		return nil, nil
 	})

@@ -1,3 +1,4 @@
 *
 !.gitignore
 !instrument-compile
+!mutate-compile

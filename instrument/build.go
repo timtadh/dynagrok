@@ -40,11 +40,11 @@ type binaryBuilder struct {
 }
 
 
-func BuildBinary(c *cmd.Config, keepWork bool, work, entryPkgName, output string, program *loader.Program) (err error) {
+func BuildBinary(c *cmd.Config, keepWork bool, work, entryPkgName, output string, program *loader.Program) (_ string, err error) {
 	if work == "" {
 		work, err = ioutil.TempDir("", fmt.Sprintf("dynagrok-build-%v-", filepath.Base(entryPkgName)))
 		if err != nil {
-			return err
+			return "", err
 		}
 	}
 	if !keepWork {
@@ -61,7 +61,7 @@ func BuildBinary(c *cmd.Config, keepWork bool, work, entryPkgName, output string
 		path: filepath.Join(work, "gopath"),
 		output: output,
 	}
-	return b.Build()
+	return work, b.Build()
 }
 
 
@@ -151,10 +151,10 @@ func (b *binaryBuilder) Build() error {
 		if stdlib {
 			anyStdlib = true
 		}
-		errors.Logf("DEBUG", "%v -> %v", pkgInfo, root)
+		// errors.Logf("DEBUG", "%v -> %v", pkgInfo, root)
 		for _, f := range pkgInfo.Files {
 			to := filepath.Join(root, basePaths.TrimPrefix(b.program.Fset.File(f.Pos()).Name()))
-			errors.Logf("DEBUG", "%v -> %v", b.program.Fset.File(f.Pos()).Name(), to)
+			// errors.Logf("DEBUG", "%v -> %v", b.program.Fset.File(f.Pos()).Name(), to)
 			fout, err := os.Create(to)
 			if err != nil {
 				return err
@@ -309,7 +309,7 @@ func (b *binaryBuilder) goBuild(stdlib bool) error {
 	}
 	c := exec.Command(goBin, "build", "-o", b.output, b.entry)
 	c.Env = b.goEnv()
-	fmt.Fprintln(os.Stderr, c.Path, strings.Join(c.Args[1:], " "))
+	fmt.Fprintln(os.Stderr, strings.Join(c.Env, " "), c.Path, strings.Join(c.Args[1:], " "))
 	output, err := c.CombinedOutput()
 	fmt.Fprintln(os.Stderr, string(output))
 	return err

@@ -1,12 +1,10 @@
-package instrument
+package mutate
 
 import (
 	"go/ast"
 )
 
-import ()
-
-// Find all the exprs in the statement
+// Find mutable the exprs in the statement
 func Exprs(stmt ast.Stmt, do func(ast.Expr) error) error {
 	v := &exprVisitor{
 		do: do,
@@ -30,6 +28,9 @@ type exprVisitor struct {
 func (v *exprVisitor) Visit(n ast.Node) ast.Visitor {
 	switch expr := n.(type) {
 	case *ast.IfStmt, *ast.ForStmt, *ast.SelectStmt, *ast.SwitchStmt, *ast.TypeSwitchStmt, *ast.RangeStmt, *ast.FuncLit:
+		return nil
+	case *ast.IndexExpr:
+		// cannot mutate into index expressions
 		return nil
 	case ast.Expr:
 		v.do(expr)

@@ -1,6 +1,7 @@
 package mutate
 
 import (
+	"fmt"
 	"go/ast"
 	"go/token"
 	"go/types"
@@ -40,13 +41,13 @@ type mutator struct {
 	only map[string]bool
 }
 
-func Mutate(mutate float64, only map[string]bool, entryPkgName string, program *loader.Program) (err error) {
+func Mutate(mutate float64, only map[string]bool, entryPkgName string, program *loader.Program) (mutants []string, err error) {
 	entry := program.Package(entryPkgName)
 	if entry == nil {
-		return errors.Errorf("The entry package was not found in the loaded program")
+		return nil, errors.Errorf("The entry package was not found in the loaded program")
 	}
 	if entry.Pkg.Name() != "main" {
-		return errors.Errorf("The entry package was not main")
+		return nil, errors.Errorf("The entry package was not main")
 	}
 	m := &mutator{
 		program: program,
@@ -55,10 +56,10 @@ func Mutate(mutate float64, only map[string]bool, entryPkgName string, program *
 	}
 	muts, err := m.collect()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if len(muts) <= 0 {
-		return errors.Errorf("Can't mutate this program, there are no mutation points")
+		return nil, errors.Errorf("Can't mutate this program, there are no mutation points")
 	}
 	for int(float64(len(muts)) * mutate) <= 0 {
 		mutate *= 1.01
@@ -69,8 +70,11 @@ func Mutate(mutate float64, only map[string]bool, entryPkgName string, program *
 	}
 	mutations := muts.Sample(int(float64(len(muts))*mutate))
 	errors.Logf("INFO", "mutating %v points out of %v potential points", len(mutations), len(muts))
+	for _, m := range mutations {
+		mutants = append(mutants, fmt.Sprintf("%v", m))
+	}
 	mutations.Mutate()
-	return nil
+	return mutants, nil
 }
 
 func (m *mutator) pkgAllowed(pkg *loader.PackageInfo) bool {
@@ -150,7 +154,7 @@ func (m *mutator) fnBodyCollect(pkg *loader.PackageInfo, fnName string, fnBody *
 				}
 			}
 			exprs := make([]ast.Expr, 0, 10)
-			err := instrument.Exprs((*blk)[j], func(e ast.Expr) error {
+			err := Exprs((*blk)[j], func(e ast.Expr) error {
 				exprs = append(exprs, e)
 				return nil
 			})
@@ -163,7 +167,11 @@ func (m *mutator) fnBodyCollect(pkg *loader.PackageInfo, fnName string, fnBody *
 					muts = m.exprCollect(muts, pkg, &expr.X)
 					muts = m.exprCollect(muts, pkg, &expr.Y)
 				case *ast.UnaryExpr:
-					muts = m.exprCollect(muts, pkg, &expr.X)
+					// cannot mutate things which are having their addresses
+					// taken
+					if expr.Op != token.AND {
+						muts = m.exprCollect(muts, pkg, &expr.X)
+					}
 				case *ast.ParenExpr:
 					muts = m.exprCollect(muts, pkg, &expr.X)
 				case *ast.CallExpr:
@@ -171,9 +179,9 @@ func (m *mutator) fnBodyCollect(pkg *loader.PackageInfo, fnName string, fnBody *
 						muts = m.exprCollect(muts, pkg, &expr.Args[idx])
 					}
 				case *ast.IndexExpr:
-					muts = m.exprCollect(muts, pkg, &expr.Index)
+					// Cannot mutate the index clause in the case of a fixed
+					// size array with out extra checking.
 				case *ast.KeyValueExpr:
-					muts = m.exprCollect(muts, pkg, &expr.Key)
 					muts = m.exprCollect(muts, pkg, &expr.Value)
 				}
 			}
