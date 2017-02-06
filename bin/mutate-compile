@@ -99,7 +99,7 @@ else
 fi
 
 
-if ! $TARGET/goroot/bin/go build $dgpath/examples/example.go; then
+if ! $TARGET/goroot/pkg/tool/linux_amd64/compile -o /dev/null $dgpath/examples/example.go; then
 	echo "mutated compiler could not compile hello world"
 	touch $TARGET/bad
 else
