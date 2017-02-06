@@ -2,6 +2,7 @@ package mutate
 
 import (
 	"fmt"
+	"strings"
 	"go/ast"
 	"go/token"
 	"go/types"
@@ -62,14 +63,30 @@ func (muts Mutations) Filter(types map[string]bool) Mutations {
 	return valid
 }
 
-func (muts Mutations) Mutate(amt int) {
+func (muts Mutations) Sample(amt int) Mutations {
 	if len(muts) < amt {
 		panic(fmt.Errorf("Not enough mutation points, need %v have %v", amt, len(muts)))
 	}
+	s := make(Mutations, 0, amt)
 	for _, i := range sample(amt, len(muts)) {
-		errors.Logf("INFO", "mutating:\n\t\t%v", muts[i])
-		muts[i].Mutate()
+		s = append(s, muts[i])
 	}
+	return s
+}
+
+func (muts Mutations) Mutate() {
+	for _, m := range muts {
+		errors.Logf("INFO", "mutating:\n\t\t%v", m)
+		m.Mutate()
+	}
+}
+
+func (muts Mutations) String() string {
+	parts := make([]string, 0, len(muts))
+	for _, m := range muts {
+		parts = append(parts, fmt.Sprintf("(%v)", m))
+	}
+	return fmt.Sprintf("[%v]", strings.Join(parts, ", "))
 }
 
 func sample(size, populationSize int) (sample []int) {
@@ -111,7 +128,7 @@ func (m *BranchMutation) Type() string {
 }
 
 func (m *BranchMutation) String() string {
-	return fmt.Sprintf("%v -> %v @ %v", m.mutator.stringNode(*m.cond), m.mutator.stringNode(m.negate()), m.p)
+	return fmt.Sprintf("%v ---> %v @ %v", m.mutator.stringNode(*m.cond), m.mutator.stringNode(m.negate()), m.p)
 }
 
 func (m *BranchMutation) Mutate() {
@@ -138,7 +155,7 @@ func (m *IncrementMutation) Type() string {
 }
 
 func (m *IncrementMutation) String() string {
-	return fmt.Sprintf("%v -> %v @ %v", m.mutator.stringNode(*m.expr), m.mutator.stringNode(m.increment()), m.p)
+	return fmt.Sprintf("%v ---> %v @ %v", m.mutator.stringNode(*m.expr), m.mutator.stringNode(m.increment()), m.p)
 }
 
 func (m *IncrementMutation) Mutate() {
@@ -185,9 +202,10 @@ func Mutate(mutate float64, only bool, entryPkgName string, program *loader.Prog
 			break
 		}
 	}
-	mutations := int(float64(len(muts))*mutate)
-	errors.Logf("INFO", "mutating %v points", mutations)
-	muts.Mutate(mutations)
+	mutations := muts.Sample(int(float64(len(muts))*mutate))
+	errors.Logf("INFO", "mutating %v points out of %v potential points", len(mutations), len(muts))
+	fmt.Println(mutations)
+	mutations.Mutate()
 	return nil
 }
 
