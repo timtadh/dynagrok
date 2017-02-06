@@ -440,7 +440,7 @@ func (b *binaryBuilder) copyFile(src, targ string) error {
 			return os.Chmod(targ, srcStat.Mode())
 		}
 	}
-	errors.Logf("DEBUG", "copy %v -> %v", src, targ)
+	// errors.Logf("DEBUG", "copy %v -> %v", src, targ)
 	from, err := os.Open(src)
 	if err != nil {
 		return err
