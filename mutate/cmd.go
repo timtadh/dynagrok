@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 import (
@@ -27,7 +28,8 @@ Option Flags
     --keep-work                       Keep the work directory
     -m,--mutate-percent=<float>       Percentage of statements to mutate (defaults to .01)
     --instrument                      Also instrument the resulting program
-	--only-mutate-this-pkg            Don't mutate dependent packages, only the specified pkg
+    --only=<pkg>                      Only mutate the specified pkg (may be specified multiple
+                                      times or with a comma separated list)
 `,
 	"o:w:m:",
 	[]string{
@@ -36,7 +38,7 @@ Option Flags
 		"keep-work",
 		"mutate=",
 		"instrument",
-		"only-mutate-this-pkg",
+		"only=",
 	},
 	func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
 		output := ""
@@ -44,7 +46,7 @@ Option Flags
 		work := ""
 		mutate := .01
 		addInstrumentation := false
-		only := false
+		only := make(map[string]bool)
 		for _, oa := range optargs {
 			switch oa.Opt() {
 			case "-o", "--output":
@@ -66,8 +68,10 @@ Option Flags
 				mutate = f
 			case "--instrument":
 				addInstrumentation = true
-			case "--only-mutate-this-pkg":
-				only = true
+			case "--only":
+				for _, pkg := range strings.Split(oa.Arg(), ",") {
+					only[strings.TrimSpace(pkg)] = true
+				}
 			}
 		}
 		if len(args) != 1 {

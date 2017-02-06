@@ -1,12 +1,9 @@
 package mutate
 
 import (
-	"fmt"
-	"strings"
 	"go/ast"
 	"go/token"
 	"go/types"
-	"runtime"
 	"math/rand"
 	"go/printer"
 	"bytes"
@@ -26,7 +23,6 @@ import (
 
 
 func init() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
 	if urandom, err := os.Open("/dev/urandom"); err != nil {
 		panic(err)
 	} else {
@@ -41,141 +37,10 @@ func init() {
 type mutator struct {
 	program *loader.Program
 	entry string
-	only bool
+	only map[string]bool
 }
 
-type Mutation interface {
-	Type() string
-	String() string
-	Mutate()
-}
-
-type Mutations []Mutation
-
-func (muts Mutations) Filter(types map[string]bool) Mutations {
-	valid := make(Mutations, 0, len(muts))
-	for _, m := range muts {
-		t := m.Type()
-		if types[t] {
-			valid = append(valid, m)
-		}
-	}
-	return valid
-}
-
-func (muts Mutations) Sample(amt int) Mutations {
-	if len(muts) < amt {
-		panic(fmt.Errorf("Not enough mutation points, need %v have %v", amt, len(muts)))
-	}
-	s := make(Mutations, 0, amt)
-	for _, i := range sample(amt, len(muts)) {
-		s = append(s, muts[i])
-	}
-	return s
-}
-
-func (muts Mutations) Mutate() {
-	for _, m := range muts {
-		errors.Logf("INFO", "mutating:\n\t\t%v", m)
-		m.Mutate()
-	}
-}
-
-func (muts Mutations) String() string {
-	parts := make([]string, 0, len(muts))
-	for _, m := range muts {
-		parts = append(parts, fmt.Sprintf("(%v)", m))
-	}
-	return fmt.Sprintf("[%v]", strings.Join(parts, ", "))
-}
-
-func sample(size, populationSize int) (sample []int) {
-	if size >= populationSize {
-		return srange(populationSize)
-	}
-	pop := func(items []int) ([]int, int) {
-		i := rand.Intn(len(items))
-		item := items[i]
-		copy(items[i:], items[i+1:])
-		return items[:len(items)-1], item
-	}
-	items := srange(populationSize)
-	sample = make([]int, 0, size+1)
-	for i := 0; i < size; i++ {
-		var item int
-		items, item = pop(items)
-		sample = append(sample, item)
-	}
-	return sample
-}
-
-func srange(size int) []int {
-	sample := make([]int, 0, size+1)
-	for i := 0; i < size; i++ {
-		sample = append(sample, i)
-	}
-	return sample
-}
-
-type BranchMutation struct {
-	mutator *mutator
-	cond *ast.Expr
-	p    token.Position
-}
-
-func (m *BranchMutation) Type() string {
-	return "branch-mutation"
-}
-
-func (m *BranchMutation) String() string {
-	return fmt.Sprintf("%v ---> %v @ %v", m.mutator.stringNode(*m.cond), m.mutator.stringNode(m.negate()), m.p)
-}
-
-func (m *BranchMutation) Mutate() {
-	(*m.cond) = m.negate()
-}
-
-func (m *BranchMutation) negate() ast.Expr {
-	return &ast.UnaryExpr{
-		Op: token.NOT,
-		X: *m.cond,
-		OpPos: (*m.cond).Pos(),
-	}
-}
-
-type IncrementMutation struct {
-	mutator *mutator
-	expr    *ast.Expr
-	tokType token.Token
-	p       token.Position
-}
-
-func (m *IncrementMutation) Type() string {
-	return "increment-mutation"
-}
-
-func (m *IncrementMutation) String() string {
-	return fmt.Sprintf("%v ---> %v @ %v", m.mutator.stringNode(*m.expr), m.mutator.stringNode(m.increment()), m.p)
-}
-
-func (m *IncrementMutation) Mutate() {
-	(*m.expr) = m.increment()
-}
-
-func (m *IncrementMutation) increment() ast.Expr {
-	return &ast.BinaryExpr{
-		X: (*m.expr),
-		Y: &ast.BasicLit{
-			ValuePos: (*m.expr).Pos(),
-			Kind: m.tokType,
-			Value: "1",
-		},
-		Op: token.ADD,
-		OpPos: (*m.expr).Pos(),
-	}
-}
-
-func Mutate(mutate float64, only bool, entryPkgName string, program *loader.Program) (err error) {
+func Mutate(mutate float64, only map[string]bool, entryPkgName string, program *loader.Program) (err error) {
 	entry := program.Package(entryPkgName)
 	if entry == nil {
 		return errors.Errorf("The entry package was not found in the loaded program")
@@ -204,7 +69,6 @@ func Mutate(mutate float64, only bool, entryPkgName string, program *loader.Prog
 	}
 	mutations := muts.Sample(int(float64(len(muts))*mutate))
 	errors.Logf("INFO", "mutating %v points out of %v potential points", len(mutations), len(muts))
-	fmt.Println(mutations)
 	mutations.Mutate()
 	return nil
 }
@@ -216,7 +80,7 @@ func (m *mutator) pkgAllowed(pkg *loader.PackageInfo) bool {
 	if excludes.ExcludedPkg(pkg.Pkg.Path()) {
 		return false
 	}
-	if m.only && pkg.Pkg.Path() != m.entry {
+	if len(m.only) > 0 && !m.only[pkg.Pkg.Path()] {
 		return false
 	}
 	return true
@@ -267,9 +131,13 @@ func (m *mutator) fnBodyCollect(pkg *loader.PackageInfo, fnName string, fnBody *
 			p := m.program.Fset.Position((*blk)[j].Pos())
 			switch stmt := (*blk)[j].(type) {
 			case *ast.ForStmt:
-				muts = append(muts, &BranchMutation{mutator:m, cond: &stmt.Cond, p: p })
+				if stmt.Cond != nil {
+					muts = append(muts, &BranchMutation{mutator:m, cond: &stmt.Cond, p: p })
+				}
 			case *ast.IfStmt:
-				muts = append(muts, &BranchMutation{mutator:m, cond: &stmt.Cond, p: p })
+				if stmt.Cond != nil {
+					muts = append(muts, &BranchMutation{mutator:m, cond: &stmt.Cond, p: p })
+				}
 			}
 			exprs := make([]ast.Expr, 0, 10)
 			err := instrument.Exprs((*blk)[j], func(e ast.Expr) error {
@@ -323,3 +191,4 @@ func (m *mutator) stringNode(n ast.Node) string {
 	printer.Fprint(&buf, m.program.Fset, n)
 	return buf.String()
 }
+
