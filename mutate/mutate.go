@@ -138,6 +138,16 @@ func (m *mutator) fnBodyCollect(pkg *loader.PackageInfo, fnName string, fnBody *
 				if stmt.Cond != nil {
 					muts = append(muts, &BranchMutation{mutator:m, cond: &stmt.Cond, p: p })
 				}
+			case *ast.SendStmt:
+				muts = m.exprCollect(muts, pkg, &stmt.Value)
+			case *ast.ReturnStmt:
+				for i := range stmt.Results {
+					muts = m.exprCollect(muts, pkg, &stmt.Results[i])
+				}
+			case *ast.AssignStmt:
+				for i := range stmt.Rhs {
+					muts = m.exprCollect(muts, pkg, &stmt.Rhs[i])
+				}
 			}
 			exprs := make([]ast.Expr, 0, 10)
 			err := instrument.Exprs((*blk)[j], func(e ast.Expr) error {
