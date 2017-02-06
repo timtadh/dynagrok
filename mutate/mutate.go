@@ -38,27 +38,124 @@ func init() {
 }
 
 type mutator struct {
-	mutateRate float64
 	program *loader.Program
 	entry string
 	only bool
 }
 
-type counts struct {
-	packages int
-	functions int
-	files int
-	branches int
-	exprs int
+type Mutation interface {
+	Type() string
+	String() string
+	Mutate()
 }
 
-func (c *counts) String() string {
-	return fmt.Sprintf(`counts {
-	packages: %v,
-	functions: %v,
-	files: %v,
-	branches: %v,
-}`, c.packages, c.functions, c.files, c.branches)
+type Mutations []Mutation
+
+func (muts Mutations) Filter(types map[string]bool) Mutations {
+	valid := make(Mutations, 0, len(muts))
+	for _, m := range muts {
+		t := m.Type()
+		if types[t] {
+			valid = append(valid, m)
+		}
+	}
+	return valid
+}
+
+func (muts Mutations) Mutate(amt int) {
+	if len(muts) < amt {
+		panic(fmt.Errorf("Not enough mutation points, need %v have %v", amt, len(muts)))
+	}
+	for _, i := range sample(amt, len(muts)) {
+		errors.Logf("INFO", "mutating:\n\t\t%v", muts[i])
+		muts[i].Mutate()
+	}
+}
+
+func sample(size, populationSize int) (sample []int) {
+	if size >= populationSize {
+		return srange(populationSize)
+	}
+	pop := func(items []int) ([]int, int) {
+		i := rand.Intn(len(items))
+		item := items[i]
+		copy(items[i:], items[i+1:])
+		return items[:len(items)-1], item
+	}
+	items := srange(populationSize)
+	sample = make([]int, 0, size+1)
+	for i := 0; i < size; i++ {
+		var item int
+		items, item = pop(items)
+		sample = append(sample, item)
+	}
+	return sample
+}
+
+func srange(size int) []int {
+	sample := make([]int, 0, size+1)
+	for i := 0; i < size; i++ {
+		sample = append(sample, i)
+	}
+	return sample
+}
+
+type BranchMutation struct {
+	mutator *mutator
+	cond *ast.Expr
+	p    token.Position
+}
+
+func (m *BranchMutation) Type() string {
+	return "branch-mutation"
+}
+
+func (m *BranchMutation) String() string {
+	return fmt.Sprintf("%v -> %v @ %v", m.mutator.stringNode(*m.cond), m.mutator.stringNode(m.negate()), m.p)
+}
+
+func (m *BranchMutation) Mutate() {
+	(*m.cond) = m.negate()
+}
+
+func (m *BranchMutation) negate() ast.Expr {
+	return &ast.UnaryExpr{
+		Op: token.NOT,
+		X: *m.cond,
+		OpPos: (*m.cond).Pos(),
+	}
+}
+
+type IncrementMutation struct {
+	mutator *mutator
+	expr    *ast.Expr
+	tokType token.Token
+	p       token.Position
+}
+
+func (m *IncrementMutation) Type() string {
+	return "increment-mutation"
+}
+
+func (m *IncrementMutation) String() string {
+	return fmt.Sprintf("%v -> %v @ %v", m.mutator.stringNode(*m.expr), m.mutator.stringNode(m.increment()), m.p)
+}
+
+func (m *IncrementMutation) Mutate() {
+	(*m.expr) = m.increment()
+}
+
+func (m *IncrementMutation) increment() ast.Expr {
+	return &ast.BinaryExpr{
+		X: (*m.expr),
+		Y: &ast.BasicLit{
+			ValuePos: (*m.expr).Pos(),
+			Kind: m.tokType,
+			Value: "1",
+		},
+		Op: token.ADD,
+		OpPos: (*m.expr).Pos(),
+	}
 }
 
 func Mutate(mutate float64, only bool, entryPkgName string, program *loader.Program) (err error) {
@@ -70,28 +167,28 @@ func Mutate(mutate float64, only bool, entryPkgName string, program *loader.Prog
 		return errors.Errorf("The entry package was not main")
 	}
 	m := &mutator{
-		mutateRate: mutate,
 		program: program,
 		entry: entryPkgName,
 		only: only,
 	}
-	c, err := m.count()
+	muts, err := m.collect()
 	if err != nil {
 		return err
 	}
-	if (c.exprs + c.branches) <= 0 {
-		errors.Logf("ERROR", "%v", c)
+	if len(muts) <= 0 {
 		return errors.Errorf("Can't mutate this program, there are no mutation points")
 	}
-	for int(float64(c.exprs + c.branches) * m.mutateRate) <= 0 {
-		m.mutateRate *= 1.01
-		if m.mutateRate > 1 {
-			m.mutateRate = 1
+	for int(float64(len(muts)) * mutate) <= 0 {
+		mutate *= 1.01
+		if mutate > 1 {
+			mutate = 1
 			break
 		}
 	}
-	errors.Logf("INFO", "mutating %v points", float64(c.exprs + c.branches)*m.mutateRate)
-	return m.mutate()
+	mutations := int(float64(len(muts))*mutate)
+	errors.Logf("INFO", "mutating %v points", mutations)
+	muts.Mutate(mutations)
+	return nil
 }
 
 func (m *mutator) pkgAllowed(pkg *loader.PackageInfo) bool {
@@ -107,118 +204,54 @@ func (m *mutator) pkgAllowed(pkg *loader.PackageInfo) bool {
 	return true
 }
 
-func (m *mutator) count() (c *counts, err error) {
-	c = &counts{}
+func (m *mutator) collect() (muts Mutations, err error) {
+	muts = make(Mutations, 0, 10)
 	for _, pkg := range m.program.AllPackages {
 		if !m.pkgAllowed(pkg) {
 			continue
 		}
-		c.packages++
 		for _, fileAst := range pkg.Files {
-			c.files++
 			err = instrument.Functions(pkg, fileAst, func(fn ast.Node, fnName string) error {
-				c.functions++
+				var body *[]ast.Stmt
 				switch x := fn.(type) {
 				case *ast.FuncDecl:
 					if x.Body == nil {
 						return nil
 					}
-					return m.fnBodyCount(pkg, fnName, &x.Body.List, c)
+					body = &x.Body.List
 				case *ast.FuncLit:
 					if x.Body == nil {
 						return nil
 					}
-					return m.fnBodyCount(pkg, fnName, &x.Body.List, c)
+					body = &x.Body.List
 				default:
 					return errors.Errorf("unexpected type %T", x)
 				}
+				bodyMuts, err := m.fnBodyCollect(pkg, fnName, body)
+				if err != nil {
+					return err
+				}
+				muts = append(muts, bodyMuts...)
+				return nil
 			})
 			if err != nil {
 				return nil, err
 			}
 		}
 	}
-	return c, nil
+	return muts, nil
 }
 
-func (m *mutator) fnBodyCount(pkg *loader.PackageInfo, fnName string, fnBody *[]ast.Stmt, c *counts) error {
-	return instrument.Blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
-		for j := 0; j < len(*blk); j++ {
-			switch stmt := (*blk)[j].(type) {
-			case *ast.ForStmt:
-				if stmt.Cond != nil {
-					c.branches++
-				}
-			case *ast.IfStmt:
-				if stmt.Cond != nil {
-					c.branches++
-				}
-			}
-			err := instrument.Exprs((*blk)[j], func(e ast.Expr) error {
-				switch expr := e.(type) {
-				case *ast.BinaryExpr:
-					m.exprCount(pkg, expr.X, c)
-					m.exprCount(pkg, expr.Y, c)
-				case *ast.UnaryExpr:
-					m.exprCount(pkg, expr.X, c)
-				}
-				return nil
-			})
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-}
-
-func (m *mutator) mutate() (err error) {
-	for _, pkg := range m.program.AllPackages {
-		if !m.pkgAllowed(pkg) {
-			continue
-		}
-		for _, fileAst := range pkg.Files {
-			err = instrument.Functions(pkg, fileAst, func(fn ast.Node, fnName string) error {
-				switch x := fn.(type) {
-				case *ast.FuncDecl:
-					if x.Body == nil {
-						return nil
-					}
-					return m.fnBodyMutate(pkg, fnName, &x.Body.List)
-				case *ast.FuncLit:
-					if x.Body == nil {
-						return nil
-					}
-					return m.fnBodyMutate(pkg, fnName, &x.Body.List)
-				default:
-					return errors.Errorf("unexpected type %T", x)
-				}
-			})
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func (m *mutator) fnBodyMutate(pkg *loader.PackageInfo, fnName string, fnBody *[]ast.Stmt) error {
-	return instrument.Blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
+func (m *mutator) fnBodyCollect(pkg *loader.PackageInfo, fnName string, fnBody *[]ast.Stmt) (Mutations, error) {
+	muts := make(Mutations, 0, 10)
+	return muts, instrument.Blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
 		for j := 0; j < len(*blk); j++ {
 			p := m.program.Fset.Position((*blk)[j].Pos())
 			switch stmt := (*blk)[j].(type) {
 			case *ast.ForStmt:
-				if stmt.Cond != nil && rand.Float64() < m.mutateRate {
-					c := m.negate(stmt.Cond)
-					errors.Logf("DEBUG", "\n\t\tmutating %T %v -> %v @ %v", stmt, m.stringNode(stmt.Cond), m.stringNode(c), p)
-					stmt.Cond = c
-				}
+				muts = append(muts, &BranchMutation{mutator:m, cond: &stmt.Cond, p: p })
 			case *ast.IfStmt:
-				if stmt.Cond != nil && rand.Float64() < m.mutateRate {
-					c := m.negate(stmt.Cond)
-					errors.Logf("DEBUG", "\n\t\tmutating %T %v -> %v @ %v", stmt, m.stringNode(stmt.Cond), m.stringNode(c), p)
-					stmt.Cond = c
-				}
+				muts = append(muts, &BranchMutation{mutator:m, cond: &stmt.Cond, p: p })
 			}
 			exprs := make([]ast.Expr, 0, 10)
 			err := instrument.Exprs((*blk)[j], func(e ast.Expr) error {
@@ -231,10 +264,10 @@ func (m *mutator) fnBodyMutate(pkg *loader.PackageInfo, fnName string, fnBody *[
 			for _, e := range exprs {
 				switch expr := e.(type) {
 				case *ast.BinaryExpr:
-					expr.X = m.exprMutate(pkg, expr.X)
-					expr.Y = m.exprMutate(pkg, expr.Y)
+					muts = m.exprCollect(muts, pkg, &expr.X)
+					muts = m.exprCollect(muts, pkg, &expr.Y)
 				case *ast.UnaryExpr:
-					expr.X = m.exprMutate(pkg, expr.X)
+					muts = m.exprCollect(muts, pkg, &expr.X)
 				}
 			}
 		}
@@ -242,61 +275,29 @@ func (m *mutator) fnBodyMutate(pkg *loader.PackageInfo, fnName string, fnBody *[
 	})
 }
 
-func (m *mutator) exprCount(pkg *loader.PackageInfo, expr ast.Expr, c *counts) {
-	exprType := pkg.Info.TypeOf(expr)
+func (m *mutator) exprCollect(muts Mutations, pkg *loader.PackageInfo, expr *ast.Expr) Mutations {
+	p := m.program.Fset.Position((*expr).Pos())
+	exprType := pkg.Info.TypeOf(*expr)
 	switch eT := exprType.(type) {
 	case *types.Basic:
 		i := eT.Info()
 		if (i & types.IsInteger) != 0 {
-			c.exprs++
+			muts = append(muts, &IncrementMutation{
+				mutator: m,
+				expr: expr,
+				tokType: token.INT,
+				p: p,
+			})
 		} else if (i & types.IsFloat) != 0 {
-			c.exprs++
+			muts = append(muts, &IncrementMutation{
+				mutator: m,
+				expr: expr,
+				tokType: token.FLOAT,
+				p: p,
+			})
 		}
 	}
-}
-
-func (m *mutator) exprMutate(pkg *loader.PackageInfo, expr ast.Expr) ast.Expr {
-	p := m.program.Fset.Position(expr.Pos())
-	exprType := pkg.Info.TypeOf(expr)
-	switch eT := exprType.(type) {
-	case *types.Basic:
-		i := eT.Info()
-		if (i & types.IsInteger) != 0 {
-			if rand.Float64() < m.mutateRate {
-				out := m.plusOne(expr, token.INT)
-				errors.Logf("DEBUG", "\n\t\tmutating %v -> %v @ %v", m.stringNode(expr), m.stringNode(out), p)
-				return out
-			}
-		} else if (i & types.IsFloat) != 0 {
-			if rand.Float64() < m.mutateRate {
-				out := m.plusOne(expr, token.FLOAT)
-				errors.Logf("DEBUG", "\n\t\tmutating %v -> %v @ %v", m.stringNode(expr), m.stringNode(out), p)
-				return out
-			}
-		}
-	}
-	return expr
-}
-
-func (m *mutator) negate(cond ast.Expr) (ast.Expr) {
-	return &ast.UnaryExpr{
-		Op: token.NOT,
-		X: cond,
-		OpPos: cond.Pos(),
-	}
-}
-
-func (m *mutator) plusOne(numeric ast.Expr, typeTok token.Token) (ast.Expr) {
-	return &ast.BinaryExpr{
-		X: numeric,
-		Y: &ast.BasicLit{
-			ValuePos: numeric.Pos(),
-			Kind: typeTok,
-			Value: "1",
-		},
-		Op: token.ADD,
-		OpPos: numeric.Pos(),
-	}
+	return muts
 }
 
 func (m *mutator) stringNode(n ast.Node) string {
