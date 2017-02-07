@@ -5,11 +5,15 @@ import (
 	"strings"
 	"go/ast"
 	"go/token"
+	"go/types"
+	"go/parser"
 	"math/rand"
+	"strconv"
 )
 
 import (
 	"github.com/timtadh/data-structures/errors"
+	"golang.org/x/tools/go/ast/astutil"
 )
 
 import ()
@@ -91,6 +95,7 @@ type BranchMutation struct {
 	mutator *mutator
 	cond *ast.Expr
 	p    token.Position
+	fileAst *ast.File
 }
 
 func (m *BranchMutation) Type() string {
@@ -102,8 +107,25 @@ func (m *BranchMutation) String() string {
 }
 
 func (m *BranchMutation) Mutate() {
-	(*m.cond) = m.negate()
+	(*m.cond) = m.mutate()
 }
+
+func (m *BranchMutation) mutate() ast.Expr {
+	report := fmt.Sprintf("dgruntime.ReportFailBool(%v)", strconv.Quote(m.p.String()))
+	pos := (*m.cond).Pos()
+	failReport, err := parser.ParseExprFrom(m.mutator.program.Fset, m.mutator.program.Fset.File(pos).Name(), report, parser.Mode(0))
+	if err != nil {
+		panic(err)
+	}
+	astutil.AddImport(m.mutator.program.Fset, m.fileAst, "dgruntime")
+	return &ast.BinaryExpr{
+		X: failReport,
+		Y: m.negate(),
+		Op: token.LAND,
+		OpPos: pos,
+	}
+}
+
 
 func (m *BranchMutation) negate() ast.Expr {
 	return &ast.UnaryExpr{
@@ -118,6 +140,8 @@ type IncrementMutation struct {
 	expr    *ast.Expr
 	tokType token.Token
 	p       token.Position
+	kind    types.BasicKind
+	fileAst *ast.File
 }
 
 func (m *IncrementMutation) Type() string {
@@ -129,19 +153,64 @@ func (m *IncrementMutation) String() string {
 }
 
 func (m *IncrementMutation) Mutate() {
-	(*m.expr) = m.increment()
+	(*m.expr) = m.mutate()
+}
+
+func (m *IncrementMutation) mutate() ast.Expr {
+	var report string
+	if m.tokType == token.INT {
+		var cast string
+		switch m.kind {
+		case types.Int:    cast = "int"
+		case types.Int8:   cast = "int8"
+		case types.Int16:  cast = "int16"
+		case types.Int32:  cast = "int32"
+		case types.Int64:  cast = "int64"
+		case types.Uint:   cast = "uint"
+		case types.Uint8:  cast = "uint8"
+		case types.Uint16: cast = "uint16"
+		case types.Uint32: cast = "uint32"
+		case types.Uint64: cast = "uint64"
+		default:
+			panic(fmt.Errorf("unexpected kind %v", m.kind))
+		}
+		report = fmt.Sprintf("%v(dgruntime.ReportFailInt(%v))", cast, strconv.Quote(m.p.String()))
+	} else if m.tokType == token.FLOAT {
+		var cast string
+		switch m.kind {
+		case types.Float32: cast = "float32"
+		case types.Float64: cast = "float64"
+		default:
+			panic(fmt.Errorf("unexpected kind %v", m.kind))
+		}
+		report = fmt.Sprintf("%v(dgruntime.ReportFailFloat(%v))", cast, strconv.Quote(m.p.String()))
+	} else {
+		panic(fmt.Errorf("unexpected tokType %v", m.tokType))
+	}
+	pos := (*m.expr).Pos()
+	failReport, err := parser.ParseExprFrom(m.mutator.program.Fset, m.mutator.program.Fset.File(pos).Name(), report, parser.Mode(0))
+	if err != nil {
+		panic(err)
+	}
+	astutil.AddImport(m.mutator.program.Fset, m.fileAst, "dgruntime")
+	return &ast.BinaryExpr{
+		X: m.increment(),
+		Y: failReport,
+		Op: token.ADD,
+		OpPos: pos,
+	}
 }
 
 func (m *IncrementMutation) increment() ast.Expr {
+	pos := (*m.expr).Pos()
 	return &ast.BinaryExpr{
 		X: (*m.expr),
 		Y: &ast.BasicLit{
-			ValuePos: (*m.expr).Pos(),
+			ValuePos: pos,
 			Kind: m.tokType,
 			Value: "1",
 		},
 		Op: token.ADD,
-		OpPos: (*m.expr).Pos(),
+		OpPos: pos,
 	}
 }
-

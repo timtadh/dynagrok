@@ -5,6 +5,7 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"go/parser"
 	"math/rand"
 	"go/printer"
 	"bytes"
@@ -39,9 +40,10 @@ type mutator struct {
 	program *loader.Program
 	entry string
 	only map[string]bool
+	instrumenting bool
 }
 
-func Mutate(mutate float64, only map[string]bool, entryPkgName string, program *loader.Program) (mutants []string, err error) {
+func Mutate(mutate float64, only map[string]bool, instrumenting bool, entryPkgName string, program *loader.Program) (mutants []string, err error) {
 	entry := program.Package(entryPkgName)
 	if entry == nil {
 		return nil, errors.Errorf("The entry package was not found in the loaded program")
@@ -53,6 +55,7 @@ func Mutate(mutate float64, only map[string]bool, entryPkgName string, program *
 		program: program,
 		entry: entryPkgName,
 		only: only,
+		instrumenting: instrumenting,
 	}
 	muts, err := m.collect()
 	if err != nil {
@@ -113,7 +116,7 @@ func (m *mutator) collect() (muts Mutations, err error) {
 				default:
 					return errors.Errorf("unexpected type %T", x)
 				}
-				bodyMuts, err := m.fnBodyCollect(pkg, fnName, body)
+				bodyMuts, err := m.fnBodyCollect(pkg, fileAst, fnName, fn, body)
 				if err != nil {
 					return err
 				}
@@ -128,29 +131,29 @@ func (m *mutator) collect() (muts Mutations, err error) {
 	return muts, nil
 }
 
-func (m *mutator) fnBodyCollect(pkg *loader.PackageInfo, fnName string, fnBody *[]ast.Stmt) (Mutations, error) {
+func (m *mutator) fnBodyCollect(pkg *loader.PackageInfo, file *ast.File, fnName string, fnAst ast.Node, fnBody *[]ast.Stmt) (Mutations, error) {
 	muts := make(Mutations, 0, 10)
-	return muts, instrument.Blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
+	err := instrument.Blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
 		for j := 0; j < len(*blk); j++ {
 			p := m.program.Fset.Position((*blk)[j].Pos())
 			switch stmt := (*blk)[j].(type) {
 			case *ast.ForStmt:
 				if stmt.Cond != nil {
-					muts = append(muts, &BranchMutation{mutator:m, cond: &stmt.Cond, p: p })
+					muts = append(muts, &BranchMutation{mutator:m, cond: &stmt.Cond, p: p, fileAst: file})
 				}
 			case *ast.IfStmt:
 				if stmt.Cond != nil {
-					muts = append(muts, &BranchMutation{mutator:m, cond: &stmt.Cond, p: p })
+					muts = append(muts, &BranchMutation{mutator:m, cond: &stmt.Cond, p: p, fileAst: file})
 				}
 			case *ast.SendStmt:
-				muts = m.exprCollect(muts, pkg, &stmt.Value)
+				muts = m.exprCollect(muts, pkg, file, &stmt.Value)
 			case *ast.ReturnStmt:
 				for i := range stmt.Results {
-					muts = m.exprCollect(muts, pkg, &stmt.Results[i])
+					muts = m.exprCollect(muts, pkg, file, &stmt.Results[i])
 				}
 			case *ast.AssignStmt:
 				for i := range stmt.Rhs {
-					muts = m.exprCollect(muts, pkg, &stmt.Rhs[i])
+					muts = m.exprCollect(muts, pkg, file, &stmt.Rhs[i])
 				}
 			}
 			exprs := make([]ast.Expr, 0, 10)
@@ -164,33 +167,40 @@ func (m *mutator) fnBodyCollect(pkg *loader.PackageInfo, fnName string, fnBody *
 			for _, e := range exprs {
 				switch expr := e.(type) {
 				case *ast.BinaryExpr:
-					muts = m.exprCollect(muts, pkg, &expr.X)
-					muts = m.exprCollect(muts, pkg, &expr.Y)
+					muts = m.exprCollect(muts, pkg, file, &expr.X)
+					muts = m.exprCollect(muts, pkg, file, &expr.Y)
 				case *ast.UnaryExpr:
 					// cannot mutate things which are having their addresses
 					// taken
 					if expr.Op != token.AND {
-						muts = m.exprCollect(muts, pkg, &expr.X)
+						muts = m.exprCollect(muts, pkg, file, &expr.X)
 					}
 				case *ast.ParenExpr:
-					muts = m.exprCollect(muts, pkg, &expr.X)
+					muts = m.exprCollect(muts, pkg, file, &expr.X)
 				case *ast.CallExpr:
 					for idx := range expr.Args {
-						muts = m.exprCollect(muts, pkg, &expr.Args[idx])
+						muts = m.exprCollect(muts, pkg, file, &expr.Args[idx])
 					}
 				case *ast.IndexExpr:
 					// Cannot mutate the index clause in the case of a fixed
 					// size array with out extra checking.
 				case *ast.KeyValueExpr:
-					muts = m.exprCollect(muts, pkg, &expr.Value)
+					muts = m.exprCollect(muts, pkg, file, &expr.Value)
 				}
 			}
 		}
 		return nil
 	})
+	if err != nil {
+		return nil, err
+	}
+	if !m.instrumenting && pkg.Pkg.Path() == m.entry && fnName == fmt.Sprintf("%v.main", pkg.Pkg.Path()) {
+		*fnBody = instrument.Insert(*fnBody, 0, m.mkShutdown(fnAst.Pos()))
+	}
+	return muts, nil
 }
 
-func (m *mutator) exprCollect(muts Mutations, pkg *loader.PackageInfo, expr *ast.Expr) Mutations {
+func (m *mutator) exprCollect(muts Mutations, pkg *loader.PackageInfo, file *ast.File, expr *ast.Expr) Mutations {
 	p := m.program.Fset.Position((*expr).Pos())
 	exprType := pkg.Info.TypeOf(*expr)
 	switch eT := exprType.(type) {
@@ -202,6 +212,8 @@ func (m *mutator) exprCollect(muts Mutations, pkg *loader.PackageInfo, expr *ast
 				expr: expr,
 				tokType: token.INT,
 				p: p,
+				kind: eT.Kind(),
+				fileAst: file,
 			})
 		} else if (i & types.IsFloat) != 0 {
 			muts = append(muts, &IncrementMutation{
@@ -209,6 +221,8 @@ func (m *mutator) exprCollect(muts Mutations, pkg *loader.PackageInfo, expr *ast
 				expr: expr,
 				tokType: token.FLOAT,
 				p: p,
+				kind: eT.Kind(),
+				fileAst: file,
 			})
 		}
 	}
@@ -221,3 +235,11 @@ func (m *mutator) stringNode(n ast.Node) string {
 	return buf.String()
 }
 
+func (m *mutator) mkShutdown(pos token.Pos) ast.Stmt {
+	s := "func() { dgruntime.Shutdown() }()"
+	e, err := parser.ParseExprFrom(m.program.Fset, m.program.Fset.File(pos).Name(), s, parser.Mode(0))
+	if err != nil {
+		panic(fmt.Errorf("mkShutdown (%v) error: %v", s, err))
+	}
+	return &ast.DeferStmt{Call: e.(*ast.CallExpr)}
+}

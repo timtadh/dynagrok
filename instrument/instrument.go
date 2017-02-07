@@ -86,7 +86,7 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.
 				pos = (*blk)[0].Pos()
 			}
 			if id != 0 {
-				*blk = insert(*blk, 0, i.mkEnterBlk(pos, id))
+				*blk = Insert(*blk, 0, i.mkEnterBlk(pos, id))
 			}
 			for j := 0; j < len(*blk) - 1; j++ {
 				if j+1 < len(*blk) {
@@ -96,18 +96,18 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.
 				}
 				switch stmt := (*blk)[j].(type) {
 				case *ast.BranchStmt:
-					// *blk = insert(*blk, j, i.mkPrint(pos, fmt.Sprintf("exit-blk:\t %d\t of %v", id, fnName)))
+					// *blk = Insert(*blk, j, i.mkPrint(pos, fmt.Sprintf("exit-blk:\t %d\t of %v", id, fnName)))
 					// j++
 				case *ast.IfStmt, *ast.ForStmt, *ast.SelectStmt, *ast.SwitchStmt, *ast.TypeSwitchStmt, *ast.RangeStmt:
-					*blk = insert(*blk, j+1, i.mkRe_enterBlk(pos, id, 2+j+1))
+					*blk = Insert(*blk, j+1, i.mkRe_enterBlk(pos, id, 2+j+1))
 					j++
 				case *ast.LabeledStmt:
 					switch stmt.Stmt.(type) {
 					case *ast.ForStmt, *ast.SwitchStmt, *ast.SelectStmt, *ast.TypeSwitchStmt, *ast.RangeStmt:
-						*blk = insert(*blk, j+1, i.mkRe_enterBlk(pos, id, 2+j+1))
+						*blk = Insert(*blk, j+1, i.mkRe_enterBlk(pos, id, 2+j+1))
 					default:
 						// errors.Logf("DEBUG", "label stmt %T %T in %v", stmt.Stmt, (*blk)[j+1], fnName)
-						*blk = insert(*blk, j+1, stmt.Stmt)
+						*blk = Insert(*blk, j+1, stmt.Stmt)
 						stmt.Stmt = i.mkRe_enterBlk(pos, id, 2+j)
 					}
 				}
@@ -121,7 +121,7 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.
 						case *ast.SelectorExpr:
 							if ident, ok := e.X.(*ast.Ident); ok {
 								if ident.Name == "os" && e.Sel.Name == "Exit" {
-									*blk = insert(*blk, j, i.mkShutdownNow(pos))
+									*blk = Insert(*blk, j, i.mkShutdownNow(pos))
 									j++
 								}
 							}
@@ -139,10 +139,10 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.
 			return nil
 		}
 	}
-	*fnBody = insert(*fnBody, 0, i.mkEnterFunc(fnAst.Pos(), fnName))
-	*fnBody = insert(*fnBody, 1, i.mkExitFunc(fnAst.Pos(), fnName))
+	*fnBody = Insert(*fnBody, 0, i.mkEnterFunc(fnAst.Pos(), fnName))
+	*fnBody = Insert(*fnBody, 1, i.mkExitFunc(fnAst.Pos(), fnName))
 	if pkg.Pkg.Path() == i.entry && fnName == fmt.Sprintf("%v.main", pkg.Pkg.Path()) {
-		*fnBody = insert(*fnBody, 0, i.mkShutdown(fnAst.Pos()))
+		*fnBody = Insert(*fnBody, 0, i.mkShutdown(fnAst.Pos()))
 	}
 	return nil
 }
@@ -167,7 +167,7 @@ func TypeName(pkg *types.Package, t types.Type) string {
 	}
 }
 
-func insert(blk []ast.Stmt, j int, stmt ast.Stmt) []ast.Stmt {
+func Insert(blk []ast.Stmt, j int, stmt ast.Stmt) []ast.Stmt {
 	if j > len(blk) {
 		j = len(blk)
 	}

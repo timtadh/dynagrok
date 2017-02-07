@@ -5,15 +5,17 @@ import (
 	"os"
 	"sync"
 	"runtime"
+	"strings"
 )
 
 type Execution struct {
 	m sync.Mutex
 	Goroutines []*Goroutine
 	Profile    *Profile
-	OutputPath string
+	OutputDir string
 	mergeCh    chan *Goroutine
 	async      sync.WaitGroup
+	fails      []string
 }
 
 var execMu sync.Mutex
@@ -30,10 +32,17 @@ func execCheck() {
 	}
 }
 
+func pjoin(parts ...string) string {
+	return strings.Join(parts, string(os.PathSeparator))
+}
+
 func newExecution() *Execution {
-	output := "/tmp/dynagrok-profile.dot"
+	outputDir := "/tmp/dynagrok-profile"
 	if os.Getenv("DGPROF") != "" {
-		output = os.Getenv("DGPROF")
+		outputDir = os.Getenv("DGPROF")
+	}
+	if err := os.MkdirAll(outputDir, os.ModeDir|0775); err != nil {
+		panic(fmt.Errorf("dynagrok's dgruntime could not make directory %v", outputDir))
 	}
 	e := &Execution{
 		Profile: &Profile{
@@ -42,7 +51,7 @@ func newExecution() *Execution {
 			Flows: make(map[FlowEdge]int),
 			Positions: make(map[BlkEntrance]string),
 		},
-		OutputPath: output,
+		OutputDir: outputDir,
 		mergeCh: make(chan *Goroutine, 15),
 	}
 	e.growGoroutines()
@@ -73,6 +82,12 @@ func (e *Execution) Goroutine(id int64) *Goroutine {
 		e.m.Unlock()
 	}
 	return e.Goroutines[id]
+}
+
+func (e *Execution) Fail(pos string) {
+	e.m.Lock()
+	e.fails = append(e.fails, pos)
+	e.m.Unlock()
 }
 
 func (e *Execution) growGoroutines() {
@@ -134,12 +149,32 @@ func shutdown(e *Execution) {
 	e.async.Wait()
 	e.m.Lock()
 	defer e.m.Unlock()
-	fmt.Println("writing to:", e.OutputPath)
-	fout, err := os.Create(e.OutputPath)
-	if err != nil {
-		panic(err)
+	if !e.Profile.Empty() {
+		graphPath := pjoin(e.OutputDir, "flow-graph.dot")
+		fmt.Println("writing flow-graph to:", graphPath)
+		fout, err := os.Create(graphPath)
+		if err != nil {
+			panic(err)
+		}
+		defer fout.Close()
+		e.Profile.Serialize(fout)
 	}
-	e.Profile.Serialize(fout)
-	fout.Close()
+	if len(e.fails) > 0 {
+		failPath := pjoin(e.OutputDir, "failures")
+		fmt.Printf("The program registered %v failures\n", len(e.fails))
+		fmt.Println("writing failures to:", failPath)
+		fout, err := os.Create(failPath)
+		if err != nil {
+			panic(err)
+		}
+		defer fout.Close()
+		for _, f := range e.fails {
+			fmt.Printf("fail: %v\n", f)
+			_, err := fmt.Fprintln(fout, f)
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
 	fmt.Println("done shutting down")
 }

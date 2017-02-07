@@ -26,6 +26,24 @@ func Shutdown() {
 	shutdown(exec)
 }
 
+func ReportFailBool(pos string) bool {
+	execCheck()
+	exec.Fail(pos)
+	return true
+}
+
+func ReportFailInt(pos string) int {
+	execCheck()
+	exec.Fail(pos)
+	return 0
+}
+
+func ReportFailFloat(pos string) float64 {
+	execCheck()
+	exec.Fail(pos)
+	return 0
+}
+
 func EnterBlk(bid int, pos string) {
 	execCheck()
 	g := exec.Goroutine(runtime.GoID())

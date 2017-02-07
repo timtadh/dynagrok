@@ -15,6 +15,9 @@ type Profile struct {
 	CallCount int
 }
 
+func (p *Profile) Empty() bool {
+	return len(p.Flows) == 0
+}
 
 func (p *Profile) Serialize(fout io.Writer) {
 	runtime_name := func(pc uintptr) string {
@@ -29,7 +32,6 @@ func (p *Profile) Serialize(fout io.Writer) {
 		} else {
 			return fmt.Sprintf("%v blk %d:%d", runtime_name(n.In), n.BlkId, n.At)
 		}
-		
 	}
 	// flowlist := func(flows []Flow) string {
 	// 	items := make([]string, 0, len(flows))

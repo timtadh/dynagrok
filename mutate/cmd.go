@@ -87,7 +87,7 @@ Option Flags
 		if err != nil {
 			return nil, cmd.Usage(r, 6, err.Error())
 		}
-		mutations, err := Mutate(mutate, only, pkgName, program)
+		mutations, err := Mutate(mutate, only, addInstrumentation, pkgName, program)
 		if err != nil {
 			return nil, cmd.Errorf(7, err.Error())
 		}
