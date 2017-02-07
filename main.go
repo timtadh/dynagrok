@@ -13,6 +13,7 @@ import (
 	"github.com/timtadh/dynagrok/grok"
 	"github.com/timtadh/dynagrok/instrument"
 	"github.com/timtadh/dynagrok/mutate"
+	"github.com/timtadh/dynagrok/localize"
 )
 
 func main() {
@@ -20,12 +21,14 @@ func main() {
 	main := NewMain(&config)
 	inst := instrument.NewCommand(&config)
 	mut := mutate.NewCommand(&config)
+	loc := localize.NewCommand(&config)
 	cmd.Main(cmd.Concat(
 		main,
 		cmd.Commands(map[string]cmd.Runnable{
 			grok.Command.Name(): grok.Command,
 			inst.Name(): inst,
 			mut.Name(): mut,
+			loc.Name(): loc,
 		}),
 	))
 }
