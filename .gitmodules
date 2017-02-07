@@ -16,3 +16,24 @@
 [submodule "examples/src/github.com/timtadh/combos"]
 	path = examples/src/github.com/timtadh/combos
 	url = git@github.com:timtadh/combos
+[submodule "src/github.com/timtadh/sfp"]
+	path = src/github.com/timtadh/sfp
+	url = git@github.com:timtadh/sfp
+[submodule "src/github.com/timtadh/combos"]
+	path = src/github.com/timtadh/combos
+	url = git@github.com:timtadh/combos
+[submodule "src/github.com/timtadh/dot"]
+	path = src/github.com/timtadh/dot
+	url = git@github.com:timtadh/dot
+[submodule "src/github.com/timtadh/fs2"]
+	path = src/github.com/timtadh/fs2
+	url = git@github.com:timtadh/fs2
+[submodule "src/github.com/timtadh/goiso"]
+	path = src/github.com/timtadh/goiso
+	url = git@github.com:timtadh/goiso
+[submodule "src/github.com/timtadh/lexmachine"]
+	path = src/github.com/timtadh/lexmachine
+	url = git@github.com:timtadh/lexmachine
+[submodule "src/github.com/timtadh/matrix"]
+	path = src/github.com/timtadh/matrix
+	url = git@github.com:timtadh/go.matrix

@@ -7,6 +7,7 @@ import (
 
 import (
 	"github.com/timtadh/getopt"
+	"github.com/timtadh/sfp/types/digraph/digraph"
 )
 
 import (
@@ -50,6 +51,10 @@ Option Flags
 			case "-m", "--method":
 				method = oa.Arg()
 			case "--methods":
+				for k, _ := range Methods {
+					fmt.Println(k)
+				}
+				return nil, nil
 			}
 		}
 		if len(args) != 2 {
@@ -57,16 +62,26 @@ Option Flags
 		}
 		fmt.Println("method", method)
 		fmt.Println("output", output)
-		_, failClose, err := cmd.Input(args[0])
+		labels := digraph.NewLabels()
+		fail, failClose, err := cmd.Input(args[0])
 		if err != nil {
-			return nil, cmd.Errorf(2, "Could not read profiles from failed executions: %v", args[0])
+			return nil, cmd.Errorf(2, "Could not read profiles from failed executions: %v\n%v", args[0], err)
 		}
 		defer failClose()
-		_, okClose, err := cmd.Input(args[1])
+		failGraph, failAttrs, err := LoadDot(labels, fail)
 		if err != nil {
-			return nil, cmd.Errorf(2, "Could not read profiles from successful executions: %v", args[0])
+			return nil, cmd.Errorf(2, "Could not load profiles from failed executions: %v\n%v", args[0], err)
+		}
+		ok, okClose, err := cmd.Input(args[1])
+		if err != nil {
+			return nil, cmd.Errorf(2, "Could not read profiles from successful executions: %v\n%v", args[0], err)
 		}
 		defer okClose()
+		okGraph, okAttrs, err := LoadDot(labels, ok)
+		if err != nil {
+			return nil, cmd.Errorf(2, "Could not load profiles from successful executions: %v\n%v", args[0], err)
+		}
+		Methods[method](labels, failGraph, failAttrs, okGraph, okAttrs)
 		return nil, nil
 	})
 }
