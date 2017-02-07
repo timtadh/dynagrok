@@ -248,7 +248,7 @@ def main(argv, util, parser):
         util.usage(1)
 
     program = args[0]
-    t = Map(Remote(program, os.path.join(output, 'dynamic-callgraph.dot')))
+    t = Map(Remote(program, os.path.join(output, 'dgprofile')))
 
     fail = False
     for x in xrange(random.randint(10, 1000)):

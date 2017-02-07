@@ -12,10 +12,11 @@ type Execution struct {
 	m sync.Mutex
 	Goroutines []*Goroutine
 	Profile    *Profile
-	OutputDir string
+	OutputDir  string
 	mergeCh    chan *Goroutine
 	async      sync.WaitGroup
 	fails      []string
+	failed     map[string]bool
 }
 
 var execMu sync.Mutex
@@ -53,6 +54,7 @@ func newExecution() *Execution {
 		},
 		OutputDir: outputDir,
 		mergeCh: make(chan *Goroutine, 15),
+		failed: make(map[string]bool),
 	}
 	e.growGoroutines()
 	go func() {
@@ -86,7 +88,10 @@ func (e *Execution) Goroutine(id int64) *Goroutine {
 
 func (e *Execution) Fail(pos string) {
 	e.m.Lock()
-	e.fails = append(e.fails, pos)
+	if !e.failed[pos] {
+		e.failed[pos] = true
+		e.fails = append(e.fails, pos)
+	}
 	e.m.Unlock()
 }
 

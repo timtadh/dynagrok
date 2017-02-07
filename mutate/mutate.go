@@ -16,6 +16,7 @@ import (
 import (
 	"github.com/timtadh/data-structures/errors"
 	"golang.org/x/tools/go/loader"
+	"golang.org/x/tools/go/ast/astutil"
 )
 
 import (
@@ -195,6 +196,7 @@ func (m *mutator) fnBodyCollect(pkg *loader.PackageInfo, file *ast.File, fnName 
 		return nil, err
 	}
 	if !m.instrumenting && pkg.Pkg.Path() == m.entry && fnName == fmt.Sprintf("%v.main", pkg.Pkg.Path()) {
+		astutil.AddImport(m.program.Fset, file, "dgruntime")
 		*fnBody = instrument.Insert(*fnBody, 0, m.mkShutdown(fnAst.Pos()))
 	}
 	return muts, nil
