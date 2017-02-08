@@ -16,29 +16,40 @@ import (
 	"github.com/timtadh/sfp/types/digraph/digraph"
 )
 
+type Digraph struct {
+	*digraph.Digraph
+	Indices *digraph.Indices
+	Labels *digraph.Labels
+	Attrs VertexAttrs
+	Positions map[int]string
+	Graphs int
+}
+
 type VertexAttrs map[int]map[string]interface{}
 
 type DotLoader struct {
 	Builder *digraph.Builder
 	Labels *digraph.Labels
 	Attrs  map[int]map[string]interface{}
+	Positions map[int]string
 	vidxs  map[int]int
 }
 
-func LoadDot(labels *digraph.Labels, input io.Reader) (*digraph.Digraph, VertexAttrs, error) {
+func LoadDot(positions map[int]string, labels *digraph.Labels, input io.Reader) (*Digraph, error) {
 	l := &DotLoader{
 		Builder: digraph.Build(100, 1000),
 		Labels: labels,
 		Attrs: make(VertexAttrs),
+		Positions: positions,
 		vidxs: make(map[int]int),
 	}
 	return l.load(input)
 }
 
-func (l *DotLoader) load(input io.Reader) (*digraph.Digraph, VertexAttrs, error) {
+func (l *DotLoader) load(input io.Reader) (*Digraph, error) {
 	text, err := ioutil.ReadAll(input)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	dp := &dotParse{
 		loader: l,
@@ -46,9 +57,18 @@ func (l *DotLoader) load(input io.Reader) (*digraph.Digraph, VertexAttrs, error)
 	}
 	err = dot.StreamParse(text, dp)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	return l.Builder.Build(nil, nil), l.Attrs, nil
+	indices := digraph.NewIndices(l.Builder, 0)
+	d := &Digraph{
+		Digraph: indices.G,
+		Indices: indices,
+		Labels: l.Labels,
+		Attrs: l.Attrs,
+		Positions: l.Positions,
+		Graphs: dp.graphId,
+	}
+	return d, nil
 }
 
 func (l *DotLoader) addVertex(id int, color int, label string, attrs map[string]interface{}) (err error) {
@@ -58,6 +78,9 @@ func (l *DotLoader) addVertex(id int, color int, label string, attrs map[string]
 		attrs["oid"] = id
 		attrs["color"] = color
 		l.Attrs[vertex.Idx] = attrs
+		if pos, has := attrs["position"]; has {
+			l.Positions[color] = pos.(string)
+		}
 	}
 	return nil
 }

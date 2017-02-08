@@ -63,25 +63,26 @@ Option Flags
 		fmt.Println("method", method)
 		fmt.Println("output", output)
 		labels := digraph.NewLabels()
-		fail, failClose, err := cmd.Input(args[0])
+		positions := make(map[int]string)
+		failFile, failClose, err := cmd.Input(args[0])
 		if err != nil {
 			return nil, cmd.Errorf(2, "Could not read profiles from failed executions: %v\n%v", args[0], err)
 		}
 		defer failClose()
-		failGraph, failAttrs, err := LoadDot(labels, fail)
+		fail, err := LoadDot(positions, labels, failFile)
 		if err != nil {
 			return nil, cmd.Errorf(2, "Could not load profiles from failed executions: %v\n%v", args[0], err)
 		}
-		ok, okClose, err := cmd.Input(args[1])
+		okFile, okClose, err := cmd.Input(args[1])
 		if err != nil {
 			return nil, cmd.Errorf(2, "Could not read profiles from successful executions: %v\n%v", args[0], err)
 		}
 		defer okClose()
-		okGraph, okAttrs, err := LoadDot(labels, ok)
+		ok, err := LoadDot(positions, labels, okFile)
 		if err != nil {
 			return nil, cmd.Errorf(2, "Could not load profiles from successful executions: %v\n%v", args[0], err)
 		}
-		Methods[method](labels, failGraph, failAttrs, okGraph, okAttrs)
+		fmt.Println(Methods[method](fail, ok))
 		return nil, nil
 	})
 }
