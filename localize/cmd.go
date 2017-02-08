@@ -60,6 +60,9 @@ Option Flags
 		if len(args) != 2 {
 			return nil, cmd.Usage(r, 2, "Expected exactly 2 arguments for successful/failing test profiles got: [%v]", strings.Join(args, ", "))
 		}
+		if _, has := Methods[method]; !has {
+			return nil, cmd.Usage(r, 2, "Specified localization method '%v' is not available (see --methods).", method)
+		}
 		fmt.Println("method", method)
 		fmt.Println("output", output)
 		labels := digraph.NewLabels()
