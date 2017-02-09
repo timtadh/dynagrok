@@ -82,16 +82,20 @@ func typeSwitch(x interface{}) {
 
 func switchStmt(x int) {
 	switch x {
+	default:
+		println("default")
+		fallthrough
 	case 1:
 		println(1)
+		if false {
+			break
+		}
+		fallthrough
 	case 2:
 		println(2)
 		fallthrough
 	case 3:
 		println(3)
-		fallthrough
-	default:
-		println(x)
 	}
 	println("done")
 }

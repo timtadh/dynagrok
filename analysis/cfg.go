@@ -25,7 +25,8 @@ type CFG struct {
 	labels map[string]*Block
 	loopHeaders []*Block
 	loopExits []*Block
-	nextCase *Block
+	nextCase []*Block
+	switchExits []*Block
 }
 
 type Block struct {
@@ -58,7 +59,6 @@ const (
 	Switch
 	Select
 	TypeSwitch
-	Panic
 )
 
 // type cfgBuilder struct {
@@ -184,14 +184,14 @@ func (c *CFG) visitBranchStmt(s *ast.Stmt, from *Block) *Block {
 			to.Name = label
 			c.labels[label] = to
 		}
-	} else if len(c.loopHeaders) > 0 && (stmt.Tok == token.BREAK || stmt.Tok == token.CONTINUE) {
-		if stmt.Tok == token.BREAK {
-			to = c.loopExits[len(c.loopExits)-1]
-		} else {
-			to = c.loopHeaders[len(c.loopHeaders)-1]
-		}
-	} else if stmt.Tok == token.FALLTHROUGH && c.nextCase != nil {
-		to = c.nextCase
+	} else if stmt.Tok == token.CONTINUE && len(c.loopHeaders) > 0 {
+		to = c.loopHeaders[len(c.loopHeaders)-1]
+	} else if stmt.Tok == token.BREAK && len(c.loopExits) > 0 {
+		to = c.loopExits[len(c.loopExits)-1]
+	} else if stmt.Tok == token.BREAK && len(c.switchExits) > 0 {
+		to = c.switchExits[len(c.switchExits)-1]
+	} else if stmt.Tok == token.FALLTHROUGH && len(c.nextCase) > 0 && c.nextCase[len(c.nextCase)-1] != nil {
+		to = c.nextCase[len(c.nextCase)-1]
 	} else {
 		panic(fmt.Errorf("%v can't be used here", FmtNode(c.FSet, stmt)))
 	}
@@ -384,7 +384,9 @@ func (c *CFG) visitTypeSwitchStmt(s *ast.Stmt, entry *Block) *Block {
 			Type: TypeSwitch,
 			Cases: cases,
 		})
+		c.pushSwitch(nil, exit)
 		caseBlk = c.visitStmts(&cas.Body, caseBlk)
+		c.popSwitch()
 		caseBlk.Link(&Flow{
 			Block: exit,
 			Type: Unconditional,
@@ -419,16 +421,28 @@ func (c *CFG) visitSwitchStmt(s *ast.Stmt, entry *Block) *Block {
 			Cases: cases,
 		})
 		if i + 1 < len(blks) {
-			c.nextCase = blks[i + 1]
+			c.pushSwitch(blks[i+1], exit)
+		} else {
+			c.pushSwitch(nil, exit)
 		}
 		caseBlk = c.visitStmts(&cas.Body, caseBlk)
-		c.nextCase = nil
+		c.popSwitch()
 		caseBlk.Link(&Flow{
 			Block: exit,
 			Type: Unconditional,
 		})
 	}
 	return exit
+}
+
+func (c *CFG) pushSwitch(next, exit *Block) {
+	c.nextCase = append(c.nextCase, next)
+	c.switchExits = append(c.switchExits, exit)
+}
+
+func (c *CFG) popSwitch() {
+	c.nextCase = c.nextCase[:len(c.nextCase)-1]
+	c.switchExits = c.switchExits[:len(c.switchExits)-1]
 }
 
 // func (b *cfgBuilder) build() (*CFG, error) {
@@ -581,7 +595,6 @@ func (t FlowType) String() string {
 	case Switch: return "Switch"
 	case Select: return "Select"
 	case TypeSwitch: return "TypeSwitch"
-	case Panic: return "Panic"
 	}
 	return "INVALID"
 }
