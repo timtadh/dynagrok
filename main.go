@@ -19,13 +19,14 @@ import (
 func main() {
 	var config cmd.Config
 	main := NewMain(&config)
+	grk := grok.NewCommand(&config)
 	inst := instrument.NewCommand(&config)
 	mut := mutate.NewCommand(&config)
 	loc := localize.NewCommand(&config)
 	cmd.Main(cmd.Concat(
 		main,
 		cmd.Commands(map[string]cmd.Runnable{
-			grok.Command.Name(): grok.Command,
+			grk.Name(): grk,
 			inst.Name(): inst,
 			mut.Name(): mut,
 			loc.Name(): loc,

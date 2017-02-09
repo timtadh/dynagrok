@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"go/ast"
 	"go/parser"
-	"go/types"
 	"go/token"
 	"strconv"
 )
@@ -17,6 +16,7 @@ import (
 
 import (
 	"github.com/timtadh/dynagrok/dgruntime/excludes"
+	"github.com/timtadh/dynagrok/analysis"
 )
 
 type instrumenter struct {
@@ -50,7 +50,7 @@ func (i *instrumenter) instrument() (err error) {
 		}
 		for _, fileAst := range pkg.Files {
 			hadFunc := false
-			err = Functions(pkg, fileAst, func(fn ast.Node, fnName string) error {
+			err = analysis.Functions(pkg, fileAst, func(fn ast.Node, fnName string) error {
 				hadFunc = true
 				switch x := fn.(type) {
 				case *ast.FuncDecl:
@@ -80,7 +80,7 @@ func (i *instrumenter) instrument() (err error) {
 
 func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.Node, fnBody *[]ast.Stmt) error {
 	if true {
-		err := Blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
+		err := analysis.Blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
 			var pos token.Pos = fnAst.Pos()
 			if len(*blk) > 0 {
 				pos = (*blk)[0].Pos()
@@ -116,7 +116,7 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.
 				pos = (*blk)[j].Pos()
 				switch stmt := (*blk)[j].(type) {
 				default:
-					err := Exprs(stmt, func(expr ast.Expr) error {
+					err := analysis.Exprs(stmt, func(expr ast.Expr) error {
 						switch e := expr.(type) {
 						case *ast.SelectorExpr:
 							if ident, ok := e.X.(*ast.Ident); ok {
@@ -145,26 +145,6 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.
 		*fnBody = Insert(*fnBody, 0, i.mkShutdown(fnAst.Pos()))
 	}
 	return nil
-}
-
-func FuncName(pkg *types.Package, fnType *types.Signature, fnAst *ast.FuncDecl) string {
-	recv := fnType.Recv()
-	recvName := pkg.Path()
-	if recv != nil {
-		recvName = fmt.Sprintf("(%v)", TypeName(pkg, recv.Type()))
-	}
-	return fmt.Sprintf("%v.%v", recvName, fnAst.Name.Name)
-}
-
-func TypeName(pkg *types.Package, t types.Type) string {
-	switch r := t.(type) {
-	case *types.Pointer:
-		return fmt.Sprintf("*%v", TypeName(pkg, r.Elem()))
-	case *types.Named:
-		return fmt.Sprintf("%v.%v", pkg.Path(), r.Obj().Name())
-	default:
-		panic(errors.Errorf("unexpected recv %T", t))
-	}
 }
 
 func Insert(blk []ast.Stmt, j int, stmt ast.Stmt) []ast.Stmt {
