@@ -199,7 +199,6 @@ func (c *CFG) visitBranchStmt(s *ast.Stmt, from *Block) *Block {
 	if stmt.Label != nil {
 		if stmt.Tok == token.BREAK {
 			label := stmt.Label.Name + "-break"
-			fmt.Println(label, c.labels)
 			if b, has := c.labels[label]; has {
 				to = b
 			} else {
@@ -207,7 +206,6 @@ func (c *CFG) visitBranchStmt(s *ast.Stmt, from *Block) *Block {
 			}
 		} else if stmt.Tok == token.CONTINUE {
 			label := stmt.Label.Name + "-continue"
-			fmt.Println(label, c.labels)
 			if b, has := c.labels[label]; has {
 				to = b
 			} else {
