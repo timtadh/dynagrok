@@ -17,7 +17,19 @@ func main() {
 	b: {
 		print("wooze\n")
 		x++
+		var f interface{} = 1
 		goto a
+		goto b
+		if true {
+			println("never!")
+			goto c
+			for {
+			}
+			goto a
+			switch {}
+			select {}
+			switch f.(type){}
+		}
 	}
 	c: {
 		if true {

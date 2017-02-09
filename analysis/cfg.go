@@ -61,12 +61,6 @@ const (
 	TypeSwitch
 )
 
-// type cfgBuilder struct {
-// 	cfg *CFG
-// 	stack []*Block
-// 	err error
-// }
-
 func BuildCFG(fset *token.FileSet, fnName string, fn ast.Node, body *[]ast.Stmt) *CFG {
 	cfg := &CFG{
 		FSet: fset,
@@ -95,7 +89,13 @@ func (c *CFG) build() {
 
 func (c *CFG) visitStmts(stmts *[]ast.Stmt, blk *Block) *Block {
 	for i := range *stmts {
-		blk = c.visitStmt(&(*stmts)[i], blk)
+		x := c.visitStmt(&(*stmts)[i], blk)
+		if x == nil && i + 1 < len(*stmts) {
+			// blk = c.addBlock()
+			blk = nil
+		} else {
+			blk = x
+		}
 	}
 	return blk
 }
@@ -161,7 +161,7 @@ func (c *CFG) visitLabeledStmt(s *ast.Stmt, from *Block) *Block {
 		to.Name = label
 		c.labels[label] = to
 	}
-	if len(from.Next) <= 0 {
+	if from != nil && len(from.Next) <= 0 {
 		from.Link(&Flow{
 			Block: to,
 			Type: Unconditional,
@@ -171,6 +171,9 @@ func (c *CFG) visitLabeledStmt(s *ast.Stmt, from *Block) *Block {
 }
 
 func (c *CFG) visitBranchStmt(s *ast.Stmt, from *Block) *Block {
+	if from == nil {
+		from = c.addBlock()
+	}
 	from.Add(s)
 	stmt := (*s).(*ast.BranchStmt)
 
@@ -199,7 +202,7 @@ func (c *CFG) visitBranchStmt(s *ast.Stmt, from *Block) *Block {
 		Block: to,
 		Type: Unconditional,
 	})
-	return c.addBlock()
+	return nil
 }
 
 func (c *CFG) visitBlockStmt(s *ast.Stmt, blk *Block) *Block {
@@ -210,6 +213,9 @@ func (c *CFG) visitBlockStmt(s *ast.Stmt, blk *Block) *Block {
 
 func (c *CFG) visitIfStmt(s *ast.Stmt, entry *Block) *Block {
 	stmt := (*s).(*ast.IfStmt)
+	if entry == nil {
+		entry = c.addBlock()
+	}
 	entry.Add(s)
 	entry.Cond = &stmt.Cond
 	thenBlk := c.addBlock()
@@ -225,7 +231,7 @@ func (c *CFG) visitIfStmt(s *ast.Stmt, entry *Block) *Block {
 		})
 		thenBody := ast.Stmt(stmt.Body)
 		thenBlk = c.visitBlockStmt(&thenBody, thenBlk)
-		if !thenBlk.Exits() {
+		if thenBlk != nil && !thenBlk.Exits() {
 			thenBlk.Link(&Flow{
 				Block: exitBlk,
 				Type: Unconditional,
@@ -238,7 +244,7 @@ func (c *CFG) visitIfStmt(s *ast.Stmt, entry *Block) *Block {
 			Type: False,
 		})
 		elseBlk = c.visitStmt(&stmt.Else, elseBlk)
-		if !elseBlk.Exits() {
+		if elseBlk != nil && !elseBlk.Exits() {
 			elseBlk.Link(&Flow{
 				Block: exitBlk,
 				Type: Unconditional,
@@ -255,6 +261,9 @@ func (c *CFG) visitIfStmt(s *ast.Stmt, entry *Block) *Block {
 
 func (c *CFG) visitForStmt(s *ast.Stmt, entry *Block) *Block {
 	stmt := (*s).(*ast.ForStmt)
+	if entry == nil {
+		entry = c.addBlock()
+	}
 	if stmt.Init != nil {
 		entry.Add(&stmt.Init)
 	}
@@ -282,17 +291,30 @@ func (c *CFG) visitForStmt(s *ast.Stmt, entry *Block) *Block {
 		bodyBlk = header
 	}
 
-	c.pushLoop(header, exitBlk)
+	var postBlk *Block
+	if stmt.Post != nil {
+		postBlk = c.addBlock()
+		postBlk = c.visitStmt(&stmt.Post, postBlk)
+		postBlk.Link(&Flow{
+			Block: header,
+			Type: Unconditional,
+		})
+	}
+
+	if postBlk != nil {
+		c.pushLoop(postBlk, exitBlk)
+	} else {
+		c.pushLoop(header, exitBlk)
+	}
 	bodyBlk = c.visitBlockStmt(&body, bodyBlk)
 	c.popLoop()
 
-	if stmt.Post != nil {
-		bodyBlk = c.visitStmt(&stmt.Post, bodyBlk)
+	if postBlk == nil && bodyBlk != nil {
+		bodyBlk.Link(&Flow{
+			Block: header,
+			Type: Unconditional,
+		})
 	}
-	bodyBlk.Link(&Flow{
-		Block: header,
-		Type: Unconditional,
-	})
 	return exitBlk
 }
 
@@ -309,10 +331,12 @@ func (c *CFG) popLoop() {
 func (c *CFG) visitRangeStmt(s *ast.Stmt, entry *Block) *Block {
 	stmt := (*s).(*ast.RangeStmt)
 	header := c.addBlock()
-	entry.Link(&Flow{
-		Block: header,
-		Type: Unconditional,
-	})
+	if entry == nil {
+		entry.Link(&Flow{
+			Block: header,
+			Type: Unconditional,
+		})
+	}
 	header.Add(s)
 	body := ast.Stmt(stmt.Body)
 	bodyBlk := c.addBlock()
@@ -331,16 +355,24 @@ func (c *CFG) visitRangeStmt(s *ast.Stmt, entry *Block) *Block {
 	bodyBlk = c.visitBlockStmt(&body, bodyBlk)
 	c.popLoop()
 
-	bodyBlk.Link(&Flow{
-		Block: header,
-		Type: Unconditional,
-	})
+	if bodyBlk != nil {
+		bodyBlk.Link(&Flow{
+			Block: header,
+			Type: Unconditional,
+		})
+	}
 	return exitBlk
 }
 
 func (c *CFG) visitSelectStmt(s *ast.Stmt, entry *Block) *Block {
 	stmt := (*s).(*ast.SelectStmt)
+	if entry == nil {
+		entry = c.addBlock()
+	}
 	entry.Add(s)
+	if len(stmt.Body.List) <= 0 {
+		return entry
+	}
 	exit := c.addBlock()
 	for _, s := range stmt.Body.List {
 		comm := s.(*ast.CommClause)
@@ -356,20 +388,28 @@ func (c *CFG) visitSelectStmt(s *ast.Stmt, entry *Block) *Block {
 			Comm: cond,
 		})
 		commBlk = c.visitStmts(&comm.Body, commBlk)
-		commBlk.Link(&Flow{
-			Block: exit,
-			Type: Unconditional,
-		})
+		if commBlk != nil {
+			commBlk.Link(&Flow{
+				Block: exit,
+				Type: Unconditional,
+			})
+		}
 	}
 	return exit
 }
 
 func (c *CFG) visitTypeSwitchStmt(s *ast.Stmt, entry *Block) *Block {
 	stmt := (*s).(*ast.TypeSwitchStmt)
+	if entry == nil {
+		entry = c.addBlock()
+	}
 	if stmt.Init != nil {
 		entry.Add(&stmt.Init)
 	}
 	entry.Add(s)
+	if len(stmt.Body.List) <= 0 {
+		return entry
+	}
 	exit := c.addBlock()
 	for _, s := range stmt.Body.List {
 		cas := s.(*ast.CaseClause)
@@ -387,22 +427,32 @@ func (c *CFG) visitTypeSwitchStmt(s *ast.Stmt, entry *Block) *Block {
 		c.pushSwitch(nil, exit)
 		caseBlk = c.visitStmts(&cas.Body, caseBlk)
 		c.popSwitch()
-		caseBlk.Link(&Flow{
-			Block: exit,
-			Type: Unconditional,
-		})
+		if caseBlk != nil {
+			caseBlk.Link(&Flow{
+				Block: exit,
+				Type: Unconditional,
+			})
+		}
 	}
 	return exit
 }
 
 func (c *CFG) visitSwitchStmt(s *ast.Stmt, entry *Block) *Block {
 	stmt := (*s).(*ast.SwitchStmt)
+	if entry == nil {
+		entry = c.addBlock()
+	}
 	if stmt.Init != nil {
 		entry.Add(&stmt.Init)
 	}
 	entry.Add(s)
 	entry.Cond = &stmt.Tag
+	if len(stmt.Body.List) <= 0 {
+		return entry
+	}
 	exit := c.addBlock()
+	if len(stmt.Body.List) <= 0 {
+	}
 	blks := make([]*Block, 0, len(stmt.Body.List))
 	for range stmt.Body.List {
 		blks = append(blks, c.addBlock())
@@ -427,10 +477,12 @@ func (c *CFG) visitSwitchStmt(s *ast.Stmt, entry *Block) *Block {
 		}
 		caseBlk = c.visitStmts(&cas.Body, caseBlk)
 		c.popSwitch()
-		caseBlk.Link(&Flow{
-			Block: exit,
-			Type: Unconditional,
-		})
+		if caseBlk != nil {
+			caseBlk.Link(&Flow{
+				Block: exit,
+				Type: Unconditional,
+			})
+		}
 	}
 	return exit
 }
@@ -444,28 +496,6 @@ func (c *CFG) popSwitch() {
 	c.nextCase = c.nextCase[:len(c.nextCase)-1]
 	c.switchExits = c.switchExits[:len(c.switchExits)-1]
 }
-
-// func (b *cfgBuilder) build() (*CFG, error) {
-// 	ast.Walk(b, b.cfg.Fn)
-// 	if b.err != nil {
-// 		return nil, b.err
-// 	}
-// 	return b.cfg, nil
-// }
-// 
-// func (b *cfgBuilder) Visit(n ast.Node) (ast.Visitor) {
-// 	return b
-// }
-// 
-// func (b *cfgBuilder) push(blk *Block) {
-// 	b.stack = append(b.stack, blk)
-// }
-// 
-// func (b *cfgBuilder) pop() *Block {
-// 	blk := b.stack[len(b.stack)-1]
-// 	b.stack = b.stack[:len(b.stack)-1]
-// 	return blk
-// }
 
 func (c *CFG) addBlock() *Block {
 	id := len(c.Blocks)
@@ -500,7 +530,7 @@ func (b *Block) Link(flow *Flow) {
 }
 
 func (b *Block) Exits() bool {
-	if len(b.Stmts) <= 0 {
+	if b == nil || len(b.Stmts) <= 0 {
 		return false
 	}
 	s := b.Stmts[len(b.Stmts)-1]
@@ -581,7 +611,11 @@ func (f *Flow) String() string {
 		}
 		cases = " with cases: " + strings.Join(parts, ", ")
 	}
-	return fmt.Sprintf("(goto %v on %v%v%v)", f.Block.Id, f.Type, comm, cases)
+	when := ""
+	if f.Type != Unconditional {
+		when = fmt.Sprintf(" on %v", f.Type)
+	}
+	return fmt.Sprintf("(goto %v%v%v%v)", f.Block.Id, when, comm, cases)
 }
 
 func (t FlowType) String() string {
