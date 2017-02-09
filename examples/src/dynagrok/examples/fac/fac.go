@@ -18,6 +18,16 @@ func loopFac(x int) int {
 	for i := 1; i <= x; i++ {
 		f = f * i
 	}
+	foo := make(chan int, 1)
+	foo<-1
+	select {
+	case y := <-foo:
+		println(y)
+	case foo<-x:
+		println(x)
+	default:
+		println("wiz")
+	}
 	return f
 }
 
@@ -45,4 +55,43 @@ start:
 	acc *= x
 	x--
 	goto start
+}
+
+func rangeEx(x int) {
+	l := make([]int, 10)
+	for i, c := range l {
+		print(i)
+		print(":")
+		print(c)
+		if i + 1 < len(l) {
+			print(", ")
+		}
+	}
+	println()
+}
+
+func typeSwitch(x interface{}) {
+	switch x.(type) {
+	case uint,float64:
+		println("is uint or float64")
+	case int:
+		println("is int")
+	}
+	println("done")
+}
+
+func switchStmt(x int) {
+	switch x {
+	case 1:
+		println(1)
+	case 2:
+		println(2)
+		fallthrough
+	case 3:
+		println(3)
+		fallthrough
+	default:
+		println(x)
+	}
+	println("done")
 }

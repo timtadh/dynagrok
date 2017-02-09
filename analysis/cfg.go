@@ -25,6 +25,7 @@ type CFG struct {
 	labels map[string]*Block
 	loopHeaders []*Block
 	loopExits []*Block
+	nextCase *Block
 }
 
 type Block struct {
@@ -41,7 +42,8 @@ type Flow struct {
 	FSet  *token.FileSet
 	Block *Block
 	Type  FlowType
-	Cond  *ast.Expr
+	Comm  *ast.Stmt
+	Cases *[]ast.Expr
 }
 
 type FlowType uint8
@@ -49,8 +51,10 @@ type FlowType uint8
 const (
 	INVALID = iota
 	Unconditional
-	TrueBranch
-	FalseBranch
+	True
+	False
+	Range
+	RangeExit
 	Switch
 	Select
 	TypeSwitch
@@ -128,12 +132,18 @@ func (c *CFG) visitStmt(s *ast.Stmt, blk *Block) *Block {
 		blk = c.visitIfStmt(s, blk)
 	case *ast.ForStmt:
 		blk = c.visitForStmt(s, blk)
-	case *ast.SelectStmt:
-	case *ast.CaseClause:
-	case *ast.CommClause:
-	case *ast.SwitchStmt:
-	case *ast.TypeSwitchStmt:
 	case *ast.RangeStmt:
+		blk = c.visitRangeStmt(s, blk)
+	case *ast.SelectStmt:
+		blk = c.visitSelectStmt(s, blk)
+	case *ast.TypeSwitchStmt:
+		blk = c.visitTypeSwitchStmt(s, blk)
+	case *ast.SwitchStmt:
+		blk = c.visitSwitchStmt(s, blk)
+	case *ast.CaseClause:
+		panic(fmt.Errorf("Unexpected case clause %T %v", stmt, stmt))
+	case *ast.CommClause:
+		panic(fmt.Errorf("Unexpected comm clause %T %v", stmt, stmt))
 	default:
 		panic(fmt.Errorf("unexpected node %T", stmt))
 	}
@@ -180,8 +190,10 @@ func (c *CFG) visitBranchStmt(s *ast.Stmt, from *Block) *Block {
 		} else {
 			to = c.loopHeaders[len(c.loopHeaders)-1]
 		}
+	} else if stmt.Tok == token.FALLTHROUGH && c.nextCase != nil {
+		to = c.nextCase
 	} else {
-		panic(fmt.Errorf("%v outside of a loop", stmt.Tok))
+		panic(fmt.Errorf("%v can't be used here", FmtNode(c.FSet, stmt)))
 	}
 	from.Link(&Flow{
 		Block: to,
@@ -209,7 +221,7 @@ func (c *CFG) visitIfStmt(s *ast.Stmt, entry *Block) *Block {
 	{
 		entry.Link(&Flow{
 			Block: thenBlk,
-			Type: TrueBranch,
+			Type: True,
 		})
 		thenBody := ast.Stmt(stmt.Body)
 		thenBlk = c.visitBlockStmt(&thenBody, thenBlk)
@@ -223,7 +235,7 @@ func (c *CFG) visitIfStmt(s *ast.Stmt, entry *Block) *Block {
 	if stmt.Else != nil {
 		entry.Link(&Flow{
 			Block: elseBlk,
-			Type: FalseBranch,
+			Type: False,
 		})
 		elseBlk = c.visitStmt(&stmt.Else, elseBlk)
 		if !elseBlk.Exits() {
@@ -235,7 +247,7 @@ func (c *CFG) visitIfStmt(s *ast.Stmt, entry *Block) *Block {
 	} else {
 		entry.Link(&Flow{
 			Block: exitBlk,
-			Type: FalseBranch,
+			Type: False,
 		})
 	}
 	return exitBlk
@@ -260,11 +272,11 @@ func (c *CFG) visitForStmt(s *ast.Stmt, entry *Block) *Block {
 		header.Cond = &stmt.Cond
 		header.Link(&Flow{
 			Block: bodyBlk,
-			Type: TrueBranch,
+			Type: True,
 		})
 		header.Link(&Flow{
 			Block: exitBlk,
-			Type: FalseBranch,
+			Type: False,
 		})
 	} else {
 		bodyBlk = header
@@ -292,6 +304,131 @@ func (c *CFG) pushLoop(header, exit *Block) {
 func (c *CFG) popLoop() {
 	c.loopHeaders = c.loopHeaders[:len(c.loopHeaders)-1]
 	c.loopExits = c.loopExits[:len(c.loopExits)-1]
+}
+
+func (c *CFG) visitRangeStmt(s *ast.Stmt, entry *Block) *Block {
+	stmt := (*s).(*ast.RangeStmt)
+	header := c.addBlock()
+	entry.Link(&Flow{
+		Block: header,
+		Type: Unconditional,
+	})
+	header.Add(s)
+	body := ast.Stmt(stmt.Body)
+	bodyBlk := c.addBlock()
+	exitBlk := c.addBlock()
+	header.Cond = &stmt.X
+	header.Link(&Flow{
+		Block: bodyBlk,
+		Type: Range,
+	})
+	header.Link(&Flow{
+		Block: exitBlk,
+		Type: RangeExit,
+	})
+
+	c.pushLoop(header, exitBlk)
+	bodyBlk = c.visitBlockStmt(&body, bodyBlk)
+	c.popLoop()
+
+	bodyBlk.Link(&Flow{
+		Block: header,
+		Type: Unconditional,
+	})
+	return exitBlk
+}
+
+func (c *CFG) visitSelectStmt(s *ast.Stmt, entry *Block) *Block {
+	stmt := (*s).(*ast.SelectStmt)
+	entry.Add(s)
+	exit := c.addBlock()
+	for _, s := range stmt.Body.List {
+		comm := s.(*ast.CommClause)
+		commBlk := c.addBlock()
+		var cond *ast.Stmt = nil
+		if comm.Comm != nil {
+			cond = &comm.Comm
+		}
+		entry.Link(&Flow{
+			FSet: c.FSet,
+			Block: commBlk,
+			Type: Select,
+			Comm: cond,
+		})
+		commBlk = c.visitStmts(&comm.Body, commBlk)
+		commBlk.Link(&Flow{
+			Block: exit,
+			Type: Unconditional,
+		})
+	}
+	return exit
+}
+
+func (c *CFG) visitTypeSwitchStmt(s *ast.Stmt, entry *Block) *Block {
+	stmt := (*s).(*ast.TypeSwitchStmt)
+	if stmt.Init != nil {
+		entry.Add(&stmt.Init)
+	}
+	entry.Add(s)
+	exit := c.addBlock()
+	for _, s := range stmt.Body.List {
+		cas := s.(*ast.CaseClause)
+		caseBlk := c.addBlock()
+		var cases *[]ast.Expr = nil
+		if cas.List != nil {
+			cases = &cas.List
+		}
+		entry.Link(&Flow{
+			FSet: c.FSet,
+			Block: caseBlk,
+			Type: TypeSwitch,
+			Cases: cases,
+		})
+		caseBlk = c.visitStmts(&cas.Body, caseBlk)
+		caseBlk.Link(&Flow{
+			Block: exit,
+			Type: Unconditional,
+		})
+	}
+	return exit
+}
+
+func (c *CFG) visitSwitchStmt(s *ast.Stmt, entry *Block) *Block {
+	stmt := (*s).(*ast.SwitchStmt)
+	if stmt.Init != nil {
+		entry.Add(&stmt.Init)
+	}
+	entry.Add(s)
+	entry.Cond = &stmt.Tag
+	exit := c.addBlock()
+	blks := make([]*Block, 0, len(stmt.Body.List))
+	for range stmt.Body.List {
+		blks = append(blks, c.addBlock())
+	}
+	for i, s := range stmt.Body.List {
+		cas := s.(*ast.CaseClause)
+		caseBlk := blks[i]
+		var cases *[]ast.Expr = nil
+		if cas.List != nil {
+			cases = &cas.List
+		}
+		entry.Link(&Flow{
+			FSet: c.FSet,
+			Block: caseBlk,
+			Type: TypeSwitch,
+			Cases: cases,
+		})
+		if i + 1 < len(blks) {
+			c.nextCase = blks[i + 1]
+		}
+		caseBlk = c.visitStmts(&cas.Body, caseBlk)
+		c.nextCase = nil
+		caseBlk.Link(&Flow{
+			Block: exit,
+			Type: Unconditional,
+		})
+	}
+	return exit
 }
 
 // func (b *cfgBuilder) build() (*CFG, error) {
@@ -343,7 +480,8 @@ func (b *Block) Link(flow *Flow) {
 		FSet: flow.FSet,
 		Block: b,
 		Type: flow.Type,
-		Cond: flow.Cond,
+		Comm: flow.Comm,
+		Cases: flow.Cases,
 	})
 }
 
@@ -417,19 +555,29 @@ func (b *Block) String() string {
 }
 
 func (f *Flow) String() string {
-	cond := ""
-	if f.Cond != nil {
-		cond = fmt.Sprintf(" with cond %v", FmtNode(f.FSet, *f.Cond))
+	comm := ""
+	if f.Comm != nil {
+		comm = fmt.Sprintf(" with comm: %v", FmtNode(f.FSet, *f.Comm))
 	}
-	return fmt.Sprintf("flow to %v of type %v%v", f.Block.Id, f.Type, cond)
+	cases := ""
+	if f.Cases != nil {
+		parts := make([]string, 0, len(*f.Cases))
+		for _, c := range *f.Cases {
+			parts = append(parts, FmtNode(f.FSet, c))
+		}
+		cases = " with cases: " + strings.Join(parts, ", ")
+	}
+	return fmt.Sprintf("(goto %v on %v%v%v)", f.Block.Id, f.Type, comm, cases)
 }
 
 func (t FlowType) String() string {
 	switch t {
 	case INVALID: return "INVALID"
 	case Unconditional: return "Unconditional"
-	case TrueBranch: return "TrueBranch"
-	case FalseBranch: return "FalseBranch"
+	case True: return "True"
+	case False: return "False"
+	case Range: return "Range"
+	case RangeExit: return "RangeExit"
 	case Switch: return "Switch"
 	case Select: return "Select"
 	case TypeSwitch: return "TypeSwitch"
