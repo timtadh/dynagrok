@@ -24,9 +24,9 @@ type CFG struct {
 	Blocks []*Block
 	labels map[string]*Block
 	loopHeaders []*Block
-	loopExits []*Block
+	exits []*Block
 	nextCase []*Block
-	switchExits []*Block
+	breakLabel, continueLabel string
 }
 
 type Block struct {
@@ -167,6 +167,14 @@ func (c *CFG) visitLabeledStmt(s *ast.Stmt, from *Block) *Block {
 			Type: Unconditional,
 		})
 	}
+	switch stmt.Stmt.(type) {
+	case *ast.ForStmt, *ast.RangeStmt, *ast.SelectStmt, *ast.TypeSwitchStmt, *ast.SwitchStmt:
+		c.breakLabel = label+"-break"
+	}
+	switch stmt.Stmt.(type) {
+	case *ast.ForStmt, *ast.RangeStmt:
+		c.continueLabel = label+"-continue"
+	}
 	return c.visitStmt(&stmt.Stmt, to)
 }
 
@@ -176,23 +184,42 @@ func (c *CFG) visitBranchStmt(s *ast.Stmt, from *Block) *Block {
 	}
 	from.Add(s)
 	stmt := (*s).(*ast.BranchStmt)
-
+	getLabel := func(label string) *Block {
+		label = stmt.Label.Name
+		if b, has := c.labels[label]; has {
+			return b
+		} else {
+			x := c.addBlock()
+			x.Name = label
+			c.labels[label] = x
+			return x
+		}
+	}
 	var to *Block
 	if stmt.Label != nil {
-		label := stmt.Label.Name
-		if b, has := c.labels[label]; has {
-			to = b
+		if stmt.Tok == token.BREAK {
+			label := stmt.Label.Name + "-break"
+			fmt.Println(label, c.labels)
+			if b, has := c.labels[label]; has {
+				to = b
+			} else {
+				to = getLabel(stmt.Label.Name)
+			}
+		} else if stmt.Tok == token.CONTINUE {
+			label := stmt.Label.Name + "-continue"
+			fmt.Println(label, c.labels)
+			if b, has := c.labels[label]; has {
+				to = b
+			} else {
+				to = getLabel(stmt.Label.Name)
+			}
 		} else {
-			to = c.addBlock()
-			to.Name = label
-			c.labels[label] = to
+			to = getLabel(stmt.Label.Name)
 		}
 	} else if stmt.Tok == token.CONTINUE && len(c.loopHeaders) > 0 {
 		to = c.loopHeaders[len(c.loopHeaders)-1]
-	} else if stmt.Tok == token.BREAK && len(c.loopExits) > 0 {
-		to = c.loopExits[len(c.loopExits)-1]
-	} else if stmt.Tok == token.BREAK && len(c.switchExits) > 0 {
-		to = c.switchExits[len(c.switchExits)-1]
+	} else if stmt.Tok == token.BREAK && len(c.exits) > 0 {
+		to = c.exits[len(c.exits)-1]
 	} else if stmt.Tok == token.FALLTHROUGH && len(c.nextCase) > 0 && c.nextCase[len(c.nextCase)-1] != nil {
 		to = c.nextCase[len(c.nextCase)-1]
 	} else {
@@ -275,6 +302,14 @@ func (c *CFG) visitForStmt(s *ast.Stmt, entry *Block) *Block {
 	header.Add(s)
 	body := ast.Stmt(stmt.Body)
 	exitBlk := c.addBlock()
+	if c.breakLabel != "" {
+		c.labels[c.breakLabel] = exitBlk
+		c.breakLabel = ""
+	}
+	if c.continueLabel != "" {
+		c.labels[c.continueLabel] = header
+		c.continueLabel = ""
+	}
 	var bodyBlk *Block = nil
 	if stmt.Cond != nil {
 		bodyBlk = c.addBlock()
@@ -320,12 +355,12 @@ func (c *CFG) visitForStmt(s *ast.Stmt, entry *Block) *Block {
 
 func (c *CFG) pushLoop(header, exit *Block) {
 	c.loopHeaders = append(c.loopHeaders, header)
-	c.loopExits = append(c.loopExits, exit)
+	c.exits = append(c.exits, exit)
 }
 
 func (c *CFG) popLoop() {
 	c.loopHeaders = c.loopHeaders[:len(c.loopHeaders)-1]
-	c.loopExits = c.loopExits[:len(c.loopExits)-1]
+	c.exits = c.exits[:len(c.exits)-1]
 }
 
 func (c *CFG) visitRangeStmt(s *ast.Stmt, entry *Block) *Block {
@@ -341,6 +376,14 @@ func (c *CFG) visitRangeStmt(s *ast.Stmt, entry *Block) *Block {
 	body := ast.Stmt(stmt.Body)
 	bodyBlk := c.addBlock()
 	exitBlk := c.addBlock()
+	if c.breakLabel != "" {
+		c.labels[c.breakLabel] = exitBlk
+		c.breakLabel = ""
+	}
+	if c.continueLabel != "" {
+		c.labels[c.continueLabel] = header
+		c.continueLabel = ""
+	}
 	header.Cond = &stmt.X
 	header.Link(&Flow{
 		Block: bodyBlk,
@@ -374,6 +417,10 @@ func (c *CFG) visitSelectStmt(s *ast.Stmt, entry *Block) *Block {
 		return entry
 	}
 	exit := c.addBlock()
+	if c.breakLabel != "" {
+		c.labels[c.breakLabel] = exit
+		c.breakLabel = ""
+	}
 	for _, s := range stmt.Body.List {
 		comm := s.(*ast.CommClause)
 		commBlk := c.addBlock()
@@ -411,6 +458,10 @@ func (c *CFG) visitTypeSwitchStmt(s *ast.Stmt, entry *Block) *Block {
 		return entry
 	}
 	exit := c.addBlock()
+	if c.breakLabel != "" {
+		c.labels[c.breakLabel] = exit
+		c.breakLabel = ""
+	}
 	for _, s := range stmt.Body.List {
 		cas := s.(*ast.CaseClause)
 		caseBlk := c.addBlock()
@@ -451,6 +502,10 @@ func (c *CFG) visitSwitchStmt(s *ast.Stmt, entry *Block) *Block {
 		return entry
 	}
 	exit := c.addBlock()
+	if c.breakLabel != "" {
+		c.labels[c.breakLabel] = exit
+		c.breakLabel = ""
+	}
 	if len(stmt.Body.List) <= 0 {
 	}
 	blks := make([]*Block, 0, len(stmt.Body.List))
@@ -467,7 +522,7 @@ func (c *CFG) visitSwitchStmt(s *ast.Stmt, entry *Block) *Block {
 		entry.Link(&Flow{
 			FSet: c.FSet,
 			Block: caseBlk,
-			Type: TypeSwitch,
+			Type: Switch,
 			Cases: cases,
 		})
 		if i + 1 < len(blks) {
@@ -489,12 +544,12 @@ func (c *CFG) visitSwitchStmt(s *ast.Stmt, entry *Block) *Block {
 
 func (c *CFG) pushSwitch(next, exit *Block) {
 	c.nextCase = append(c.nextCase, next)
-	c.switchExits = append(c.switchExits, exit)
+	c.exits = append(c.exits, exit)
 }
 
 func (c *CFG) popSwitch() {
 	c.nextCase = c.nextCase[:len(c.nextCase)-1]
-	c.switchExits = c.switchExits[:len(c.switchExits)-1]
+	c.exits = c.exits[:len(c.exits)-1]
 }
 
 func (c *CFG) addBlock() *Block {
