@@ -7,19 +7,31 @@
 [submodule "src/github.com/timtadh/data-structures"]
 	path = src/github.com/timtadh/data-structures
 	url = https://www.github.com/timtadh/data-structures
-[submodule "examples/src/github.com/timtadh/lexmachine"]
-	path = examples/src/github.com/timtadh/lexmachine
+[submodule "src/github.com/timtadh/lexmachine"]
+	path = src/github.com/timtadh/lexmachine
 	url = https://www.github.com/timtadh/lexmachine
-[submodule "examples/src/github.com/timtadh/dot"]
-	path = examples/src/github.com/timtadh/dot
+[submodule "src/github.com/timtadh/dot"]
+	path = src/github.com/timtadh/dot
 	url = https://www.github.com/timtadh/dot
-[submodule "examples/src/github.com/timtadh/combos"]
-	path = examples/src/github.com/timtadh/combos
+[submodule "src/github.com/timtadh/combos"]
+	path = src/github.com/timtadh/combos
 	url = https://www.github.com/timtadh/combos
-[submodule "examples/src/dynagrok/examples/shapes"]
-	path = examples/src/dynagrok/examples/shapes
+[submodule "src/dynagrok/examples/shapes"]
+	path = src/dynagrok/examples/shapes
 	url = http://github.com/jkobyp/shapes
 	branch = dynagrok
-[submodule "examples/src/github.com/stretchr/testify"]
-	path = examples/src/github.com/stretchr/testify
+[submodule "src/github.com/stretchr/testify"]
+	path = src/github.com/stretchr/testify
 	url = http://github.com/stretchr/testify
+[submodule "src/github.com/timtadh/sfp"]
+	path = src/github.com/timtadh/sfp
+	url = https://github.com/timtadh/sfp
+[submodule "src/github.com/timtadh/fs2"]
+	path = src/github.com/timtadh/fs2
+	url = https://github.com/timtadh/fs2
+[submodule "src/github.com/timtadh/goiso"]
+	path = src/github.com/timtadh/goiso
+	url = https://github.com/timtadh/goiso
+[submodule "src/github.com/timtadh/matrix"]
+	path = src/github.com/timtadh/matrix
+	url = https://github.com/timtadh/go.matrix

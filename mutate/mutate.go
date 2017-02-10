@@ -21,6 +21,7 @@ import (
 
 import (
 	"github.com/timtadh/dynagrok/dgruntime/excludes"
+	"github.com/timtadh/dynagrok/analysis"
 	"github.com/timtadh/dynagrok/instrument"
 )
 
@@ -100,7 +101,7 @@ func (m *mutator) collect() (muts Mutations, err error) {
 			continue
 		}
 		for _, fileAst := range pkg.Files {
-			err = instrument.Functions(pkg, fileAst, func(fn ast.Node, fnName string) error {
+			err = analysis.Functions(pkg, fileAst, func(fn ast.Node, fnName string) error {
 				var body *[]ast.Stmt
 				switch x := fn.(type) {
 				case *ast.FuncDecl:
@@ -133,7 +134,7 @@ func (m *mutator) collect() (muts Mutations, err error) {
 
 func (m *mutator) fnBodyCollect(pkg *loader.PackageInfo, file *ast.File, fnName string, fnAst ast.Node, fnBody *[]ast.Stmt) (Mutations, error) {
 	muts := make(Mutations, 0, 10)
-	err := instrument.Blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
+	err := analysis.Blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
 		for j := 0; j < len(*blk); j++ {
 			p := m.program.Fset.Position((*blk)[j].Pos())
 			switch stmt := (*blk)[j].(type) {

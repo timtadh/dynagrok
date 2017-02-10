@@ -1,4 +1,4 @@
-package instrument
+package analysis
 
 import (
 	"fmt"
@@ -9,6 +9,7 @@ import (
 
 import (
 	"golang.org/x/tools/go/loader"
+	"github.com/timtadh/data-structures/errors"
 )
 
 
@@ -102,3 +103,22 @@ func (v *funcVisitor) Visit(n ast.Node) (ast.Visitor) {
 	return v
 }
 
+func FuncName(pkg *types.Package, fnType *types.Signature, fnAst *ast.FuncDecl) string {
+	recv := fnType.Recv()
+	recvName := pkg.Path()
+	if recv != nil {
+		recvName = fmt.Sprintf("(%v)", TypeName(pkg, recv.Type()))
+	}
+	return fmt.Sprintf("%v.%v", recvName, fnAst.Name.Name)
+}
+
+func TypeName(pkg *types.Package, t types.Type) string {
+	switch r := t.(type) {
+	case *types.Pointer:
+		return fmt.Sprintf("*%v", TypeName(pkg, r.Elem()))
+	case *types.Named:
+		return fmt.Sprintf("%v.%v", pkg.Path(), r.Obj().Name())
+	default:
+		panic(errors.Errorf("unexpected recv %T", t))
+	}
+}

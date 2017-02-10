@@ -8,7 +8,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"go/types"
+	//	"go/types"
 	"strconv"
 )
 
@@ -19,6 +19,7 @@ import (
 )
 
 import (
+	"github.com/timtadh/dynagrok/analysis"
 	"github.com/timtadh/dynagrok/dgruntime/excludes"
 )
 
@@ -60,7 +61,7 @@ func (i *instrumenter) instrument() (err error) {
 		for _, fileAst := range pkg.Files {
 			i.currentFile = fileAst
 			hadFunc := false
-			err = Functions(pkg, fileAst, func(fn ast.Node, fnName string) error {
+			err = analysis.Functions(pkg, fileAst, func(fn ast.Node, fnName string) error {
 				hadFunc = true
 				switch x := fn.(type) {
 				case *ast.FuncDecl:
@@ -127,14 +128,14 @@ func (i instrumenter) exprFuncGenerator(pkg *loader.PackageInfo, blk *[]ast.Stmt
 
 func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.Node, fnBody *[]ast.Stmt) error {
 	if true {
-		err := Blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
-			// This unnamed function "instruments" a block.
-			// First, it calls mkEnterBlk in the first line of the block,
-			// unless it's a top-level block, in which case mkEnterFunc has
-			// already been called.
-			// Then, it iterates through the statements of the block, marking
-			// which points are re-entry points - the target of a goto, the end
-			// of a loop, etc.
+		// This unnamed function "instruments" a block.
+		// First, it calls mkEnterBlk in the first line of the block,
+		// unless it's a top-level block, in which case mkEnterFunc has
+		// already been called.
+		// Then, it iterates through the statements of the block, marking
+		// which points are re-entry points - the target of a goto, the end
+		// of a loop, etc.
+		err := analysis.Blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
 			var pos token.Pos = fnAst.Pos()
 			if len(*blk) > 0 {
 				pos = (*blk)[0].Pos()
@@ -200,7 +201,7 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.
 				pos = (*blk)[j].Pos()
 				switch stmt := (*blk)[j].(type) {
 				default:
-					err := Exprs(stmt, func(expr ast.Expr) error {
+					err := analysis.Exprs(stmt, func(expr ast.Expr) error {
 						switch e := expr.(type) {
 						case *ast.SelectorExpr:
 							if ident, ok := e.X.(*ast.Ident); ok {
@@ -231,27 +232,30 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.
 	return nil
 }
 
-func FuncName(pkg *types.Package, fnType *types.Signature, fnAst *ast.FuncDecl) string {
-	recv := fnType.Recv()
-	recvName := pkg.Path()
-	if recv != nil {
-		recvName = fmt.Sprintf("(%v)", TypeName(pkg, recv.Type()))
-	}
-	return fmt.Sprintf("%v.%v", recvName, fnAst.Name.Name)
-}
-
-func TypeName(pkg *types.Package, t types.Type) string {
-	switch r := t.(type) {
-	case *types.Pointer:
-		return fmt.Sprintf("*%v", TypeName(pkg, r.Elem()))
-	case *types.Named:
-		return fmt.Sprintf("%v.%v", pkg.Path(), r.Obj().Name())
-	default:
-		panic(errors.Errorf("unexpected recv %T", t))
-	}
-}
-
-// insert inserts a statement stmt to block blk at index j
+//<<<<<<< HEAD
+//func FuncName(pkg *types.Package, fnType *types.Signature, fnAst *ast.FuncDecl) string {
+//	recv := fnType.Recv()
+//	recvName := pkg.Path()
+//	if recv != nil {
+//		recvName = fmt.Sprintf("(%v)", TypeName(pkg, recv.Type()))
+//	}
+//	return fmt.Sprintf("%v.%v", recvName, fnAst.Name.Name)
+//}
+//
+//func TypeName(pkg *types.Package, t types.Type) string {
+//	switch r := t.(type) {
+//	case *types.Pointer:
+//		return fmt.Sprintf("*%v", TypeName(pkg, r.Elem()))
+//	case *types.Named:
+//		return fmt.Sprintf("%v.%v", pkg.Path(), r.Obj().Name())
+//	default:
+//		panic(errors.Errorf("unexpected recv %T", t))
+//	}
+//}
+//
+//// insert inserts a statement stmt to block blk at index j
+//=======
+//>>>>>>> master
 func Insert(blk []ast.Stmt, j int, stmt ast.Stmt) []ast.Stmt {
 	if j > len(blk) {
 		j = len(blk)
