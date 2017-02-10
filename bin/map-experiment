@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+
+if ! go install github.com/timtadh/dynagrok; then
+    echo "failed to compile dynagrok"
+    exit 1
+fi
+
+dgpath=$1
+if [[ -z "$dgpath" ]]; then
+    echo "must supply the path to dynagrok's source tree as the first arg"
+    exit 1
+fi
+
+goroot=$2
+if [[ -z "$goroot" ]]; then
+    echo "must supply a GOROOT (which is a git checkout) as the second arg"
+    exit 1
+fi
+
+DYNAGROK=$dgpath/bin/dynagrok
+MAPTEST=$dgpath/examples/src/dynagrok/examples/avl/testcases/map_tester.py
+
+MUTANTS=50
+RATE=.01
+TESTS=500
+
+function run {
+  >&2 echo $ "${@}"
+  "${@}"
+}
+
+TARGET=/tmp/avl-expr
+BUILD=$TARGET/build
+
+run mkdir -p $TARGET
+run rm -r $TARGET/m*
+
+for ((i=1;i<=$MUTANTS;i++)); do
+    mutdir=$TARGET/m$i
+    mut=$mutdir/avl
+    tests=$mutdir/tests
+    cases=$mutdir/cases
+    oks=$mutdir/cases/ok
+    fail=$mutdir/cases/fail
+    fail_graphs=$fail/graphs
+    fail_failures=$fail/failures
+    run mkdir -p $mutdir
+    run mkdir -p $oks
+    run mkdir -p $fail_graphs
+    run mkdir -p $fail_failures
+    if ! run \
+         $DYNAGROK -r $goroot -d $dgpath -g $dgpath/examples \
+            mutate --keep-work -w $BUILD --instrument -r $RATE --only dynagrok/examples/avl \
+                   --mutation=branch -o $mut dynagrok/examples/avl
+    then
+        echo "creating the $i avl mutant failed"
+        exit 1
+    fi
+    run cp $BUILD/mutations $mutdir/mutations
+    run rm -r $BUILD/mutations $BUILD/gopath
+    for ((t=1;t<=$TESTS;t++)); do
+        output=$tests/test-$t
+        run mkdir -p $output
+        run python $MAPTEST -o $output $mut
+        if [[ -e $output/dgprofile/failures ]]; then
+            ## the program failed
+            run cp $output/dgprofile/failures $fail_failures/$t.fails
+            run cp $output/dgprofile/flow-graph.dot $fail_graphs/$t.dot
+        else
+            ## the program succeeded
+            run cp $output/dgprofile/flow-graph.dot $oks/$t.dot
+        fi
+    done
+done
+
