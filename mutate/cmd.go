@@ -109,7 +109,10 @@ Option Flags
 			}
 			defer f.Close()
 			for _, m := range mutations {
-				fmt.Fprintln(f, m)
+				_, err := f.Write(m.AsJson())
+				if err != nil {
+					return nil, cmd.Errorf(10, "error trying to serialize exported mutation: %v", err)
+				}
 			}
 		}
 		return nil, nil

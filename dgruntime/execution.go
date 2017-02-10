@@ -6,6 +6,7 @@ import (
 	"sync"
 	"runtime"
 	"strings"
+	"strconv"
 )
 
 type Execution struct {
@@ -15,8 +16,19 @@ type Execution struct {
 	OutputDir  string
 	mergeCh    chan *Goroutine
 	async      sync.WaitGroup
-	fails      []string
+	fails      []*Failure
 	failed     map[string]bool
+}
+
+type Failure struct {
+	Position string
+	FnName   string
+	BasicBlockId int
+}
+
+func (f *Failure) String() string {
+	return fmt.Sprintf(`{"Position":%v, "FnName":%v, "BasicBlockId":%d}`,
+		strconv.Quote(f.Position), strconv.Quote(f.FnName), f.BasicBlockId)
 }
 
 var execMu sync.Mutex
@@ -86,11 +98,15 @@ func (e *Execution) Goroutine(id int64) *Goroutine {
 	return e.Goroutines[id]
 }
 
-func (e *Execution) Fail(pos string) {
+func (e *Execution) Fail(fnName string, bbid int, pos string) {
 	e.m.Lock()
 	if !e.failed[pos] {
 		e.failed[pos] = true
-		e.fails = append(e.fails, pos)
+		e.fails = append(e.fails, &Failure{
+			FnName: fnName,
+			BasicBlockId: bbid,
+			Position: pos,
+		})
 	}
 	e.m.Unlock()
 }

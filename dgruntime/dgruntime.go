@@ -26,21 +26,21 @@ func Shutdown() {
 	shutdown(exec)
 }
 
-func ReportFailBool(pos string) bool {
+func ReportFailBool(fnName string, bbid int, pos string) bool {
 	execCheck()
-	exec.Fail(pos)
+	exec.Fail(fnName, bbid, pos)
 	return true
 }
 
-func ReportFailInt(pos string) int {
+func ReportFailInt(fnName string, bbid int, pos string) int {
 	execCheck()
-	exec.Fail(pos)
+	exec.Fail(fnName, bbid, pos)
 	return 0
 }
 
-func ReportFailFloat(pos string) float64 {
+func ReportFailFloat(fnName string, bbid int, pos string) float64 {
 	execCheck()
-	exec.Fail(pos)
+	exec.Fail(fnName, bbid, pos)
 	return 0
 }
 

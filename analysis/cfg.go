@@ -162,6 +162,14 @@ func (c *CFG) visitStmts(stmts *[]ast.Stmt, blk *Block) *Block {
 	return blk
 }
 
+// At some point I want to change this to:
+//   func (c *CFG) visitStmt(i int, body *[]ast.Stmt, s *ast.Stmt, preds []*Flow) []*Flow 
+//
+// This would ensure that there would never be a dangling empty block. However, this
+// requires large changes in every method. I don't want to do this re-write now. Side
+// note it would be easier to have `preds` be a []*Block but you can't make that work
+// with branch statements as their outgoing exits are not unconditional jumps.
+//
 func (c *CFG) visitStmt(i int, body *[]ast.Stmt, s *ast.Stmt, blk *Block) *Block {
 	switch stmt := (*s).(type) {
 	case *ast.BadStmt:

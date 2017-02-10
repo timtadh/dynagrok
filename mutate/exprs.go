@@ -5,22 +5,17 @@ import (
 )
 
 // Find mutable the exprs in the statement
-func Exprs(stmt ast.Stmt, do func(ast.Expr) error) error {
+func Exprs(stmt ast.Stmt, do func(ast.Expr)) {
 	v := &exprVisitor{
 		do: do,
 	}
 	ast.Walk(v, stmt)
-	if v.err != nil {
-		return v.err
-	}
-	return nil
 }
 
 // A stmtVisitor visits ast.Nodes which are statements or expressions.
 // it executes its "do" function on certain of them
 type exprVisitor struct {
-	err error
-	do  func(ast.Expr) error
+	do  func(ast.Expr)
 }
 
 // Visit executes the visitor's function onto selector statements
