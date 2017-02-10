@@ -7,6 +7,7 @@ import (
 	"go/token"
 	"sort"
 	"strconv"
+	"strings"
 )
 
 import (
@@ -23,10 +24,11 @@ import (
 type instrumenter struct {
 	program     *loader.Program
 	entry       string
+	method      string
 	currentFile *ast.File
 }
 
-func Instrument(entryPkgName string, program *loader.Program) (err error) {
+func Instrument(entryPkgName string, methodName string, program *loader.Program) (err error) {
 	entry := program.Package(entryPkgName)
 	if entry == nil {
 		return errors.Errorf("The entry package was not found in the loaded program")
@@ -37,6 +39,7 @@ func Instrument(entryPkgName string, program *loader.Program) (err error) {
 	i := &instrumenter{
 		program: program,
 		entry:   entryPkgName,
+		method:  methodName,
 	}
 	return i.instrument()
 }
@@ -59,6 +62,10 @@ func (i *instrumenter) instrument() (err error) {
 			i.currentFile = fileAst
 			hadFunc := false
 			err = analysis.Functions(pkg, fileAst, func(fn ast.Node, fnName string) error {
+				if i.method != "" && !strings.Contains(fnName, i.method) {
+					fmt.Printf("%v != %v\n", i.method, fnName)
+					return nil
+				}
 				hadFunc = true
 				switch x := fn.(type) {
 				case *ast.FuncDecl:

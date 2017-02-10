@@ -23,12 +23,14 @@ Option Flags
     -h,--help                         Show this message
     -o,--output=<path>                Output file to create (defaults to pkg-name.instr)
     -w,--work=<path>                  Work directory to use (defaults to tempdir)
+	-m,--method=<method-name>         Name of a specific method to profile
     --keep-work                       Keep the work directory
 `,
-		"o:w:",
+		"o:w:m:",
 		[]string{
 			"output=",
 			"work=",
+			"method=",
 			"keep-work",
 		},
 		func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
@@ -36,12 +38,15 @@ Option Flags
 			output := ""
 			keepWork := false
 			work := ""
+			method := ""
 			for _, oa := range optargs {
 				switch oa.Opt() {
 				case "-o", "--output":
 					output = oa.Arg()
 				case "-w", "--work":
 					work = oa.Arg()
+				case "-m", "--method":
+					method = oa.Arg()
 				case "-k", "--keep-work":
 					keepWork = true
 				}
@@ -53,12 +58,12 @@ Option Flags
 			if output == "" {
 				output = fmt.Sprintf("%v.instr", filepath.Base(pkgName))
 			}
-			fmt.Println("object-state instrumenting", pkgName)
+			fmt.Println("intrumenting for object-state", pkgName)
 			program, err := cmd.LoadPkg(c, pkgName)
 			if err != nil {
 				return nil, cmd.Usage(r, 6, err.Error())
 			}
-			err = Instrument(pkgName, program)
+			err = Instrument(pkgName, method, program)
 			if err != nil {
 				return nil, cmd.Errorf(7, err.Error())
 			}
