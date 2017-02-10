@@ -19,6 +19,11 @@ import (
 
 import ()
 
+var MutationTypes = map[string]bool {
+	(BranchMutation{}).Type(): true,
+	(IncrementMutation{}).Type(): true,
+}
+
 type Mutation interface {
 	Type() string
 	String() string
@@ -68,6 +73,9 @@ func LoadExportedMut(bits []byte) (*ExportedMut, error) {
 type Mutations []Mutation
 
 func (muts Mutations) Filter(types map[string]bool) Mutations {
+	if len(types) == 0 {
+		return muts
+	}
 	valid := make(Mutations, 0, len(muts))
 	for _, m := range muts {
 		t := m.Type()
@@ -151,7 +159,7 @@ func (m *BranchMutation) Export() *ExportedMut {
 	}
 }
 
-func (m *BranchMutation) Type() string {
+func (m BranchMutation) Type() string {
 	return "branch-mutation"
 }
 
@@ -217,7 +225,7 @@ func (m *IncrementMutation) SrcPosition() token.Position {
 	return m.p
 }
 
-func (m *IncrementMutation) Type() string {
+func (m IncrementMutation) Type() string {
 	return "increment-mutation"
 }
 

@@ -45,7 +45,7 @@ type mutator struct {
 	instrumenting bool
 }
 
-func Mutate(mutate float64, only map[string]bool, instrumenting bool, entryPkgName string, program *loader.Program) (mutants []*ExportedMut, err error) {
+func Mutate(mutate float64, only, allowedMuts map[string]bool, instrumenting bool, entryPkgName string, program *loader.Program) (mutants []*ExportedMut, err error) {
 	entry := program.Package(entryPkgName)
 	if entry == nil {
 		return nil, errors.Errorf("The entry package was not found in the loaded program")
@@ -63,6 +63,7 @@ func Mutate(mutate float64, only map[string]bool, instrumenting bool, entryPkgNa
 	if err != nil {
 		return nil, err
 	}
+	muts = muts.Filter(allowedMuts)
 	if len(muts) <= 0 {
 		return nil, errors.Errorf("Can't mutate this program, there are no mutation points")
 	}
