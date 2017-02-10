@@ -20,11 +20,10 @@ func main() {
 		var f interface{} = 1
 		goto a
 		goto b
-		if true {
+		if x := true; x {
 			println("never!")
 			goto c
-			for {
-			}
+			for r := x; ; { println(r) }
 			goto a
 			switch {}
 			select {}

@@ -7,6 +7,7 @@ import (
 	"go/ast"
 	"go/token"
 	"go/printer"
+	"unsafe"
 )
 
 
@@ -22,6 +23,7 @@ type CFG struct {
 	Fn     ast.Node
 	Body   *[]ast.Stmt
 	Blocks []*Block
+	exprs  map[uintptr]*Block
 	labels map[string]*Block
 	loopHeaders []*Block
 	exits []*Block
@@ -68,6 +70,7 @@ func BuildCFG(fset *token.FileSet, fnName string, fn ast.Node, body *[]ast.Stmt)
 		Fn: fn,
 		Body: body,
 		Blocks: make([]*Block, 0, 10),
+		exprs: make(map[uintptr]*Block),
 		labels: make(map[string]*Block),
 	}
 	cfg.build()
@@ -82,20 +85,38 @@ func (c *CFG) String() string {
 	return fmt.Sprintf("fn %v\n%v", c.Name, strings.Join(blocks, "\n\n"))
 }
 
+func (c *CFG) eptr(n ast.Expr) uintptr {
+	type intr struct {
+		typ uintptr
+		data uintptr
+	}
+	return (*intr)(unsafe.Pointer(&n)).data
+}
+
+func (c *CFG) Block(expr ast.Expr) *Block {
+	e := c.eptr(expr)
+	return c.exprs[e]
+}
+
+func (c *CFG) AddedExprToBlk(blk *Block, expr ast.Expr) {
+	c.exprs[c.eptr(expr)] = blk
+}
+
 func (c *CFG) build() {
 	blk := c.addBlock()
 	_ = c.visitStmts(c.Body, blk)
+	for _, blk := range c.Blocks {
+		for _, s := range blk.Stmts {
+			blkExprs(*s, func(expr ast.Expr) {
+				c.AddedExprToBlk(blk, expr)
+			})
+		}
+	}
 }
 
 func (c *CFG) visitStmts(stmts *[]ast.Stmt, blk *Block) *Block {
 	for i := range *stmts {
-		x := c.visitStmt(&(*stmts)[i], blk)
-		if x == nil && i + 1 < len(*stmts) {
-			// blk = c.addBlock()
-			blk = nil
-		} else {
-			blk = x
-		}
+		blk = c.visitStmt(&(*stmts)[i], blk)
 	}
 	return blk
 }
@@ -182,8 +203,8 @@ func (c *CFG) visitBranchStmt(s *ast.Stmt, from *Block) *Block {
 	if from == nil {
 		from = c.addBlock()
 	}
-	from.Add(s)
 	stmt := (*s).(*ast.BranchStmt)
+	from.Add(s)
 	getLabel := func(label string) *Block {
 		label = stmt.Label.Name
 		if b, has := c.labels[label]; has {
@@ -240,6 +261,9 @@ func (c *CFG) visitIfStmt(s *ast.Stmt, entry *Block) *Block {
 	stmt := (*s).(*ast.IfStmt)
 	if entry == nil {
 		entry = c.addBlock()
+	}
+	if stmt.Init != nil {
+		entry.Add(&stmt.Init)
 	}
 	entry.Add(s)
 	entry.Cond = &stmt.Cond
@@ -432,6 +456,9 @@ func (c *CFG) visitSelectStmt(s *ast.Stmt, entry *Block) *Block {
 			Type: Select,
 			Comm: cond,
 		})
+		if cond != nil {
+			commBlk = c.visitStmt(cond, commBlk)
+		}
 		commBlk = c.visitStmts(&comm.Body, commBlk)
 		if commBlk != nil {
 			commBlk.Link(&Flow{
