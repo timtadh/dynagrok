@@ -1,6 +1,7 @@
 package instrument
 
 import (
+	"sort"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -79,41 +80,47 @@ func (i *instrumenter) instrument() (err error) {
 }
 
 func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.Node, fnBody *[]ast.Stmt) error {
+	cfg := analysis.BuildCFG(i.program.Fset, fnName, fnAst, fnBody)
+	fmt.Println(cfg)
 	if true {
-		err := analysis.Blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
-			var pos token.Pos = fnAst.Pos()
-			if len(*blk) > 0 {
-				pos = (*blk)[0].Pos()
+		instr := make(map[*[]ast.Stmt][]*analysis.Block)
+		for _, b := range cfg.Blocks {
+			if b.Body == nil {
+				continue
 			}
-			if id != 0 {
-				*blk = Insert(*blk, 0, i.mkEnterBlk(pos, id))
-			}
-			for j := 0; j < len(*blk) - 1; j++ {
-				if j+1 < len(*blk) {
-					pos = (*blk)[j+1].Pos()
-				} else {
-					pos = (*blk)[j].Pos()
+			instr[b.Body] = append(instr[b.Body], b)
+		}
+		for body, blks := range instr {
+			sort.Slice(blks, func(i, j int) bool {
+				return blks[i].StartsAt > blks[j].StartsAt
+			})
+			for _, b := range blks {
+				if b.Id == 0 {
+					continue
 				}
-				switch stmt := (*blk)[j].(type) {
-				case *ast.BranchStmt:
-					// *blk = Insert(*blk, j, i.mkPrint(pos, fmt.Sprintf("exit-blk:\t %d\t of %v", id, fnName)))
-					// j++
-				case *ast.IfStmt, *ast.ForStmt, *ast.SelectStmt, *ast.SwitchStmt, *ast.TypeSwitchStmt, *ast.RangeStmt:
-					*blk = Insert(*blk, j+1, i.mkRe_enterBlk(pos, id, 2+j+1))
-					j++
+				var pos token.Pos
+				if len(b.Stmts) > 0 {
+					pos = (*b.Stmts[0]).Pos()
+				} else {
+					continue
+				}
+				switch stmt := (*body)[b.StartsAt].(type) {
 				case *ast.LabeledStmt:
 					switch stmt.Stmt.(type) {
 					case *ast.ForStmt, *ast.SwitchStmt, *ast.SelectStmt, *ast.TypeSwitchStmt, *ast.RangeStmt:
-						*blk = Insert(*blk, j+1, i.mkRe_enterBlk(pos, id, 2+j+1))
 					default:
-						// errors.Logf("DEBUG", "label stmt %T %T in %v", stmt.Stmt, (*blk)[j+1], fnName)
-						*blk = Insert(*blk, j+1, stmt.Stmt)
-						stmt.Stmt = i.mkRe_enterBlk(pos, id, 2+j)
+						*body = Insert(cfg, b, *body, b.StartsAt+1, stmt.Stmt)
+						stmt.Stmt = i.mkEnterBlk(pos, b.Id)
+						cfg.AddAllToBlk(b, stmt.Stmt)
 					}
+				default:
+					*body = Insert(cfg, b, *body, b.StartsAt, i.mkEnterBlk(pos, b.Id))
 				}
 			}
+		}
+		err := analysis.Blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
 			for j := 0; j < len(*blk); j++ {
-				pos = (*blk)[j].Pos()
+				pos := (*blk)[j].Pos()
 				switch stmt := (*blk)[j].(type) {
 				default:
 					err := analysis.Exprs(stmt, func(expr ast.Expr) error {
@@ -121,7 +128,7 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.
 						case *ast.SelectorExpr:
 							if ident, ok := e.X.(*ast.Ident); ok {
 								if ident.Name == "os" && e.Sel.Name == "Exit" {
-									*blk = Insert(*blk, j, i.mkShutdownNow(pos))
+									*blk = Insert(cfg, nil, *blk, j, i.mkShutdownNow(pos))
 									j++
 								}
 							}
@@ -139,20 +146,36 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.
 			return nil
 		}
 	}
-	*fnBody = Insert(*fnBody, 0, i.mkEnterFunc(fnAst.Pos(), fnName))
-	*fnBody = Insert(*fnBody, 1, i.mkExitFunc(fnAst.Pos(), fnName))
+	*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 0, i.mkEnterFunc(fnAst.Pos(), fnName))
+	*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 1, i.mkExitFunc(fnAst.Pos(), fnName))
 	if pkg.Pkg.Path() == i.entry && fnName == fmt.Sprintf("%v.main", pkg.Pkg.Path()) {
-		*fnBody = Insert(*fnBody, 0, i.mkShutdown(fnAst.Pos()))
+		*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 0, i.mkShutdown(fnAst.Pos()))
 	}
 	return nil
 }
-
-func Insert(blk []ast.Stmt, j int, stmt ast.Stmt) []ast.Stmt {
-	if j > len(blk) {
-		j = len(blk)
+func Insert(cfg *analysis.CFG, cfgBlk *analysis.Block, blk []ast.Stmt, j int, stmt ast.Stmt) []ast.Stmt {
+	if cfgBlk == nil {
+		if len(blk) == 0{
+			cfgBlk = nil
+		} else if j >= len(blk) {
+			j = len(blk)
+			cfgBlk = cfg.GetClosestBlk(len(blk)-1, blk, blk[len(blk)-1])
+		} else if j < 0 {
+			j = 0
+			cfgBlk = cfg.GetClosestBlk(0, blk, blk[0])
+		} else if j == len(blk) {
+			cfgBlk = cfg.GetClosestBlk(j-1, blk, blk[j-1])
+		} else {
+			cfgBlk = cfg.GetClosestBlk(j, blk, blk[j])
+		}
+		if cfgBlk == nil {
+			p := cfg.FSet.Position(stmt.Pos())
+			fmt.Printf("nil cfg-blk %T %v %v \n", stmt, analysis.FmtNode(cfg.FSet, stmt), p)
+			// panic(fmt.Errorf("nil cfgBlk"))
+		}
 	}
-	if j < 0 {
-		j = 0
+	if cfgBlk != nil {
+		cfg.AddAllToBlk(cfgBlk, stmt)
 	}
 	if cap(blk) <= len(blk) + 1 {
 		nblk := make([]ast.Stmt, len(blk), (cap(blk)+1)*2)
@@ -228,19 +251,9 @@ func (i *instrumenter) mkShutdownNow(pos token.Pos) ast.Stmt {
 	return &ast.ExprStmt{e}
 }
 
-func (i *instrumenter) mkEnterBlk(pos token.Pos, blkid int) ast.Stmt {
+func (i *instrumenter) mkEnterBlk(pos token.Pos, bbid int) ast.Stmt {
 	p := i.program.Fset.Position(pos)
-	s := fmt.Sprintf("dgruntime.EnterBlk(%d, %v)", blkid, strconv.Quote(p.String()))
-	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
-	if err != nil {
-		panic(fmt.Errorf("mkEnterBlk (%v) error: %v", s, err))
-	}
-	return &ast.ExprStmt{e}
-}
-
-func (i *instrumenter) mkRe_enterBlk(pos token.Pos, blkid, at int) ast.Stmt {
-	p := i.program.Fset.Position(pos)
-	s := fmt.Sprintf("dgruntime.Re_enterBlk(%d, %d, %v) // %v", blkid, at, strconv.Quote(p.String()))
+	s := fmt.Sprintf("dgruntime.EnterBlk(%d, %v)", bbid, strconv.Quote(p.String()))
 	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
 	if err != nil {
 		panic(fmt.Errorf("mkEnterBlk (%v) error: %v", s, err))

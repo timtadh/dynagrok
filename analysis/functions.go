@@ -74,7 +74,7 @@ func (v *funcVisitor) Visit(n ast.Node) (ast.Visitor) {
 				parentName = FuncName(v.pkg.Pkg, parentType.(*types.Signature), parent)
 			}
 		}
-		fnName = fmt.Sprintf("%v$%d", parentName, count)
+		fnName = fmt.Sprintf("%v$%d", parentName, *count)
 	}
 	if fn != nil {
 		iv := &funcVisitor{

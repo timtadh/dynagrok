@@ -134,6 +134,7 @@ func (m *mutator) collect() (muts Mutations, err error) {
 }
 
 func (m *mutator) fnBodyCollect(pkg *loader.PackageInfo, file *ast.File, fnName string, fnAst ast.Node, fnBody *[]ast.Stmt) (Mutations, error) {
+	cfg := analysis.BuildCFG(m.program.Fset, fnName, fnAst, fnBody)
 	muts := make(Mutations, 0, 10)
 	err := analysis.Blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
 		for j := 0; j < len(*blk); j++ {
@@ -198,7 +199,7 @@ func (m *mutator) fnBodyCollect(pkg *loader.PackageInfo, file *ast.File, fnName 
 	}
 	if !m.instrumenting && pkg.Pkg.Path() == m.entry && fnName == fmt.Sprintf("%v.main", pkg.Pkg.Path()) {
 		astutil.AddImport(m.program.Fset, file, "dgruntime")
-		*fnBody = instrument.Insert(*fnBody, 0, m.mkShutdown(fnAst.Pos()))
+		*fnBody = instrument.Insert(cfg, cfg.Blocks[0], *fnBody, 0, m.mkShutdown(fnAst.Pos()))
 	}
 	return muts, nil
 }

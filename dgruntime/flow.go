@@ -13,7 +13,7 @@ type FlowEdge struct {
 
 type BlkEntrance struct {
 	In uintptr
-	BlkId, At int
+	BasicBlockId int
 }
 
 func (a Flow) equals(b Flow) bool {
@@ -29,7 +29,7 @@ func (a Flow) equals(b Flow) bool {
 }
 
 func (a *BlkEntrance) equals(b *BlkEntrance) bool {
-	return a.BlkId == b.BlkId && a.At == b.At
+	return a.BasicBlockId == b.BasicBlockId
 }
 
 func (f Flow) String() string {
@@ -45,8 +45,5 @@ func (f Flow) String() string {
 }
 
 func (b *BlkEntrance) String() string {
-	if b.At == 0 {
-		return fmt.Sprintf("{blk: %d}", b.BlkId)
-	}
-	return fmt.Sprintf("{blk: %d, at: %d}", b.BlkId, b.At)
+	return fmt.Sprintf("{blk: %d}", b.BasicBlockId)
 }

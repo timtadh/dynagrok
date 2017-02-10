@@ -29,6 +29,9 @@ type exprVisitor struct {
 // and returns otherwise
 func (v *exprVisitor) Visit(n ast.Node) ast.Visitor {
 	switch expr := n.(type) {
+	case *ast.LabeledStmt:
+		v.err = Exprs(expr.Stmt, v.do)
+		return nil
 	case *ast.IfStmt:
 		return nil
 	case *ast.ForStmt:
@@ -48,7 +51,11 @@ func (v *exprVisitor) Visit(n ast.Node) ast.Visitor {
 	case *ast.FuncLit:
 		return nil
 	case ast.Expr:
-		v.do(expr)
+		err := v.do(expr)
+		if err != nil {
+			v.err = err
+			return nil
+		}
 	}
 	return v
 }

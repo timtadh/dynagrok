@@ -44,27 +44,14 @@ func ReportFailFloat(pos string) float64 {
 	return 0
 }
 
-func EnterBlk(bid int, pos string) {
+func EnterBlk(bbid int, pos string) {
 	execCheck()
 	g := exec.Goroutine(runtime.GoID())
 	g.m.Lock()
 	defer g.m.Unlock()
 	fc := g.Stack[len(g.Stack)-1]
 	last := fc.Last
-	cur := BlkEntrance{In: fc.FuncPc, BlkId: bid, At: 0}
-	g.Flows[FlowEdge{Src: last, Targ: cur}]++
-	fc.Last = cur
-	g.Positions[cur] = pos
-}
-
-func Re_enterBlk(bid, at int, pos string) {
-	execCheck()
-	g := exec.Goroutine(runtime.GoID())
-	g.m.Lock()
-	defer g.m.Unlock()
-	fc := g.Stack[len(g.Stack)-1]
-	last := fc.Last
-	cur := BlkEntrance{In: fc.FuncPc, BlkId: bid, At: at}
+	cur := BlkEntrance{In: fc.FuncPc, BasicBlockId: bbid}
 	g.Flows[FlowEdge{Src: last, Targ: cur}]++
 	fc.Last = cur
 	g.Positions[cur] = pos
@@ -81,7 +68,7 @@ func EnterFunc(name, pos string) {
 	pc := runtime.GetCallerPC(unsafe.Pointer(&name))
 	f := runtime.FuncForPC(pc)
 	fpc := f.Entry()
-	cur := BlkEntrance{In: fpc, BlkId: 0, At: 0}
+	cur := BlkEntrance{In: fpc, BasicBlockId: 0}
 	g.Stack = append(g.Stack, &FuncCall{
 		Name: name,
 		FuncPc: fpc,

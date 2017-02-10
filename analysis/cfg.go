@@ -23,7 +23,7 @@ type CFG struct {
 	Fn     ast.Node
 	Body   *[]ast.Stmt
 	Blocks []*Block
-	exprs  map[uintptr]*Block
+	nodes  map[uintptr]*Block
 	labels map[string]*Block
 	loopHeaders []*Block
 	exits []*Block
@@ -32,13 +32,15 @@ type CFG struct {
 }
 
 type Block struct {
-	FSet  *token.FileSet
-	Id    int
-	Name  string
-	Stmts []*ast.Stmt
-	Next  []*Flow
-	Prev  []*Flow
-	Cond  *ast.Expr
+	FSet       *token.FileSet
+	Id         int
+	Name       string
+	Stmts      []*ast.Stmt
+	Next       []*Flow
+	Prev       []*Flow
+	Body       *[]ast.Stmt
+	StartsAt   int
+	Cond       *ast.Expr
 }
 
 type Flow struct {
@@ -70,7 +72,7 @@ func BuildCFG(fset *token.FileSet, fnName string, fn ast.Node, body *[]ast.Stmt)
 		Fn: fn,
 		Body: body,
 		Blocks: make([]*Block, 0, 10),
-		exprs: make(map[uintptr]*Block),
+		nodes: make(map[uintptr]*Block),
 		labels: make(map[string]*Block),
 	}
 	cfg.build()
@@ -85,7 +87,7 @@ func (c *CFG) String() string {
 	return fmt.Sprintf("fn %v\n%v", c.Name, strings.Join(blocks, "\n\n"))
 }
 
-func (c *CFG) eptr(n ast.Expr) uintptr {
+func (c *CFG) nptr(n ast.Node) uintptr {
 	type intr struct {
 		typ uintptr
 		data uintptr
@@ -93,22 +95,58 @@ func (c *CFG) eptr(n ast.Expr) uintptr {
 	return (*intr)(unsafe.Pointer(&n)).data
 }
 
-func (c *CFG) Block(expr ast.Expr) *Block {
-	e := c.eptr(expr)
-	return c.exprs[e]
+func (c *CFG) Block(node ast.Node) *Block {
+	return c.nodes[c.nptr(node)]
 }
 
-func (c *CFG) AddedExprToBlk(blk *Block, expr ast.Expr) {
-	c.exprs[c.eptr(expr)] = blk
+func (c *CFG) GetClosestBlk(i int, blk []ast.Stmt, s ast.Node) *Block {
+	// p := c.FSet.Position(s.Pos())
+	// fmt.Printf("get-blk (i %v) %T %v %v \n", i, s, FmtNode(c.FSet, s), p)
+	switch stmt := s.(type) {
+	case *ast.BlockStmt:
+		if len(stmt.List) > 0 {
+			return c.GetClosestBlk(0, stmt.List, stmt.List[0])
+		} else if i + 1 < len(blk) {
+			return c.GetClosestBlk(i+1, blk, blk[i+1])
+		} else if i - 1 >= 0 {
+			return c.GetClosestBlk(i-1, blk, blk[i-1])
+		} else {
+			// fmt.Println("nil, i", i, "len(blk)", len(blk))
+			return nil
+		}
+	case *ast.LabeledStmt:
+		return c.GetClosestBlk(i, blk, stmt.Stmt)
+	default:
+		b := c.Block(s)
+		// if b != nil {
+		// 	fmt.Printf("default %T %v : %d\n", stmt, FmtNode(c.FSet, stmt), b.Id)
+		// } else {
+		// 	fmt.Printf("default %T %v : <nil>\n", stmt, FmtNode(c.FSet, stmt))
+		// }
+		return b
+	}
+}
+
+func (c *CFG) AddToBlk(blk *Block, node ast.Node) {
+	c.nodes[c.nptr(node)] = blk
+}
+
+// Do not pass in a branching statement or function literal
+func (c *CFG) AddAllToBlk(blk *Block, node ast.Node) {
+	c.AddToBlk(blk, node)
+	blkExprs(node, func(expr ast.Expr) {
+		c.AddToBlk(blk, expr)
+	})
 }
 
 func (c *CFG) build() {
-	blk := c.addBlock()
+	blk := c.addBlock(c.Body, 0)
 	_ = c.visitStmts(c.Body, blk)
 	for _, blk := range c.Blocks {
 		for _, s := range blk.Stmts {
+			c.AddToBlk(blk, *s)
 			blkExprs(*s, func(expr ast.Expr) {
-				c.AddedExprToBlk(blk, expr)
+				c.AddToBlk(blk, expr)
 			})
 		}
 	}
@@ -116,12 +154,17 @@ func (c *CFG) build() {
 
 func (c *CFG) visitStmts(stmts *[]ast.Stmt, blk *Block) *Block {
 	for i := range *stmts {
-		blk = c.visitStmt(&(*stmts)[i], blk)
+		if blk != nil && blk.Body == nil {
+			blk.Body = stmts
+			blk.StartsAt = i
+			fmt.Println("blk", blk.Id, FmtNode(c.FSet, (*stmts)[i]))
+		}
+		blk = c.visitStmt(i, stmts, &(*stmts)[i], blk)
 	}
 	return blk
 }
 
-func (c *CFG) visitStmt(s *ast.Stmt, blk *Block) *Block {
+func (c *CFG) visitStmt(i int, body *[]ast.Stmt, s *ast.Stmt, blk *Block) *Block {
 	switch stmt := (*s).(type) {
 	case *ast.BadStmt:
 		blk.Add(s)
@@ -144,23 +187,23 @@ func (c *CFG) visitStmt(s *ast.Stmt, blk *Block) *Block {
 	case *ast.ReturnStmt:
 		blk.Add(s)
 	case *ast.LabeledStmt:
-		blk = c.visitLabeledStmt(s, blk)
+		blk = c.visitLabeledStmt(i, body, s, blk)
 	case *ast.BranchStmt:
-		blk = c.visitBranchStmt(s, blk)
+		blk = c.visitBranchStmt(i, body, s, blk)
 	case *ast.BlockStmt:
-		blk = c.visitBlockStmt(s, blk)
+		blk = c.visitBlockStmt(i, body, s, blk)
 	case *ast.IfStmt:
-		blk = c.visitIfStmt(s, blk)
+		blk = c.visitIfStmt(i, body, s, blk)
 	case *ast.ForStmt:
-		blk = c.visitForStmt(s, blk)
+		blk = c.visitForStmt(i, body, s, blk)
 	case *ast.RangeStmt:
-		blk = c.visitRangeStmt(s, blk)
+		blk = c.visitRangeStmt(i, body, s, blk)
 	case *ast.SelectStmt:
-		blk = c.visitSelectStmt(s, blk)
+		blk = c.visitSelectStmt(i, body, s, blk)
 	case *ast.TypeSwitchStmt:
-		blk = c.visitTypeSwitchStmt(s, blk)
+		blk = c.visitTypeSwitchStmt(i, body, s, blk)
 	case *ast.SwitchStmt:
-		blk = c.visitSwitchStmt(s, blk)
+		blk = c.visitSwitchStmt(i, body, s, blk)
 	case *ast.CaseClause:
 		panic(fmt.Errorf("Unexpected case clause %T %v", stmt, stmt))
 	case *ast.CommClause:
@@ -171,14 +214,14 @@ func (c *CFG) visitStmt(s *ast.Stmt, blk *Block) *Block {
 	return blk
 }
 
-func (c *CFG) visitLabeledStmt(s *ast.Stmt, from *Block) *Block {
+func (c *CFG) visitLabeledStmt(idx int, body *[]ast.Stmt, s *ast.Stmt, from *Block) *Block {
 	stmt := (*s).(*ast.LabeledStmt)
 	label := stmt.Label.Name
 	var to *Block
 	if b, has := c.labels[label]; has {
 		to = b
 	} else {
-		to = c.addBlock()
+		to = c.addBlock(body, idx)
 		to.Name = label
 		c.labels[label] = to
 	}
@@ -196,12 +239,16 @@ func (c *CFG) visitLabeledStmt(s *ast.Stmt, from *Block) *Block {
 	case *ast.ForStmt, *ast.RangeStmt:
 		c.continueLabel = label+"-continue"
 	}
-	return c.visitStmt(&stmt.Stmt, to)
+	if to.Body == nil {
+		to.Body = body
+		to.StartsAt = idx
+	}
+	return c.visitStmt(idx, body, &stmt.Stmt, to)
 }
 
-func (c *CFG) visitBranchStmt(s *ast.Stmt, from *Block) *Block {
+func (c *CFG) visitBranchStmt(idx int, body *[]ast.Stmt, s *ast.Stmt, from *Block) *Block {
 	if from == nil {
-		from = c.addBlock()
+		from = c.addBlock(body, idx)
 	}
 	stmt := (*s).(*ast.BranchStmt)
 	from.Add(s)
@@ -210,7 +257,7 @@ func (c *CFG) visitBranchStmt(s *ast.Stmt, from *Block) *Block {
 		if b, has := c.labels[label]; has {
 			return b
 		} else {
-			x := c.addBlock()
+			x := c.addBlock(nil, -1)
 			x.Name = label
 			c.labels[label] = x
 			return x
@@ -251,35 +298,34 @@ func (c *CFG) visitBranchStmt(s *ast.Stmt, from *Block) *Block {
 	return nil
 }
 
-func (c *CFG) visitBlockStmt(s *ast.Stmt, blk *Block) *Block {
+func (c *CFG) visitBlockStmt(idx int, body *[]ast.Stmt, s *ast.Stmt, blk *Block) *Block {
 	stmt := (*s).(*ast.BlockStmt)
-	blk = c.visitStmts(&stmt.List, blk)
-	return blk
+	return c.visitStmts(&stmt.List, blk)
 }
 
-func (c *CFG) visitIfStmt(s *ast.Stmt, entry *Block) *Block {
+func (c *CFG) visitIfStmt(idx int, body *[]ast.Stmt, s *ast.Stmt, entry *Block) *Block {
 	stmt := (*s).(*ast.IfStmt)
 	if entry == nil {
-		entry = c.addBlock()
+		entry = c.addBlock(body, idx)
 	}
 	if stmt.Init != nil {
 		entry.Add(&stmt.Init)
 	}
 	entry.Add(s)
 	entry.Cond = &stmt.Cond
-	thenBlk := c.addBlock()
+	thenBlk := c.addBlock(nil, -1)
 	var elseBlk *Block = nil
 	if stmt.Else != nil {
-		elseBlk = c.addBlock()
+		elseBlk = c.addBlock(nil, -1)
 	}
-	exitBlk := c.addBlock()
+	exitBlk := c.addBlock(nil, -1)
 	{
 		entry.Link(&Flow{
 			Block: thenBlk,
 			Type: True,
 		})
 		thenBody := ast.Stmt(stmt.Body)
-		thenBlk = c.visitBlockStmt(&thenBody, thenBlk)
+		thenBlk = c.visitBlockStmt(idx, body, &thenBody, thenBlk)
 		if thenBlk != nil && !thenBlk.Exits() {
 			thenBlk.Link(&Flow{
 				Block: exitBlk,
@@ -292,7 +338,7 @@ func (c *CFG) visitIfStmt(s *ast.Stmt, entry *Block) *Block {
 			Block: elseBlk,
 			Type: False,
 		})
-		elseBlk = c.visitStmt(&stmt.Else, elseBlk)
+		elseBlk = c.visitStmt(idx, body, &stmt.Else, elseBlk)
 		if elseBlk != nil && !elseBlk.Exits() {
 			elseBlk.Link(&Flow{
 				Block: exitBlk,
@@ -308,22 +354,22 @@ func (c *CFG) visitIfStmt(s *ast.Stmt, entry *Block) *Block {
 	return exitBlk
 }
 
-func (c *CFG) visitForStmt(s *ast.Stmt, entry *Block) *Block {
+func (c *CFG) visitForStmt(idx int, stmts *[]ast.Stmt, s *ast.Stmt, entry *Block) *Block {
 	stmt := (*s).(*ast.ForStmt)
 	if entry == nil {
-		entry = c.addBlock()
+		entry = c.addBlock(stmts, idx)
 	}
 	if stmt.Init != nil {
 		entry.Add(&stmt.Init)
 	}
-	header := c.addBlock()
+	header := c.addBlock(nil, -1)
 	entry.Link(&Flow{
 		Block: header,
 		Type: Unconditional,
 	})
 	header.Add(s)
 	body := ast.Stmt(stmt.Body)
-	exitBlk := c.addBlock()
+	exitBlk := c.addBlock(nil, -1)
 	if c.breakLabel != "" {
 		c.labels[c.breakLabel] = exitBlk
 		c.breakLabel = ""
@@ -334,7 +380,7 @@ func (c *CFG) visitForStmt(s *ast.Stmt, entry *Block) *Block {
 	}
 	var bodyBlk *Block = nil
 	if stmt.Cond != nil {
-		bodyBlk = c.addBlock()
+		bodyBlk = c.addBlock(nil, -1)
 		header.Cond = &stmt.Cond
 		header.Link(&Flow{
 			Block: bodyBlk,
@@ -350,8 +396,8 @@ func (c *CFG) visitForStmt(s *ast.Stmt, entry *Block) *Block {
 
 	var postBlk *Block
 	if stmt.Post != nil {
-		postBlk = c.addBlock()
-		postBlk = c.visitStmt(&stmt.Post, postBlk)
+		postBlk = c.addBlock(nil, -1)
+		postBlk = c.visitStmt(idx, stmts, &stmt.Post, postBlk)
 		postBlk.Link(&Flow{
 			Block: header,
 			Type: Unconditional,
@@ -363,7 +409,7 @@ func (c *CFG) visitForStmt(s *ast.Stmt, entry *Block) *Block {
 	} else {
 		c.pushLoop(header, exitBlk)
 	}
-	bodyBlk = c.visitBlockStmt(&body, bodyBlk)
+	bodyBlk = c.visitBlockStmt(idx, stmts, &body, bodyBlk)
 	c.popLoop()
 
 	if postBlk == nil && bodyBlk != nil {
@@ -385,9 +431,9 @@ func (c *CFG) popLoop() {
 	c.exits = c.exits[:len(c.exits)-1]
 }
 
-func (c *CFG) visitRangeStmt(s *ast.Stmt, entry *Block) *Block {
+func (c *CFG) visitRangeStmt(idx int, stmts *[]ast.Stmt, s *ast.Stmt, entry *Block) *Block {
 	stmt := (*s).(*ast.RangeStmt)
-	header := c.addBlock()
+	header := c.addBlock(nil, -1)
 	if entry == nil {
 		entry.Link(&Flow{
 			Block: header,
@@ -396,8 +442,8 @@ func (c *CFG) visitRangeStmt(s *ast.Stmt, entry *Block) *Block {
 	}
 	header.Add(s)
 	body := ast.Stmt(stmt.Body)
-	bodyBlk := c.addBlock()
-	exitBlk := c.addBlock()
+	bodyBlk := c.addBlock(nil, -1)
+	exitBlk := c.addBlock(nil, -1)
 	if c.breakLabel != "" {
 		c.labels[c.breakLabel] = exitBlk
 		c.breakLabel = ""
@@ -417,7 +463,7 @@ func (c *CFG) visitRangeStmt(s *ast.Stmt, entry *Block) *Block {
 	})
 
 	c.pushLoop(header, exitBlk)
-	bodyBlk = c.visitBlockStmt(&body, bodyBlk)
+	bodyBlk = c.visitBlockStmt(idx, stmts, &body, bodyBlk)
 	c.popLoop()
 
 	if bodyBlk != nil {
@@ -429,23 +475,23 @@ func (c *CFG) visitRangeStmt(s *ast.Stmt, entry *Block) *Block {
 	return exitBlk
 }
 
-func (c *CFG) visitSelectStmt(s *ast.Stmt, entry *Block) *Block {
+func (c *CFG) visitSelectStmt(idx int, body *[]ast.Stmt, s *ast.Stmt, entry *Block) *Block {
 	stmt := (*s).(*ast.SelectStmt)
 	if entry == nil {
-		entry = c.addBlock()
+		entry = c.addBlock(body, idx)
 	}
 	entry.Add(s)
 	if len(stmt.Body.List) <= 0 {
 		return entry
 	}
-	exit := c.addBlock()
+	exit := c.addBlock(nil, -1)
 	if c.breakLabel != "" {
 		c.labels[c.breakLabel] = exit
 		c.breakLabel = ""
 	}
-	for _, s := range stmt.Body.List {
+	for i, s := range stmt.Body.List {
 		comm := s.(*ast.CommClause)
-		commBlk := c.addBlock()
+		commBlk := c.addBlock(nil, -1)
 		var cond *ast.Stmt = nil
 		if comm.Comm != nil {
 			cond = &comm.Comm
@@ -457,7 +503,7 @@ func (c *CFG) visitSelectStmt(s *ast.Stmt, entry *Block) *Block {
 			Comm: cond,
 		})
 		if cond != nil {
-			commBlk = c.visitStmt(cond, commBlk)
+			commBlk = c.visitStmt(i, &stmt.Body.List, cond, commBlk)
 		}
 		commBlk = c.visitStmts(&comm.Body, commBlk)
 		if commBlk != nil {
@@ -470,10 +516,10 @@ func (c *CFG) visitSelectStmt(s *ast.Stmt, entry *Block) *Block {
 	return exit
 }
 
-func (c *CFG) visitTypeSwitchStmt(s *ast.Stmt, entry *Block) *Block {
+func (c *CFG) visitTypeSwitchStmt(idx int, body *[]ast.Stmt, s *ast.Stmt, entry *Block) *Block {
 	stmt := (*s).(*ast.TypeSwitchStmt)
 	if entry == nil {
-		entry = c.addBlock()
+		entry = c.addBlock(body, idx)
 	}
 	if stmt.Init != nil {
 		entry.Add(&stmt.Init)
@@ -482,14 +528,14 @@ func (c *CFG) visitTypeSwitchStmt(s *ast.Stmt, entry *Block) *Block {
 	if len(stmt.Body.List) <= 0 {
 		return entry
 	}
-	exit := c.addBlock()
+	exit := c.addBlock(nil, -1)
 	if c.breakLabel != "" {
 		c.labels[c.breakLabel] = exit
 		c.breakLabel = ""
 	}
 	for _, s := range stmt.Body.List {
 		cas := s.(*ast.CaseClause)
-		caseBlk := c.addBlock()
+		caseBlk := c.addBlock(nil, -1)
 		var cases *[]ast.Expr = nil
 		if cas.List != nil {
 			cases = &cas.List
@@ -513,10 +559,10 @@ func (c *CFG) visitTypeSwitchStmt(s *ast.Stmt, entry *Block) *Block {
 	return exit
 }
 
-func (c *CFG) visitSwitchStmt(s *ast.Stmt, entry *Block) *Block {
+func (c *CFG) visitSwitchStmt(idx int, body *[]ast.Stmt, s *ast.Stmt, entry *Block) *Block {
 	stmt := (*s).(*ast.SwitchStmt)
 	if entry == nil {
-		entry = c.addBlock()
+		entry = c.addBlock(body, idx)
 	}
 	if stmt.Init != nil {
 		entry.Add(&stmt.Init)
@@ -526,7 +572,7 @@ func (c *CFG) visitSwitchStmt(s *ast.Stmt, entry *Block) *Block {
 	if len(stmt.Body.List) <= 0 {
 		return entry
 	}
-	exit := c.addBlock()
+	exit := c.addBlock(nil, -1)
 	if c.breakLabel != "" {
 		c.labels[c.breakLabel] = exit
 		c.breakLabel = ""
@@ -535,7 +581,7 @@ func (c *CFG) visitSwitchStmt(s *ast.Stmt, entry *Block) *Block {
 	}
 	blks := make([]*Block, 0, len(stmt.Body.List))
 	for range stmt.Body.List {
-		blks = append(blks, c.addBlock())
+		blks = append(blks, c.addBlock(nil, -1))
 	}
 	for i, s := range stmt.Body.List {
 		cas := s.(*ast.CaseClause)
@@ -577,20 +623,22 @@ func (c *CFG) popSwitch() {
 	c.exits = c.exits[:len(c.exits)-1]
 }
 
-func (c *CFG) addBlock() *Block {
+func (c *CFG) addBlock(body *[]ast.Stmt, idx int) *Block {
 	id := len(c.Blocks)
-	blk := NewBlock(c.FSet, id)
+	blk := NewBlock(c.FSet, id, body, idx)
 	c.Blocks = append(c.Blocks, blk)
 	return blk
 }
 
-func NewBlock(fset *token.FileSet, id int) *Block {
+func NewBlock(fset *token.FileSet, id int, body *[]ast.Stmt, startsAt int) *Block {
 	return &Block{
 		FSet: fset,
 		Id: id,
 		Stmts: make([]*ast.Stmt, 0, 10),
 		Next: make([]*Flow, 0, 2),
 		Prev: make([]*Flow, 0, 2),
+		Body: body,
+		StartsAt: startsAt,
 	}
 }
 
@@ -675,7 +723,11 @@ func (b *Block) String() string {
 	if b.Name != "" {
 		name = fmt.Sprintf(" label: %v ", b.Name)
 	}
-	return fmt.Sprintf("Block %v%v%v\n\tNext: %v", b.Id, name, stmts, next)
+	body := ""
+	if b.Body != nil {
+		body = fmt.Sprintf("\n\tStarts at (%d) <%v> ", b.StartsAt, FmtNode(b.FSet, (*b.Body)[b.StartsAt]))
+	}
+	return fmt.Sprintf("Block %v%v%v\n\tNext: %v%v", b.Id, name, stmts, next, body)
 }
 
 func (f *Flow) String() string {
