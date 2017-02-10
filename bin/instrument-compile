@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+
+if ! go install github.com/timtadh/dynagrok; then
+	echo "failed to compile dynagrok"
+	exit 1
+fi
+
+dgpath=$1
+if [[ -z "$dgpath" ]]; then
+	echo "must supply the path to dynagrok's source tree as the first arg"
+	exit 1
+fi
+
+goroot=$2
+if [[ -z "$goroot" ]]; then
+	echo "must supply a GOROOT (which is a git checkout) as the second arg"
+	exit 1
+fi
+
+VERSION=$3
+if [[ -z "$VERSION" ]]; then
+	echo "must supply a go version as third arg"
+	exit 1
+fi
+
+HEAD=$(git -C $goroot rev-parse HEAD)
+COMMIT=$(git -C $goroot show-ref $VERSION)
+if [[ $? -eq 0 ]]; then
+	COMMIT=$(echo $COMMIT | cut -d \  -f 1)
+else
+	echo   $? $COMMIT
+	COMMIT=$VERSION
+fi
+
+echo "head   $HEAD"
+echo "commit $COMMIT"
+
+if [[ $HEAD != $COMMIT ]]; then
+	if ! git -C $goroot checkout $VERSION; then
+		echo "the version supplied could not be checked out"
+		exit 1
+	fi
+
+	if ! git -C $goroot clean -f; then
+		echo "could not a do clean"
+		exit 1
+	fi
+
+	( #subshell for compiling the go version
+		cd $goroot/src
+		if [ ! -f make.bash ]; then
+			echo "not a real goroot $goroot/src/make.bash does not exist"
+			exit 1
+		fi
+		OLDPATH=$PATH
+		if ! source ./make.bash; then
+			echo "could not build $VERSION"
+			exit 1
+		fi
+	)
+fi
+
+TARGET=/tmp/go-$VERSION
+export GOROOT=$goroot
+export GOPATH=/tmp/fake-go-path
+rm -rf $TARGET
+echo "dyangrok instrument"
+dynagrok -d $dgpath \
+	instrument \
+		--keep-work -w $TARGET \
+		-o $TARGET/goroot/pkg/tool/linux_amd64/compile \
+		cmd/compile
+
+if [[ $HEAD != $COMMIT ]]; then
+	git -C $goroot checkout $HEAD
+	( #subshell for compiling the go version
+		unset GOROOT
+		unset GOPATH
+		cd $goroot/src
+		if [ ! -f make.bash ]; then
+			echo "not a real goroot $goroot/src/make.bash does not exist"
+			exit 1
+		fi
+		OLDPATH=$PATH
+		if ! source ./make.bash; then
+			echo "could not build $HEAD"
+			exit 1
+		fi
+	)
+fi

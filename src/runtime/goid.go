@@ -26,3 +26,7 @@ func GoID() int64 {
 func GetCallerPC(arg0 unsafe.Pointer) uintptr {
 	return uintptr(getcallerpc(arg0))
 }
+
+func Wacky() string {
+	return "wacky"
+}

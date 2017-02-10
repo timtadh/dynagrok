@@ -12,34 +12,47 @@ import (
 	"github.com/timtadh/dynagrok/cmd"
 	"github.com/timtadh/dynagrok/grok"
 	"github.com/timtadh/dynagrok/instrument"
+	"github.com/timtadh/dynagrok/mutate"
+	"github.com/timtadh/dynagrok/localize"
 )
 
 func main() {
+	var config cmd.Config
+	main := NewMain(&config)
+	inst := instrument.NewCommand(&config)
+	mut := mutate.NewCommand(&config)
+	loc := localize.NewCommand(&config)
 	cmd.Main(cmd.Concat(
-		Main,
+		main,
 		cmd.Commands(map[string]cmd.Runnable{
 			grok.Command.Name(): grok.Command,
-			instrument.Command.Name(): instrument.Command,
+			inst.Name(): inst,
+			mut.Name(): mut,
+			loc.Name(): loc,
 		}),
 	))
 }
 
-var Main = cmd.Cmd(os.Args[0],
+func NewMain(c *cmd.Config) cmd.Runnable {
+	return cmd.Cmd(os.Args[0],
 	`[options] <pkg>`,
 	`
 Option Flags
     -h,--help                         Show this message
     -p,--cpu-profile=<path>           Path to write the cpu-profile
+    -r,--go-root=<path>               go root
     -g,--go-path=<path>               go path
     -d,--dynagrok-path=<path>         dynagrok path
 `,
-	"p:g:d:",
+	"p:r:g:d:",
 	[]string{
 		"cpu-profile=",
+		"go-root=",
 		"go-path=",
 		"dynagrok-path=",
 	},
-	func(r cmd.Runnable, args []string, optargs []getopt.OptArg, _ ...interface{}) ([]string, interface{}, *cmd.Error) {
+	func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
+		GOROOT := os.Getenv("GOROOT")
 		GOPATH := os.Getenv("GOPATH")
 		DGPATH := os.Getenv("DGPATH")
 		cpuProfile := ""
@@ -51,19 +64,22 @@ Option Flags
 				GOPATH = oa.Arg()
 			case "-d", "--dynagrok-path":
 				DGPATH = oa.Arg()
+			case "-r", "--go-root":
+				GOROOT = oa.Arg()
 			}
 		}
 		if cpuProfile != "" {
 			cleanup, err := cmd.CPUProfile(cpuProfile)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 			defer cleanup()
 		}
-		c := &cmd.Config{
+		*c = cmd.Config{
+			GOROOT: GOROOT,
 			GOPATH: GOPATH,
 			DGPATH: DGPATH,
 		}
-		return args, c, nil
-	},
-)
+		return args, nil
+	})
+}

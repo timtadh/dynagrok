@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"runtime"
+	"strings"
 	"sync"
 )
 
@@ -12,9 +13,11 @@ type Execution struct {
 	m          sync.Mutex
 	Goroutines []*Goroutine
 	Profile    *Profile
-	OutputPath string
+	OutputDir  string
 	mergeCh    chan *Goroutine
 	async      sync.WaitGroup
+	fails      []string
+	failed     map[string]bool
 }
 
 var execMu sync.Mutex
@@ -31,10 +34,17 @@ func execCheck() {
 	}
 }
 
+func pjoin(parts ...string) string {
+	return strings.Join(parts, string(os.PathSeparator))
+}
+
 func newExecution() *Execution {
-	output := "/tmp/"
+	outputDir := "/tmp/dynagrok-profile"
 	if os.Getenv("DGPROF") != "" {
-		output = os.Getenv("DGPROF")
+		outputDir = os.Getenv("DGPROF")
+	}
+	if err := os.MkdirAll(outputDir, os.ModeDir|0775); err != nil {
+		panic(fmt.Errorf("dynagrok's dgruntime could not make directory %v", outputDir))
 	}
 	e := &Execution{
 		Profile: &Profile{
@@ -44,8 +54,9 @@ func newExecution() *Execution {
 			Positions: make(map[BlkEntrance]string),
 			Instances: make(map[string][]Instance),
 		},
-		OutputPath: output,
-		mergeCh:    make(chan *Goroutine, 15),
+		OutputDir: outputDir,
+		mergeCh:   make(chan *Goroutine, 15),
+		failed:    make(map[string]bool),
 	}
 	e.growGoroutines()
 	go func() {
@@ -75,6 +86,15 @@ func (e *Execution) Goroutine(id int64) *Goroutine {
 		e.m.Unlock()
 	}
 	return e.Goroutines[id]
+}
+
+func (e *Execution) Fail(pos string) {
+	e.m.Lock()
+	if !e.failed[pos] {
+		e.failed[pos] = true
+		e.fails = append(e.fails, pos)
+	}
+	e.m.Unlock()
 }
 
 func (e *Execution) growGoroutines() {
@@ -136,19 +156,41 @@ func shutdown(e *Execution) {
 	e.async.Wait()
 	e.m.Lock()
 	defer e.m.Unlock()
-	files := []string{"dynagrok-profile.dot", "object-states.txt", "object-states.json"}
-	writeOut(e, files[0], e.Profile.Serialize)
-	//writeOut(e, files[1], e.Profile.PrettyObjectState)
-	writeOut(e, files[2], e.Profile.SerializeObjectState)
+
+	if !e.Profile.Empty() {
+		files := []string{"dynagrok-profile.dot", "object-states.json"}
+		writeOut(e, files[0], e.Profile.Serialize)
+		writeOut(e, files[1], e.Profile.SerializeObjectState)
+		fmt.Println("done shutting down")
+	}
+	if len(e.fails) > 0 {
+		failPath := pjoin(e.OutputDir, "failures")
+		fmt.Printf("The program registered %v failures\n", len(e.fails))
+		fmt.Println("writing failures to:", failPath)
+		fout, err := os.Create(failPath)
+		if err != nil {
+			panic(err)
+		}
+		defer fout.Close()
+		for _, f := range e.fails {
+			fmt.Printf("fail: %v\n", f)
+			_, err := fmt.Fprintln(fout, f)
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
 	fmt.Println("done shutting down")
 }
+
 func writeOut(e *Execution, filename string, serializeFunc func(io.Writer)) {
-	filepath := fmt.Sprintf("%s%s", e.OutputPath, filename)
-	fmt.Println("writing to:", filepath)
-	fout, err := os.Create(filepath)
+	filePath := pjoin(e.OutputDir, filename)
+	fmt.Println("writing to:", filePath)
+	fout, err := os.Create(filePath)
 	if err != nil {
 		panic(err)
 	}
+	defer fout.Close()
 	serializeFunc(fout)
-	fout.Close()
+	e.Profile.Serialize(fout)
 }

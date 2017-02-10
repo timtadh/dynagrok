@@ -1,4 +1,5 @@
 if [[ ! (":$GOPATH:" == *":$(pwd):"*) ]]; then
+unset GOROOT
 export GOPATH=$(pwd):$GOPATH
 export PATH=$(pwd)/bin:$PATH
 fi

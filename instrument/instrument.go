@@ -16,25 +16,16 @@ import (
 	"github.com/timtadh/data-structures/errors"
 	"golang.org/x/tools/go/ast/astutil"
 	"golang.org/x/tools/go/loader"
-	"golang.org/x/tools/go/ssa"
-	"golang.org/x/tools/go/ssa/ssautil"
 )
 
 import (
-	"github.com/timtadh/dynagrok/dgruntime"
+	"github.com/timtadh/dynagrok/dgruntime/excludes"
 )
 
 type instrumenter struct {
 	program     *loader.Program
-	ssa         *ssa.Program
 	entry       string
 	currentFile *ast.File
-}
-
-func buildSSA(program *loader.Program) *ssa.Program {
-	sp := ssautil.CreateProgram(program, ssa.GlobalDebug)
-	sp.Build()
-	return sp
 }
 
 func Instrument(entryPkgName string, program *loader.Program) (err error) {
@@ -47,7 +38,6 @@ func Instrument(entryPkgName string, program *loader.Program) (err error) {
 	}
 	i := &instrumenter{
 		program: program,
-		ssa:     buildSSA(program),
 		entry:   entryPkgName,
 	}
 	return i.instrument()
@@ -64,33 +54,24 @@ func (i *instrumenter) instrument() (err error) {
 		//if len(pkg.BuildPackage.CgoFiles) > 0 {
 		//	continue
 		//}
-		if dgruntime.ExcludedPkg(pkg.Pkg.Path()) {
+		if excludes.ExcludedPkg(pkg.Pkg.Path()) {
 			continue
 		}
 		for _, fileAst := range pkg.Files {
 			i.currentFile = fileAst
 			hadFunc := false
-			err = functions(fileAst, func(fn ast.Node, parent *ast.FuncDecl, count int) error {
+			err = Functions(pkg, fileAst, func(fn ast.Node, fnName string) error {
 				hadFunc = true
 				switch x := fn.(type) {
 				case *ast.FuncDecl:
 					if x.Body == nil {
 						return nil
 					}
-					fnName := funcName(pkg.Pkg, pkg.Info.TypeOf(x.Name).(*types.Signature), x)
 					return i.fnBody(pkg, fnName, fn, &x.Body.List)
 				case *ast.FuncLit:
 					if x.Body == nil {
 						return nil
 					}
-					parentName := pkg.Pkg.Path()
-					if parent != nil {
-						parentType := pkg.Info.TypeOf(parent.Name)
-						if parentType != nil {
-							parentName = funcName(pkg.Pkg, parentType.(*types.Signature), parent)
-						}
-					}
-					fnName := fmt.Sprintf("%v$%d", parentName, count)
 					return i.fnBody(pkg, fnName, fn, &x.Body.List)
 				default:
 					return errors.Errorf("unexpected type %T", x)
@@ -102,8 +83,7 @@ func (i *instrumenter) instrument() (err error) {
 			// imports dgruntime package into the files that have
 			// instrumentation added
 			if hadFunc {
-				astutil.AddImport(i.program.Fset, fileAst, "github.com/timtadh/dynagrok/dgruntime")
-				// astutil.AddImport(i.program.Fset, fileAst, "unsafe")
+				astutil.AddImport(i.program.Fset, fileAst, "dgruntime")
 			}
 		}
 	}
@@ -145,9 +125,9 @@ func (i instrumenter) exprFuncGenerator(pkg *loader.PackageInfo, blk *[]ast.Stmt
 	}
 }
 
-func (i instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.Node, fnBody *[]ast.Stmt) error {
+func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.Node, fnBody *[]ast.Stmt) error {
 	if true {
-		err := blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
+		err := Blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
 			// This unnamed function "instruments" a block.
 			// First, it calls mkEnterBlk in the first line of the block,
 			// unless it's a top-level block, in which case mkEnterFunc has
@@ -161,7 +141,7 @@ func (i instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.N
 			}
 			// Enter goes at the beginning unless we're a function body
 			if id != 0 {
-				*blk = insert(*blk, 0, i.mkEnterBlk(pos, id))
+				*blk = Insert(*blk, 0, i.mkEnterBlk(pos, id))
 			}
 			for j := 0; j < len(*blk)-1; j++ {
 				if j+1 < len(*blk) {
@@ -171,25 +151,25 @@ func (i instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.N
 				}
 				switch stmt := (*blk)[j].(type) {
 				case *ast.BranchStmt:
-					// *blk = insert(*blk, j, i.mkPrint(pos, fmt.Sprintf("exit-blk:\t %d\t of %v", id, fnName)))
+					// *blk = Insert(*blk, j, i.mkPrint(pos, fmt.Sprintf("exit-blk:\t %d\t of %v", id, fnName)))
 					// j++
 				case *ast.IfStmt, *ast.ForStmt, *ast.SelectStmt, *ast.SwitchStmt, *ast.TypeSwitchStmt, *ast.RangeStmt:
 					// In the case of a statement that defines its own block,
 					// make sure to insert a re-entry after it.
 					// (Why 2+j+1)? Do I break this with my MethodCall calls?
-					*blk = insert(*blk, j+1, i.mkRe_enterBlk(pos, id, 2+j+1))
+					*blk = Insert(*blk, j+1, i.mkRe_enterBlk(pos, id, 2+j+1))
 					j++ // skip over the line we just created
 				case *ast.LabeledStmt:
 					switch stmt.Stmt.(type) {
 					case *ast.ForStmt, *ast.SwitchStmt, *ast.SelectStmt, *ast.TypeSwitchStmt, *ast.RangeStmt:
-						*blk = insert(*blk, j+1, i.mkRe_enterBlk(pos, id, 2+j+1))
+						*blk = Insert(*blk, j+1, i.mkRe_enterBlk(pos, id, 2+j+1))
 					default:
 						// errors.Logf("DEBUG", "label stmt %T %T in %v", stmt.Stmt, (*blk)[j+1], fnName)
 						// For labeled statements (targets of goto, break, etc.)
 						// control re-enters and then executes the line of the
 						// labeled statement. So we should mark the re-entry as
 						// the line above the LabeledStmt
-						*blk = insert(*blk, j+1, stmt.Stmt)
+						*blk = Insert(*blk, j+1, stmt.Stmt)
 						stmt.Stmt = i.mkRe_enterBlk(pos, id, 2+j)
 					}
 					// TODO : see if this placement of the call to statement()
@@ -213,7 +193,28 @@ func (i instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.N
 			for j := len(*blk) - 1; j >= 0; j-- {
 				pos = (*blk)[j].Pos()
 				if stmt, has := methodCallLoc[pos]; has {
-					*blk = insert(*blk, j+1, stmt)
+					*blk = Insert(*blk, j+1, stmt)
+				}
+			}
+			for j := 0; j < len(*blk); j++ {
+				pos = (*blk)[j].Pos()
+				switch stmt := (*blk)[j].(type) {
+				default:
+					err := Exprs(stmt, func(expr ast.Expr) error {
+						switch e := expr.(type) {
+						case *ast.SelectorExpr:
+							if ident, ok := e.X.(*ast.Ident); ok {
+								if ident.Name == "os" && e.Sel.Name == "Exit" {
+									*blk = Insert(*blk, j, i.mkShutdownNow(pos))
+									j++
+								}
+							}
+						}
+						return nil
+					})
+					if err != nil {
+						return err
+					}
 				}
 			}
 			return nil
@@ -222,27 +223,27 @@ func (i instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.N
 			return nil
 		}
 	}
-	*fnBody = insert(*fnBody, 0, i.mkEnterFunc(fnAst.Pos(), fnName))
-	*fnBody = insert(*fnBody, 1, i.mkExitFunc(fnAst.Pos(), fnName))
+	*fnBody = Insert(*fnBody, 0, i.mkEnterFunc(fnAst.Pos(), fnName))
+	*fnBody = Insert(*fnBody, 1, i.mkExitFunc(fnAst.Pos(), fnName))
 	if pkg.Pkg.Path() == i.entry && fnName == fmt.Sprintf("%v.main", pkg.Pkg.Path()) {
-		*fnBody = insert(*fnBody, 0, i.mkShutdown(fnAst.Pos()))
+		*fnBody = Insert(*fnBody, 0, i.mkShutdown(fnAst.Pos()))
 	}
 	return nil
 }
 
-func funcName(pkg *types.Package, fnType *types.Signature, fnAst *ast.FuncDecl) string {
+func FuncName(pkg *types.Package, fnType *types.Signature, fnAst *ast.FuncDecl) string {
 	recv := fnType.Recv()
 	recvName := pkg.Path()
 	if recv != nil {
-		recvName = fmt.Sprintf("(%v)", typeName(pkg, recv.Type()))
+		recvName = fmt.Sprintf("(%v)", TypeName(pkg, recv.Type()))
 	}
 	return fmt.Sprintf("%v.%v", recvName, fnAst.Name.Name)
 }
 
-func typeName(pkg *types.Package, t types.Type) string {
+func TypeName(pkg *types.Package, t types.Type) string {
 	switch r := t.(type) {
 	case *types.Pointer:
-		return fmt.Sprintf("*%v", typeName(pkg, r.Elem()))
+		return fmt.Sprintf("*%v", TypeName(pkg, r.Elem()))
 	case *types.Named:
 		return fmt.Sprintf("%v.%v", pkg.Path(), r.Obj().Name())
 	default:
@@ -251,7 +252,7 @@ func typeName(pkg *types.Package, t types.Type) string {
 }
 
 // insert inserts a statement stmt to block blk at index j
-func insert(blk []ast.Stmt, j int, stmt ast.Stmt) []ast.Stmt {
+func Insert(blk []ast.Stmt, j int, stmt ast.Stmt) []ast.Stmt {
 	if j > len(blk) {
 		j = len(blk)
 	}
@@ -277,7 +278,7 @@ func insert(blk []ast.Stmt, j int, stmt ast.Stmt) []ast.Stmt {
 	return blk
 }
 
-func (i instrumenter) mkPrint(pos token.Pos, data string) ast.Stmt {
+func (i *instrumenter) mkPrint(pos token.Pos, data string) ast.Stmt {
 	s := fmt.Sprintf("dgruntime.Println(%v)", strconv.Quote(data))
 	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
 	if err != nil {
@@ -286,7 +287,7 @@ func (i instrumenter) mkPrint(pos token.Pos, data string) ast.Stmt {
 	return &ast.ExprStmt{e}
 }
 
-func (i instrumenter) mkDeferPrint(pos token.Pos, data string) ast.Stmt {
+func (i *instrumenter) mkDeferPrint(pos token.Pos, data string) ast.Stmt {
 	s := fmt.Sprintf("func() { dgruntime.Println(%v) }()", strconv.Quote(data))
 	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
 	if err != nil {
@@ -295,7 +296,7 @@ func (i instrumenter) mkDeferPrint(pos token.Pos, data string) ast.Stmt {
 	return &ast.DeferStmt{Call: e.(*ast.CallExpr)}
 }
 
-func (i instrumenter) mkEnterFunc(pos token.Pos, name string) ast.Stmt {
+func (i *instrumenter) mkEnterFunc(pos token.Pos, name string) ast.Stmt {
 	p := i.program.Fset.Position(pos)
 	s := fmt.Sprintf("dgruntime.EnterFunc(%v, %v)", strconv.Quote(name), strconv.Quote(p.String()))
 	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
@@ -305,7 +306,7 @@ func (i instrumenter) mkEnterFunc(pos token.Pos, name string) ast.Stmt {
 	return &ast.ExprStmt{e}
 }
 
-func (i instrumenter) mkExitFunc(pos token.Pos, name string) ast.Stmt {
+func (i *instrumenter) mkExitFunc(pos token.Pos, name string) ast.Stmt {
 	s := fmt.Sprintf("func() { dgruntime.ExitFunc(%v) }()", strconv.Quote(name))
 	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
 	if err != nil {
@@ -314,7 +315,7 @@ func (i instrumenter) mkExitFunc(pos token.Pos, name string) ast.Stmt {
 	return &ast.DeferStmt{Call: e.(*ast.CallExpr)}
 }
 
-func (i instrumenter) mkShutdown(pos token.Pos) ast.Stmt {
+func (i *instrumenter) mkShutdown(pos token.Pos) ast.Stmt {
 	s := "func() { dgruntime.Shutdown() }()"
 	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
 	if err != nil {
@@ -323,7 +324,16 @@ func (i instrumenter) mkShutdown(pos token.Pos) ast.Stmt {
 	return &ast.DeferStmt{Call: e.(*ast.CallExpr)}
 }
 
-func (i instrumenter) mkEnterBlk(pos token.Pos, blkid int) ast.Stmt {
+func (i *instrumenter) mkShutdownNow(pos token.Pos) ast.Stmt {
+	s := "dgruntime.Shutdown()"
+	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
+	if err != nil {
+		panic(fmt.Errorf("mkShutdown (%v) error: %v", s, err))
+	}
+	return &ast.ExprStmt{e}
+}
+
+func (i *instrumenter) mkEnterBlk(pos token.Pos, blkid int) ast.Stmt {
 	p := i.program.Fset.Position(pos)
 	s := fmt.Sprintf("dgruntime.EnterBlk(%d, %v)", blkid, strconv.Quote(p.String()))
 	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
@@ -333,7 +343,7 @@ func (i instrumenter) mkEnterBlk(pos token.Pos, blkid int) ast.Stmt {
 	return &ast.ExprStmt{e}
 }
 
-func (i instrumenter) mkRe_enterBlk(pos token.Pos, blkid, at int) ast.Stmt {
+func (i *instrumenter) mkRe_enterBlk(pos token.Pos, blkid, at int) ast.Stmt {
 	p := i.program.Fset.Position(pos)
 	s := fmt.Sprintf("dgruntime.Re_enterBlk(%d, %d, %v) // %v", blkid, at, strconv.Quote(p.String()))
 	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))

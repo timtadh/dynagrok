@@ -12,7 +12,7 @@ import (
 
 // diverges
 func Main(r Runnable) {
-	args, _, err := r.Run(os.Args[1:])
+	args, err := r.Run(os.Args[1:])
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(err.ExitCode)
@@ -26,6 +26,7 @@ func Main(r Runnable) {
 
 func BuildContext(c *Config) *build.Context {
 	b := &build.Default
+	b.GOROOT = c.GOROOT
 	b.GOPATH = c.GOPATH
 	return b
 }

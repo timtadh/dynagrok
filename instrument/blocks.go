@@ -1,13 +1,27 @@
 package instrument
 
 import (
+	"fmt"
 	"go/ast"
+	"strings"
 )
+
+import ()
+
+type block []ast.Stmt
+
+func (blk *block) String() string {
+	parts := make([]string, 0, len(*blk))
+	for _, item := range *blk {
+		parts = append(parts, fmt.Sprintf("%T 0x%x", item, ptr(item)))
+	}
+	return fmt.Sprintf("[%v]", strings.Join(parts, ", "))
+}
 
 // blocks walks the ast of each statement in blk (sometimes recursively calling
 // blocks()), and then runs do(blk, cId) to do the instrumentation.
 // id and cId represent the nesting level of the block.
-func blocks(blk *[]ast.Stmt, id *int, do func(*[]ast.Stmt, int) error) error {
+func Blocks(blk *[]ast.Stmt, id *int, do func(*[]ast.Stmt, int) error) error {
 	var idspot int
 	if id == nil {
 		id = &idspot
@@ -15,7 +29,10 @@ func blocks(blk *[]ast.Stmt, id *int, do func(*[]ast.Stmt, int) error) error {
 	cId := *id
 	(*id)++
 	for _, stmt := range *blk {
-		v := &blocksVisitor{do: do, count: id}
+		v := &blocksVisitor{
+			do:    do,
+			count: id,
+		}
 		ast.Walk(v, stmt)
 		if v.err != nil {
 			return v.err
@@ -64,7 +81,7 @@ func (v *blocksVisitor) Visit(n ast.Node) ast.Visitor {
 
 	// if the node n is one of {BlockStmt, CommClause, CaseClause}
 	if blk != nil {
-		err := blocks(blk, v.count, v.do)
+		err := Blocks(blk, v.count, v.do)
 		if err != nil {
 			v.err = err
 		}

@@ -11,7 +11,7 @@ import (
 
 
 type Runnable interface {
-	Run(argv []string, xtra ...interface{}) ([]string, interface{}, *Error)
+	Run(argv []string) ([]string, *Error)
 	ShortOpts() string
 	LongOpts() []string
 	Name() string
@@ -19,7 +19,7 @@ type Runnable interface {
 	Usage() string
 }
 
-type Action func(r Runnable, argv []string, optargs []getopt.OptArg, xtra ...interface{}) ([]string, interface{}, *Error)
+type Action func(r Runnable, argv []string, optargs []getopt.OptArg) ([]string, *Error)
 
 type Joiner func(xtra []interface{}) (interface{}, *Error)
 
@@ -64,18 +64,18 @@ func Commands(runners map[string]Runnable) Runnable {
 	}
 }
 
-func (c *Command) Run(argv []string, xtra ...interface{}) ([]string, interface{}, *Error) {
+func (c *Command) Run(argv []string) ([]string, *Error) {
 	args, optargs, err := getopt.GetOpt(argv, c.ShortOpts(), c.LongOpts())
 	if err != nil {
-		return nil, nil, Usage(c, -1, "could not process args: %v", err)
+		return nil, Usage(c, -1, "could not process args: %v", err)
 	}
 	for _, oa := range optargs {
 		switch oa.Opt() {
 		case "-h", "--help":
-			return nil, nil, Usage(c, 0)
+			return nil, Usage(c, 0)
 		}
 	}
-	return c.Action(c, args, optargs, xtra...)
+	return c.Action(c, args, optargs)
 }
 
 func (c *Command) ShortOpts() string {
@@ -114,29 +114,25 @@ func (c *Command) Usage() string {
 	return c.message
 }
 
-func (s *Sequence) Run(argv []string, xtra ...interface{}) ([]string, interface{}, *Error) {
+func (s *Sequence) Run(argv []string) ([]string, *Error) {
 	_, optargs, err := getopt.GetOpt(argv, s.ShortOpts(), s.LongOpts())
 	if err != nil {
-		return nil, nil, Usage(s, -1, "could not process args: %v", err)
+		return nil, Usage(s, -1, "could not process args: %v", err)
 	}
 	for _, oa := range optargs {
 		switch oa.Opt() {
 		case "-h", "--help":
-			return nil, nil, Usage(s, 0)
+			return nil, Usage(s, 0)
 		}
 	}
 	for _, r := range s.runners {
 		var err *Error
-		var out interface{}
-		argv, out, err = r.Run(argv, xtra...)
+		argv, err = r.Run(argv)
 		if err != nil {
-			return nil, nil, err
-		}
-		if out != nil {
-			xtra = append(xtra, out)
+			return nil, err
 		}
 	}
-	return argv, xtra, nil
+	return argv, nil
 }
 
 func (s *Sequence) Name() string {
@@ -167,14 +163,14 @@ func (s *Sequence) Usage() string {
 	return fmt.Sprintf("%v\n\n%v", s.ShortUsage(), strings.Join(longs, "\n\n"))
 }
 
-func (a *Alternatives) Run(argv []string, xtra ...interface{}) ([]string, interface{}, *Error) {
+func (a *Alternatives) Run(argv []string) ([]string, *Error) {
 	if len(argv) <= 0 {
-		return nil, nil, Usage(a, -1, "Expected one of %v got end of arguments", a.Name())
+		return nil, Usage(a, -1, "Expected one of %v got end of arguments", a.Name())
 	}
 	if r, has := a.runners[argv[0]]; !has {
-		return nil, nil, Usage(a, -1, "Expected one of %v got %v", a.Name(), argv[0])
+		return nil, Usage(a, -1, "Expected one of %v got %v", a.Name(), argv[0])
 	} else {
-		return r.Run(argv[1:], xtra...)
+		return r.Run(argv[1:])
 	}
 }
 

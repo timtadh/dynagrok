@@ -5,30 +5,47 @@ package dgruntime
 import (
 	"fmt"
 	"log"
+	"os"
+	"os/signal"
 	"reflect"
 	"runtime"
+	"syscall"
 	"unsafe"
 )
 
-var excludedPackages = map[string]bool{
-	"fmt":     true,
-	"runtime": true,
-	"sync":    true,
-	"strconv": true,
-	"io":      true,
-	"os":      true,
-	"unsafe":  true,
-}
-
-const MAXFLOW = 10
-
-func ExcludedPkg(pkg string) bool {
-	return excludedPackages[pkg]
+func init() {
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		sig := <-sigs
+		fmt.Println("dynagrok got a sig", sig)
+		Shutdown()
+		panic(fmt.Errorf("dynagrok caught signal: %v", sig))
+	}()
 }
 
 func Shutdown() {
+	fmt.Println(runtime.Wacky())
 	execCheck()
 	shutdown(exec)
+}
+
+func ReportFailBool(pos string) bool {
+	execCheck()
+	exec.Fail(pos)
+	return true
+}
+
+func ReportFailInt(pos string) int {
+	execCheck()
+	exec.Fail(pos)
+	return 0
+}
+
+func ReportFailFloat(pos string) float64 {
+	execCheck()
+	exec.Fail(pos)
+	return 0
 }
 
 // EnterBlk denotes an entry to a syntactic block (that's { ... })

@@ -1,17 +1,23 @@
 package instrument
 
 import (
+	"fmt"
 	"go/ast"
+	"go/types"
 	"unsafe"
 )
 
-import ()
+import (
+	"golang.org/x/tools/go/loader"
+)
 
 
-func functions(n ast.Node, do func(fn ast.Node, parent *ast.FuncDecl, count int) error) error {
+
+func Functions(pkg *loader.PackageInfo, n ast.Node, do func(fn ast.Node, fnName string) error) error {
 	count := 0
 	v := &funcVisitor{
 		do: do,
+		pkg: pkg,
 		seen: make(map[uintptr]bool),
 		count: &count,
 	}
@@ -20,8 +26,9 @@ func functions(n ast.Node, do func(fn ast.Node, parent *ast.FuncDecl, count int)
 }
 
 type funcVisitor struct {
+	pkg *loader.PackageInfo
 	err error
-	do func(fn ast.Node, parent *ast.FuncDecl, count int) error
+	do func(fn ast.Node, fnName string) error
 	seen map[uintptr]bool
 	fn *ast.FuncDecl
 	count *int
@@ -42,6 +49,7 @@ func (v *funcVisitor) Visit(n ast.Node) (ast.Visitor) {
 	}
 	var parent *ast.FuncDecl = v.fn
 	var fn ast.Node
+	var fnName string
 	var blk *[]ast.Stmt
 	var count *int = v.count
 	switch x := n.(type) {
@@ -54,12 +62,22 @@ func (v *funcVisitor) Visit(n ast.Node) (ast.Visitor) {
 		fn = n
 		blk = &x.Body.List
 		count = &c
+		fnName = FuncName(v.pkg.Pkg, v.pkg.Info.TypeOf(x.Name).(*types.Signature), x)
 	case *ast.FuncLit:
 		fn = n
 		blk = &x.Body.List
+		parentName := v.pkg.Pkg.Path()
+		if parent != nil {
+			parentType := v.pkg.Info.TypeOf(parent.Name)
+			if parentType != nil {
+				parentName = FuncName(v.pkg.Pkg, parentType.(*types.Signature), parent)
+			}
+		}
+		fnName = fmt.Sprintf("%v$%d", parentName, count)
 	}
 	if fn != nil {
 		iv := &funcVisitor{
+			pkg: v.pkg,
 			do: v.do,
 			seen: v.seen,
 			fn: parent,
@@ -73,7 +91,7 @@ func (v *funcVisitor) Visit(n ast.Node) (ast.Visitor) {
 		if !v.seen[p] {
 			v.seen[p] = true
 			(*count)++
-			err := v.do(fn, v.fn, *count)
+			err := v.do(fn, fnName)
 			if err != nil {
 				v.err = err
 				return nil
