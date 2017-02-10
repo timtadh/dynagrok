@@ -19,6 +19,7 @@ import (
 import (
 	"github.com/timtadh/dynagrok/analysis"
 	"github.com/timtadh/dynagrok/dgruntime/excludes"
+	"github.com/timtadh/dynagrok/instrument"
 )
 
 type instrumenter struct {
@@ -63,7 +64,6 @@ func (i *instrumenter) instrument() (err error) {
 			hadFunc := false
 			err = analysis.Functions(pkg, fileAst, func(fn ast.Node, fnName string) error {
 				if i.method != "" && !strings.Contains(fnName, i.method) {
-					fmt.Printf("%v != %v\n", i.method, fnName)
 					return nil
 				}
 				hadFunc = true
@@ -169,7 +169,7 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.
 					var stmt ast.Stmt = *((b.Stmts)[j])
 					pos := stmt.Pos()
 					if stmt, has := methodCallLoc[pos]; has {
-						*body = Insert(cfg, b, *body, j+1, stmt)
+						*body = instrument.Insert(cfg, b, *body, j+1, stmt)
 						delete(methodCallLoc, pos)
 					}
 				}
@@ -177,49 +177,6 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.
 		}
 	}
 	return nil
-}
-
-func Insert(cfg *analysis.CFG, cfgBlk *analysis.Block, blk []ast.Stmt, j int, stmt ast.Stmt) []ast.Stmt {
-	if cfgBlk == nil {
-		if len(blk) == 0 {
-			cfgBlk = nil
-		} else if j >= len(blk) {
-			j = len(blk)
-			cfgBlk = cfg.GetClosestBlk(len(blk)-1, blk, blk[len(blk)-1])
-		} else if j < 0 {
-			j = 0
-			cfgBlk = cfg.GetClosestBlk(0, blk, blk[0])
-		} else if j == len(blk) {
-			cfgBlk = cfg.GetClosestBlk(j-1, blk, blk[j-1])
-		} else {
-			cfgBlk = cfg.GetClosestBlk(j, blk, blk[j])
-		}
-		if cfgBlk == nil {
-			p := cfg.FSet.Position(stmt.Pos())
-			fmt.Printf("nil cfg-blk %T %v %v \n", stmt, analysis.FmtNode(cfg.FSet, stmt), p)
-			// panic(fmt.Errorf("nil cfgBlk"))
-		}
-	}
-	if cfgBlk != nil {
-		cfg.AddAllToBlk(cfgBlk, stmt)
-	}
-	if cap(blk) <= len(blk)+1 {
-		nblk := make([]ast.Stmt, len(blk), (cap(blk)+1)*2)
-		copy(nblk, blk)
-		blk = nblk
-	}
-	blk = blk[:len(blk)+1]
-	for i := len(blk) - 1; i > 0; i-- {
-		if j == i {
-			blk[i] = stmt
-			break
-		}
-		blk[i] = blk[i-1]
-	}
-	if j == 0 {
-		blk[j] = stmt
-	}
-	return blk
 }
 
 func (i instrumenter) mkMethodCall(pos token.Pos, name string, callName string) (ast.Stmt, string) {
