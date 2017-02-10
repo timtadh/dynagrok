@@ -86,10 +86,16 @@ Option Flags
 						allowedMuts[typ] = true
 					} else {
 						return nil, cmd.Errorf(1, fmt.Sprintf(
-							"mutation %v, given in `%v %v`, is support by dynagrok. (use --mutations for list)",
+							"mutation %v, given in `%v %v`, is not supported by dynagrok. (use --mutations for list)",
 							typ, oa.Opt(), oa.Arg()))
 					}
 				}
+			case "--mutations":
+				fmt.Println("Available mutations:")
+				for mut := range MutationTypes {
+					fmt.Println("  -", mut)
+				}
+				return nil, nil
 			}
 		}
 		if len(args) != 1 {

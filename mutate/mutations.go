@@ -160,7 +160,7 @@ func (m *BranchMutation) Export() *ExportedMut {
 }
 
 func (m BranchMutation) Type() string {
-	return "branch-mutation"
+	return "branch"
 }
 
 func (m *BranchMutation) SrcPosition() token.Position {
@@ -226,7 +226,7 @@ func (m *IncrementMutation) SrcPosition() token.Position {
 }
 
 func (m IncrementMutation) Type() string {
-	return "increment-mutation"
+	return "increment"
 }
 
 func (m *IncrementMutation) String() string {
