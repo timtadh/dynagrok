@@ -81,7 +81,6 @@ func (i *instrumenter) instrument() (err error) {
 
 func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.Node, fnBody *[]ast.Stmt) error {
 	cfg := analysis.BuildCFG(i.program.Fset, fnName, fnAst, fnBody)
-	fmt.Println(cfg)
 	if true {
 		// first collect the instrumentation points (IPs)
 		// build a map from lexical blocks to a sequence of IPs

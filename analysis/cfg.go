@@ -111,7 +111,6 @@ func (c *CFG) GetClosestBlk(i int, blk []ast.Stmt, s ast.Node) *Block {
 		} else if i - 1 >= 0 {
 			return c.GetClosestBlk(i-1, blk, blk[i-1])
 		} else {
-			// fmt.Println("nil, i", i, "len(blk)", len(blk))
 			return nil
 		}
 	case *ast.LabeledStmt:
@@ -157,7 +156,6 @@ func (c *CFG) visitStmts(stmts *[]ast.Stmt, blk *Block) *Block {
 		if blk != nil && blk.Body == nil {
 			blk.Body = stmts
 			blk.StartsAt = i
-			fmt.Println("blk", blk.Id, FmtNode(c.FSet, (*stmts)[i]))
 		}
 		blk = c.visitStmt(i, stmts, &(*stmts)[i], blk)
 	}
