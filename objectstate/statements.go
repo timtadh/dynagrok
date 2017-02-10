@@ -1,4 +1,4 @@
-package instrument
+package objectstate
 
 import (
 	"go/ast"

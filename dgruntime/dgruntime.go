@@ -56,27 +56,7 @@ func EnterBlk(bid int, pos string) {
 	defer g.m.Unlock()
 	fc := g.Stack[len(g.Stack)-1]
 	last := fc.Last
-	cur := BlkEntrance{In: fc.FuncPc, BlkId: bid, At: 0}
-	g.Flows[FlowEdge{Src: last, Targ: cur}]++
-	fc.Last = cur
-	g.Positions[cur] = pos
-}
-
-// Re_enterBlk is called after a child-block goes out of scope, eg
-//	func main() {
-//		if(cond) {
-//			noop
-//		}
-//		dgruntime.Re_enterBlk(...)
-//	...
-func Re_enterBlk(bid, at int, pos string) {
-	execCheck()
-	g := exec.Goroutine(runtime.GoID())
-	g.m.Lock()
-	defer g.m.Unlock()
-	fc := g.Stack[len(g.Stack)-1]
-	last := fc.Last
-	cur := BlkEntrance{In: fc.FuncPc, BlkId: bid, At: at}
+	cur := BlkEntrance{In: fc.FuncPc, BasicBlockId: bid}
 	g.Flows[FlowEdge{Src: last, Targ: cur}]++
 	fc.Last = cur
 	g.Positions[cur] = pos
@@ -93,7 +73,7 @@ func EnterFunc(name, pos string) {
 	pc := runtime.GetCallerPC(unsafe.Pointer(&name))
 	f := runtime.FuncForPC(pc)
 	fpc := f.Entry()
-	cur := BlkEntrance{In: fpc, BlkId: 0, At: 0}
+	cur := BlkEntrance{In: fpc, BasicBlockId: 0}
 	g.Stack = append(g.Stack, &FuncCall{
 		Name:   name,
 		FuncPc: fpc,

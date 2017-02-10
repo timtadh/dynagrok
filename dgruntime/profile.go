@@ -26,13 +26,13 @@ func (p *Profile) Serialize(fout io.Writer) {
 		return runtime.FuncForPC(pc).Name()
 	}
 	blk_name := func(n BlkEntrance) string {
-		if n.In == 0 && n.BlkId == 0 && n.At == 0 {
+		if n.In == 0 && n.BasicBlockId == 0 {
 			return "entry"
 		}
 		if f, has := p.Funcs[n.In]; has {
-			return fmt.Sprintf("%v blk %d:%d", f.Name, n.BlkId, n.At)
+			return fmt.Sprintf("%v blk %d", f.Name, n.BasicBlockId)
 		} else {
-			return fmt.Sprintf("%v blk %d:%d", runtime_name(n.In), n.BlkId, n.At)
+			return fmt.Sprintf("%v blk %d", runtime_name(n.In), n.BasicBlockId)
 		}
 	}
 	// flowlist := func(flows []Flow) string {
@@ -72,22 +72,24 @@ func (p *Profile) Serialize(fout io.Writer) {
 		if _, has := blks[e.Src]; !has {
 			s := nextid
 			nextid++
-			fmt.Fprintf(fout, "%d [label=%v, shape=rect, position=%v, runtime_name=%v];\n",
+			fmt.Fprintf(fout, "%d [label=%v, shape=rect, position=%v, runtime_name=%v, bbid=%d];\n",
 				s,
 				strconv.Quote(src),
 				strconv.Quote(p.Positions[e.Src]),
 				strconv.Quote(runtime_name(e.Src.In)),
+				e.Src.BasicBlockId,
 			)
 			blks[e.Src] = s
 		}
 		if _, has := blks[e.Targ]; !has {
 			t := nextid
 			nextid++
-			fmt.Fprintf(fout, "%d [label=%v, shape=rect, position=%v, runtime_name=%v];\n",
+			fmt.Fprintf(fout, "%d [label=%v, shape=rect, position=%v, runtime_name=%v, bbid=%d];\n",
 				t,
 				strconv.Quote(targ),
 				strconv.Quote(p.Positions[e.Targ]),
 				strconv.Quote(runtime_name(e.Targ.In)),
+				e.Targ.BasicBlockId,
 			)
 			blks[e.Targ] = t
 		}
