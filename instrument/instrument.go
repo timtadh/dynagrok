@@ -83,41 +83,67 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.
 	cfg := analysis.BuildCFG(i.program.Fset, fnName, fnAst, fnBody)
 	fmt.Println(cfg)
 	if true {
+		// first collect the instrumentation points (IPs)
+		// build a map from lexical blocks to a sequence of IPs
+		// The IPs are basic blocks from the CFG
 		instr := make(map[*[]ast.Stmt][]*analysis.Block)
 		for _, b := range cfg.Blocks {
+			// if the block doesn't have a body don't instrument it
 			if b.Body == nil {
 				continue
 			}
+			// associate the basic block with the lexical block
 			instr[b.Body] = append(instr[b.Body], b)
 		}
+		// Now instrument each lexical block
 		for body, blks := range instr {
+			// First stort the IPs (Basic Blocks) in reverse order according
+			// to where they start in the lexical block. That way we can
+			// safely insert the instrumentation points (by doing it in
+			// reverse
 			sort.Slice(blks, func(i, j int) bool {
 				return blks[i].StartsAt > blks[j].StartsAt
 			})
+			// instrument the entry to each block
 			for _, b := range blks {
+				// skip the entry block as it is covered by the EnterFunc call.
 				if b.Id == 0 {
 					continue
 				}
+				// get a position
 				var pos token.Pos
 				if len(b.Stmts) > 0 {
 					pos = (*b.Stmts[0]).Pos()
 				} else {
+					// if there are no statements skip this block
 					continue
 				}
 				switch stmt := (*body)[b.StartsAt].(type) {
+				// If the insertion point for the instrumentation is a LabeledStmt
+				// then we have two special cases
 				case *ast.LabeledStmt:
 					switch stmt.Stmt.(type) {
 					case *ast.ForStmt, *ast.SwitchStmt, *ast.SelectStmt, *ast.TypeSwitchStmt, *ast.RangeStmt:
+						// if it is one of the statements which allow labeled breaks/continues
+						// then we can't insert instrumentation here. (But, don't worry we can insert
+						// it inside of these statements so very little is lost).
 					default:
+						// Otherwise, in order to ensure our instrumentation is called first
+						// (before any function calls) we need to replace the inner portion
+						// of the LabeledStmt.
 						*body = Insert(cfg, b, *body, b.StartsAt+1, stmt.Stmt)
 						stmt.Stmt = i.mkEnterBlk(pos, b.Id)
 						cfg.AddAllToBlk(b, stmt.Stmt)
 					}
 				default:
+					// The general case, simply insert our instrumentation at the starting
+					// points of the basic block in the lexical block.
 					*body = Insert(cfg, b, *body, b.StartsAt, i.mkEnterBlk(pos, b.Id))
 				}
 			}
 		}
+		// Finally, we need to check for the existence of an os.Exit call and insert a
+		// shutdown hook for Dyangrok if it exists.
 		err := analysis.Blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
 			for j := 0; j < len(*blk); j++ {
 				pos := (*blk)[j].Pos()
@@ -153,6 +179,7 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.
 	}
 	return nil
 }
+
 func Insert(cfg *analysis.CFG, cfgBlk *analysis.Block, blk []ast.Stmt, j int, stmt ast.Stmt) []ast.Stmt {
 	if cfgBlk == nil {
 		if len(blk) == 0{
