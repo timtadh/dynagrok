@@ -10,17 +10,20 @@ import (
 	"github.com/timtadh/dynagrok/cmd"
 	"github.com/timtadh/dynagrok/localize/stat"
 	"github.com/timtadh/dynagrok/localize/eval"
+	"github.com/timtadh/dynagrok/localize/discflo"
 )
 
 func NewCommand(c *cmd.Config) cmd.Runnable {
 	main := NewLocalizeMain(c)
 	st := stat.NewCommand(c)
 	ev := eval.NewCommand(c)
+	df := discflo.NewCommand(c)
 	return cmd.Concat(
 		main,
 		cmd.Commands(map[string]cmd.Runnable{
 			st.Name(): st,
 			ev.Name(): ev,
+			df.Name(): df,
 		}),
 	)
 }

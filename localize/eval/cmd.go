@@ -26,7 +26,7 @@ func NewCommand(c *cmd.Config) cmd.Runnable {
 	optsParser := stat.NewOptionParser(c, &o.Options)
 	return cmd.Concat(cmd.Cmd(
 	"eval",
-	``,
+	`[options]`,
 	`
 Evaluate a fault localization method from ground truth
 
