@@ -44,6 +44,11 @@ func ReportFailFloat(fnName string, bbid int, pos string) float64 {
 	return 0
 }
 
+func EnterBlkFromCond(bbid int, pos string) bool {
+	EnterBlk(bbid, pos)
+	return true
+}
+
 func EnterBlk(bbid int, pos string) {
 	execCheck()
 	g := exec.Goroutine(runtime.GoID())
