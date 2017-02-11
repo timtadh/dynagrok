@@ -67,12 +67,14 @@ Option Flags
 		fmt.Println("output", output)
 		labels := digraph.NewLabels()
 		positions := make(map[int]string)
+		fnNames := make(map[int]string)
+		bbids := make(map[int]int)
 		failFile, failClose, err := cmd.Input(args[0])
 		if err != nil {
 			return nil, cmd.Errorf(2, "Could not read profiles from failed executions: %v\n%v", args[0], err)
 		}
 		defer failClose()
-		fail, err := LoadDot(positions, labels, failFile)
+		fail, err := LoadDot(positions, fnNames, bbids, labels, failFile)
 		if err != nil {
 			return nil, cmd.Errorf(2, "Could not load profiles from failed executions: %v\n%v", args[0], err)
 		}
@@ -81,7 +83,7 @@ Option Flags
 			return nil, cmd.Errorf(2, "Could not read profiles from successful executions: %v\n%v", args[0], err)
 		}
 		defer okClose()
-		ok, err := LoadDot(positions, labels, okFile)
+		ok, err := LoadDot(positions, fnNames, bbids, labels, okFile)
 		if err != nil {
 			return nil, cmd.Errorf(2, "Could not load profiles from successful executions: %v\n%v", args[0], err)
 		}

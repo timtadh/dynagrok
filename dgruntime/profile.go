@@ -23,6 +23,16 @@ func (p *Profile) Serialize(fout io.Writer) {
 	runtime_name := func(pc uintptr) string {
 		return runtime.FuncForPC(pc).Name()
 	}
+	fn_name := func(n BlkEntrance) string {
+		if n.In == 0 && n.BasicBlockId == 0 {
+			return "entry"
+		}
+		if f, has := p.Funcs[n.In]; has {
+			return f.Name
+		} else {
+			return "unknown"
+		}
+	}
 	blk_name := func(n BlkEntrance) string {
 		if n.In == 0 && n.BasicBlockId == 0 {
 			return "entry"
@@ -70,11 +80,12 @@ func (p *Profile) Serialize(fout io.Writer) {
 		if _, has := blks[e.Src]; !has {
 			s := nextid
 			nextid++
-			fmt.Fprintf(fout, "%d [label=%v, shape=rect, position=%v, runtime_name=%v, bbid=%d];\n",
+			fmt.Fprintf(fout, "%d [label=%v, shape=rect, position=%v, runtime_name=%v, fn_name=%v, bbid=%d];\n",
 				s,
 				strconv.Quote(src),
 				strconv.Quote(p.Positions[e.Src]),
 				strconv.Quote(runtime_name(e.Src.In)),
+				strconv.Quote(fn_name(e.Src)),
 				e.Src.BasicBlockId,
 			)
 			blks[e.Src] = s
@@ -82,11 +93,12 @@ func (p *Profile) Serialize(fout io.Writer) {
 		if _, has := blks[e.Targ]; !has {
 			t := nextid
 			nextid++
-			fmt.Fprintf(fout, "%d [label=%v, shape=rect, position=%v, runtime_name=%v, bbid=%d];\n",
+			fmt.Fprintf(fout, "%d [label=%v, shape=rect, position=%v, runtime_name=%v, fn_name=%v, bbid=%d];\n",
 				t,
 				strconv.Quote(targ),
 				strconv.Quote(p.Positions[e.Targ]),
 				strconv.Quote(runtime_name(e.Targ.In)),
+				strconv.Quote(fn_name(e.Targ)),
 				e.Targ.BasicBlockId,
 			)
 			blks[e.Targ] = t

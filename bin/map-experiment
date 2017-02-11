@@ -20,9 +20,9 @@ fi
 DYNAGROK=$dgpath/bin/dynagrok
 MAPTEST=$dgpath/examples/src/dynagrok/examples/avl/testcases/map_tester.py
 
-MUTANTS=50
+MUTANTS=20
 RATE=.01
-TESTS=500
+TESTS=250
 
 function run {
   >&2 echo $ "${@}"

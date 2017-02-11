@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"strconv"
 )
 
 import (
@@ -22,25 +23,31 @@ type Digraph struct {
 	Labels *digraph.Labels
 	Attrs VertexAttrs
 	Positions map[int]string
+	FnNames   map[int]string
+	BBIds     map[int]int
 	Graphs int
 }
 
 type VertexAttrs map[int]map[string]interface{}
 
 type DotLoader struct {
-	Builder *digraph.Builder
-	Labels *digraph.Labels
-	Attrs  map[int]map[string]interface{}
+	Builder   *digraph.Builder
+	Labels    *digraph.Labels
+	Attrs     map[int]map[string]interface{}
 	Positions map[int]string
-	vidxs  map[int]int
+	FnNames   map[int]string
+	BBIds     map[int]int
+	vidxs     map[int]int
 }
 
-func LoadDot(positions map[int]string, labels *digraph.Labels, input io.Reader) (*Digraph, error) {
+func LoadDot(positions, fnNames map[int]string, bbids map[int]int, labels *digraph.Labels, input io.Reader) (*Digraph, error) {
 	l := &DotLoader{
 		Builder: digraph.Build(100, 1000),
 		Labels: labels,
 		Attrs: make(VertexAttrs),
 		Positions: positions,
+		FnNames: fnNames,
+		BBIds: bbids,
 		vidxs: make(map[int]int),
 	}
 	return l.load(input)
@@ -66,6 +73,8 @@ func (l *DotLoader) load(input io.Reader) (*Digraph, error) {
 		Labels: l.Labels,
 		Attrs: l.Attrs,
 		Positions: l.Positions,
+		BBIds: l.BBIds,
+		FnNames: l.FnNames,
 		Graphs: dp.graphId,
 	}
 	return d, nil
@@ -80,6 +89,15 @@ func (l *DotLoader) addVertex(id int, color int, label string, attrs map[string]
 		l.Attrs[vertex.Idx] = attrs
 		if pos, has := attrs["position"]; has {
 			l.Positions[color] = pos.(string)
+		}
+		if fn, has := attrs["fn_name"]; has {
+			l.FnNames[color] = fn.(string)
+		}
+		if bbid, has := attrs["bbid"]; has {
+			l.BBIds[color], err = strconv.Atoi(bbid.(string))
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil

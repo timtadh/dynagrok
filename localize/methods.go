@@ -9,11 +9,13 @@ import (
 
 type Location struct {
 	Position string
+	FnName   string
+	BasicBlockId int
 	Suspiciousness float64
 }
 
 func (l *Location) String() string {
-	return fmt.Sprintf("%v --> %v", l.Suspiciousness, l.Position)
+	return fmt.Sprintf("%v, %v, %v, %v", l.Position, l.FnName, l.BasicBlockId, l.Suspiciousness)
 }
 
 type Result []Location
@@ -73,6 +75,8 @@ func prFailGivenLine(fail, ok *Digraph) Result {
 	for color := range lines {
 		l := Location{
 			fail.Positions[color],
+			fail.FnNames[color],
+			fail.BBIds[color],
 			float64(lineFails[color])/float64(lineTotal[color]),
 		}
 		if l.ValidProbability() {
@@ -93,6 +97,8 @@ func prLineGivenFail(fail, ok *Digraph) Result {
 	for color := range lines {
 		l := Location{
 			fail.Positions[color],
+			fail.FnNames[color],
+			fail.BBIds[color],
 			float64(lineFails[color])/float64(fail.Graphs),
 		}
 		if l.ValidProbability() {
@@ -120,6 +126,8 @@ func relativePrecision(fail, ok *Digraph) Result {
 	for color := range lines {
 		l := Location{
 			fail.Positions[color],
+			fail.FnNames[color],
+			fail.BBIds[color],
 			float64(lineFails[color])/float64(lineTotal[color]) - float64(fail.Graphs)/float64(totalTests),
 		}
 		if l.ValidRelativeMeasure() {
@@ -146,6 +154,8 @@ func relativeRecall(fail, ok *Digraph) Result {
 	for color := range lines {
 		l := Location{
 			fail.Positions[color],
+			fail.FnNames[color],
+			fail.BBIds[color],
 			float64(lineFails[color])/float64(fail.Graphs) - float64(lineTotal[color])/float64(totalTests),
 		}
 		if l.ValidRelativeMeasure() {
@@ -172,6 +182,8 @@ func precisionGain(fail, ok *Digraph) Result {
 	for color := range lines {
 		l := Location{
 			fail.Positions[color],
+			fail.FnNames[color],
+			fail.BBIds[color],
 			float64(lineTotal[color]) *
 				((float64(lineFails[color])/float64(lineTotal[color]) - float64(fail.Graphs)/float64(totalTests)) /
 					(float64(fail.Graphs))),
@@ -198,6 +210,8 @@ func jaccard(fail, ok *Digraph) Result {
 	for color := range lines {
 		l := Location{
 			fail.Positions[color],
+			fail.FnNames[color],
+			fail.BBIds[color],
 			float64(lineFails[color])/float64(fail.Graphs + lineOks[color]),
 		}
 		if l.ValidProbability() {
@@ -223,6 +237,8 @@ func sorensenDice(fail, ok *Digraph) Result {
 	for color := range lines {
 		l := Location{
 			fail.Positions[color],
+			fail.FnNames[color],
+			fail.BBIds[color],
 			2 * float64(lineFails[color])/float64(fail.Graphs + lineTotal[color]),
 		}
 		if l.ValidProbability() {
@@ -249,6 +265,8 @@ func relativeF1(fail, ok *Digraph) Result {
 	for color := range lines {
 		l := Location{
 			fail.Positions[color],
+			fail.FnNames[color],
+			fail.BBIds[color],
 			2 *
 				float64(lineTotal[color])/float64(fail.Graphs + lineTotal[color]) *
 				(float64(lineFails[color])/float64(lineTotal[color]) - float64(fail.Graphs)/float64(totalTests)),
@@ -276,6 +294,8 @@ func ochiai(fail, ok *Digraph) Result {
 	for color := range lines {
 		l := Location{
 			fail.Positions[color],
+			fail.FnNames[color],
+			fail.BBIds[color],
 			math.Sqrt(float64(lineTotal[color])/float64(fail.Graphs)) * float64(lineFails[color])/float64(lineTotal[color]),
 		}
 		if l.ValidProbability() {
@@ -302,6 +322,8 @@ func relativeOchiai(fail, ok *Digraph) Result {
 	for color := range lines {
 		l := Location{
 			fail.Positions[color],
+			fail.FnNames[color],
+			fail.BBIds[color],
 			math.Sqrt(float64(lineTotal[color])/float64(fail.Graphs)) *
 				(float64(lineFails[color])/float64(lineTotal[color]) - float64(fail.Graphs)/float64(totalTests)),
 		}
@@ -335,6 +357,8 @@ func symmetricKlosgen(fail, ok *Digraph) Result {
 	for color := range lines {
 		l := Location{
 			fail.Positions[color],
+			fail.FnNames[color],
+			fail.BBIds[color],
 			math.Sqrt(float64(lineFails[color])/float64(totalTests)) *
 				max(float64(lineFails[color])/float64(lineTotal[color]) - float64(fail.Graphs)/float64(totalTests),
 					float64(lineFails[color])/float64(fail.Graphs) - float64(lineTotal[color])/float64(totalTests)),
@@ -363,6 +387,8 @@ func enhancedTarantula(fail, ok *Digraph) Result {
 	for color := range lines {
 		l := Location{
 			fail.Positions[color],
+			fail.FnNames[color],
+			fail.BBIds[color],
 			float64(lineFails[color])/float64(fail.Graphs) *
 				(float64(lineFails[color])/float64(lineTotal[color]) - float64(fail.Graphs)/float64(totalTests)),
 		}
