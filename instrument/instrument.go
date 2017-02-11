@@ -40,7 +40,6 @@ func Instrument(entryPkgName string, program *loader.Program) (err error) {
 	return i.instrument()
 }
 
-
 func (i *instrumenter) instrument() (err error) {
 	for _, pkg := range i.program.AllPackages {
 		if len(pkg.BuildPackage.CgoFiles) > 0 {

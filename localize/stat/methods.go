@@ -1,4 +1,4 @@
-package localize
+package stat
 
 import (
 	"fmt"
@@ -11,11 +11,11 @@ type Location struct {
 	Position string
 	FnName   string
 	BasicBlockId int
-	Suspiciousness float64
+	Score float64
 }
 
 func (l *Location) String() string {
-	return fmt.Sprintf("%v, %v, %v, %v", l.Position, l.FnName, l.BasicBlockId, l.Suspiciousness)
+	return fmt.Sprintf("%v, %v, %v, %v", l.Position, l.FnName, l.BasicBlockId, l.Score)
 }
 
 type Result []Location
@@ -47,16 +47,16 @@ var Methods = map[string]Method{
 }
 
 func (l *Location) ValidProbability() bool {
-	return 0 < l.Suspiciousness && l.Suspiciousness <= 1 && l.Position != ""
+	return 0 < l.Score && l.Score <= 1 && l.Position != ""
 }
 
 func (l *Location) ValidRelativeMeasure() bool {
-	return -1 <= l.Suspiciousness && l.Suspiciousness <= 1 && l.Position != ""
+	return -1 <= l.Score && l.Score <= 1 && l.Position != ""
 }
 
 func (r Result) Sort() {
 	sort.SliceStable(r, func(i, j int) bool {
-		return r[i].Suspiciousness > r[j].Suspiciousness
+		return r[i].Score > r[j].Score
 	})
 }
 
