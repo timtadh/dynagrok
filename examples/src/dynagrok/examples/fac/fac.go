@@ -77,7 +77,6 @@ func typeSwitch(x interface{}) {
 	case int:
 		println("is int")
 	}
-	println("done")
 }
 
 func switchStmt(x int) {
