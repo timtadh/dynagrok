@@ -14,7 +14,7 @@ import (
 )
 
 import (
-	"github.com/timtadh/sfp/types/digraph/digraph"
+	"github.com/timtadh/dynagrok/localize/digraph/digraph"
 )
 
 type Digraph struct {
