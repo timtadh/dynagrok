@@ -159,6 +159,7 @@ func (c *CFG) build() {
 func (c *CFG) filterEmpty() {
 	for i := len(c.Blocks) - 1; i >= 0; i-- {
 		blk := c.Blocks[i]
+		// there are no stmts AND one or more prev blks ===> a next blk exists
 		if len(blk.Stmts) == 0 && (len(blk.Prev) <= 0 || len(blk.Next) > 0) {
 			err := c.removeBlock(blk)
 			if err != nil {
@@ -683,6 +684,7 @@ func (c *CFG) removeBlock(b *Block) error {
 		copy(dst, src)
 		fn.Block.Prev = fn.Block.Prev[:len(fn.Block.Prev)-1]
 	}
+	// hook up the new flows
 	for _, fp := range b.Prev {
 		found := false
 		for _, flowFrom := range fp.Block.Next {
