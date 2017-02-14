@@ -28,7 +28,7 @@ func (n *Node) String() string {
 	if n.SubGraph == nil {
 		return "<Node {0:0}>"
 	}
-	return fmt.Sprintf("<Node %v>", n.SubGraph.Pretty(n.l.Labels))
+	return fmt.Sprintf("<Node %v %v>", len(n.Embeddings), n.SubGraph.Pretty(n.l.Labels))
 }
 
 func (n *Node) Children() (nodes []*Node, err error) {

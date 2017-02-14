@@ -78,6 +78,15 @@ func (E Edges) Iterate() (ei bliss.EdgeIterator) {
 	return ei
 }
 
+func (sg *SubGraph) Colors(i int) digraph.Colors {
+	e := &sg.E[i]
+	return digraph.Colors{
+		SrcColor: sg.V[e.Src].Color,
+		TargColor: sg.V[e.Targ].Color,
+		EdgeColor: e.Color,
+	}
+}
+
 func (sg *SubGraph) EmbeddingExists(emb *Embedding, G *digraph.Digraph) bool {
 	seen := make(map[int]bool, len(sg.V))
 	ids := make([]int, len(sg.V))

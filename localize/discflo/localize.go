@@ -2,12 +2,12 @@ package discflo
 
 import (
 	"fmt"
-	"math"
+	"math/rand"
+	"sort"
 )
 
 import (
 	"github.com/timtadh/data-structures/errors"
-	"github.com/timtadh/data-structures/heap"
 )
 
 import (
@@ -21,9 +21,11 @@ import (
 //         (a < b) --> (m(a) >= m(b))
 // - read the leap search paper again
 
+type Score func(lat *lattice.Lattice, n *lattice.Node) float64
+
 func Importance(lat *lattice.Lattice, n *lattice.Node) float64 {
 	var f, pr_o float64
-	E := float64(25) // float64(len(lat.Fail.G.E))
+	E := float64(len(lat.Fail.G.E))
 	F := float64(lat.Fail.G.Graphs)
 	O := float64(lat.Ok.G.Graphs)
 	f = (float64(n.FIS()))
@@ -43,101 +45,98 @@ func Importance(lat *lattice.Lattice, n *lattice.Node) float64 {
 	return s
 }
 
-func MaxImportance(lat *lattice.Lattice, n *lattice.Node) float64 {
+func QuickImportance(lat *lattice.Lattice, n *lattice.Node) float64 {
 	var f, pr_o float64
-	E := float64(25)
+	E := float64(len(lat.Fail.G.E))
 	F := float64(lat.Fail.G.Graphs)
 	O := float64(lat.Ok.G.Graphs)
 	f = (float64(n.FIS()))
 	pr_f := f/(F+O)
-	size, support, err := n.SubGraph.SupportOf(lat.Ok)
-	if err != nil {
-		panic(err) // should never happen
+	if len(n.SubGraph.E) > 0 {
+		var o float64
+		for i := range n.SubGraph.E {
+			count := lat.Ok.EdgeCounts[n.SubGraph.Colors(i)]
+			o += float64(count)/O
+		}
+		pr_o = o/float64(len(n.SubGraph.E))
+	} else {
+		pr_o = 1
 	}
-	e := E
-	pr_o = (float64(size + 1)/(e)) * (float64(support)/(F+O))
+	e := float64(len(n.SubGraph.E)) + 1
 	a := pr_f/(pr_f + pr_o)
 	b := F/(F + O)
-	s := (a - b)
+	s := ((e+1)/E) * (a - b)
+	if false {
+		errors.Logf("DEBUG", "pr_o %v, pr_f %v a %v b %v s %v %v", pr_o, pr_f, a, b, s, n)
+	}
 	return s
 }
 
-func Gtest(lat *lattice.Lattice, n *lattice.Node) float64 {
-	var f, o float64
-	// E := float64(len(lat.Fail.G.E))
-	F := float64(lat.Fail.G.Graphs)
-	O := float64(lat.Ok.G.Graphs)
-	if n.SubGraph != nil {
-		e := float64(len(n.SubGraph.E)) + 1
-		f = float64(len(n.Embeddings)) + 1
-		size, support, err := n.SubGraph.SupportOf(lat.Ok)
-		if err != nil {
-			panic(err) // should never happen
-		}
-		if support == 0 {
-			o = 0
-		} else {
-			o = ((float64(size + 1)/(e)) * float64(support))
-		}
-		// o = float64(CountEmbs(n.SubGraph, lat.Ok))
-		if false {
-			errors.Logf("DEBUG", "f %v o %v, size %v, support %v of %v", f, o, size, support, n)
-		}
-	} else {
-		f = F
-		o = O
-	}
-	return 2 * F * (f * math.Log(f/o) + (1 - f) * math.Log((1-f)/(1-o)))
+
+type SearchNode struct {
+	Node  *lattice.Node
+	Score float64
+}
+
+func (s *SearchNode) String() string {
+	return fmt.Sprintf("%v %v", s.Score, s.Node)
 }
 
 func Localize(lat *lattice.Lattice) {
-	var scoreFn func(*lattice.Lattice, *lattice.Node) float64 = Importance
-	// var maxFn func(*lattice.Lattice, *lattice.Node) float64 = MaxImportance
-	type entry struct {
-		node  *lattice.Node
-		score float64
-	}
-	priority := func(f float64) int {
-		return int(f * 1000000)
-	}
-	h := heap.NewMaxHeap(10)
-	r := lat.Root()
-	rs := float64(-1000000)
-	h.Push(priority(rs), entry{r, rs})
-	var best *lattice.Node
-	var max float64
-	for h.Size() > 0 {
-		for _, x := range h.PopGroup() {
-			e := x.(entry)
-			n := e.node
-			score := e.score
-			// if n.SubGraph != nil && len(n.SubGraph.E) > 5 {
-			// 	continue
-			// }
-			if best == nil || score > max {
-				best = n
-				max = score
-			// } else if maxFn(lat, n) < max {
-			// 	fmt.Println("skip", max, score, maxFn(lat, n), n)
-			// 	continue
-			}
-			if true {
-				fmt.Println(max, score, n)
-			}
-			kids, err := n.CanonKids()
-			if err != nil {
-				panic(err)
-			}
-			for _, kid := range kids {
-				if kid.FIS() < 5 {
-					continue
-				}
-				kidScore := scoreFn(lat, kid)
-				if kidScore > score {
-					h.Push(priority(kidScore), entry{kid, kidScore})
-				}
-			}
+	var score func(*lattice.Lattice, *lattice.Node) float64 = QuickImportance
+	nodes := make([]*SearchNode, 0, 100)
+	seen := make(map[string]bool, 100)
+	for i := 0; i < 100; i++ {
+		n := Walk(score, lat)
+		label := string(n.Node.SubGraph.Label())
+		if !seen[label] {
+			nodes = append(nodes, n)
+			seen[label] = true
 		}
 	}
-	fmt.Println(max, best)
+	sort.Slice(nodes, func(i, j int) bool {
+		return nodes[i].Score > nodes[j].Score
+	})
+	for i := 0; i < 10 && i < len(nodes); i++ {
+		fmt.Println(nodes[i])
+	}
+}
+
+func Walk(score Score, lat *lattice.Lattice) (*SearchNode) {
+	cur := &SearchNode{
+		Node: lat.Root(),
+		Score: -100000000,
+	}
+	prev := cur
+	for cur != nil {
+		fmt.Println("cur", cur)
+		kids, err := cur.Node.Children()
+		if err != nil {
+			panic(err)
+		}
+		prev = cur
+		cur = uniform(filterKids(score, cur.Score, lat, kids))
+	}
+	return prev
+}
+
+func filterKids(score Score, parentScore float64, lat *lattice.Lattice, kids []*lattice.Node) []*SearchNode {
+	entries := make([]*SearchNode, 0, len(kids))
+	for _, kid := range kids {
+		if kid.FIS() < 2 {
+			continue
+		}
+		kidScore := score(lat, kid)
+		if kidScore > parentScore {
+			entries = append(entries, &SearchNode{kid, kidScore})
+		}
+	}
+	return entries
+}
+
+func uniform(slice []*SearchNode) (*SearchNode) {
+	if len(slice) > 0 {
+		return slice[rand.Intn(len(slice))]
+	}
+	return nil
 }

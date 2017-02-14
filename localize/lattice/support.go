@@ -1,6 +1,8 @@
 package lattice
 
-import ()
+import (
+	"github.com/timtadh/dynagrok/localize/lattice/subgraph"
+)
 
 func (n *Node) MNI() int {
 	sets := make([]map[int]bool, len(n.SubGraph.V))
@@ -39,4 +41,22 @@ func (n *Node) FIS() int {
 		}
 	}
 	return fis
+}
+
+func fis(embs subgraph.Embeddings) subgraph.Embeddings {
+	out := make(subgraph.Embeddings, 0, len(embs))
+	seen := make(map[int]bool)
+	for _, emb := range embs {
+		saw := false
+		for e := emb; e != nil; e = e.Prev {
+			if seen[e.EmbIdx] {
+				saw = true
+			}
+			seen[e.EmbIdx] = true
+		}
+		if !saw {
+			out = append(out, emb)
+		}
+	}
+	return out
 }

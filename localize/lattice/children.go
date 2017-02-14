@@ -27,6 +27,7 @@ func (n *Node) findChildren(allow func(*subgraph.SubGraph) (bool, error)) (nodes
 	for ext, embs := range exts {
 		// ext := p.ext
 		// embs := p.embs
+		embs = fis(embs)
 		if len(embs) <= 0 {
 			continue
 		}
