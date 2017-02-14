@@ -14,6 +14,7 @@ import (
 import (
 	"github.com/timtadh/dynagrok/cmd"
 	"github.com/timtadh/dynagrok/localize/stat"
+	"github.com/timtadh/dynagrok/localize/lattice"
 )
 
 type Options struct {
@@ -71,7 +72,7 @@ Option Flags
 		if err != nil {
 			return nil, cmd.Err(1, err)
 		}
-		lat, err := stat.Load(o.FailsPath, o.OksPath)
+		lat, err := lattice.Load(o.FailsPath, o.OksPath)
 		if err != nil {
 			return nil, cmd.Err(1, err)
 		}

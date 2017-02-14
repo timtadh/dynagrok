@@ -105,7 +105,7 @@ func NewRunner(c *cmd.Config, o *Options) cmd.Runnable {
 			}
 			defer ouf.Close()
 		}
-		l, err := Load(o.FailsPath, o.OksPath)
+		l, err := lattice.Load(o.FailsPath, o.OksPath)
 		if err != nil {
 			return nil, cmd.Err(2, err)
 		}
@@ -114,28 +114,3 @@ func NewRunner(c *cmd.Config, o *Options) cmd.Runnable {
 	})
 }
 
-func Load(failPath, okPath string) (l *lattice.Lattice, err error) {
-	return lattice.NewLattice(func(l *lattice.Lattice) error {
-		failFile, failClose, err := cmd.Input(failPath)
-		if err != nil {
-			return fmt.Errorf("Could not read profiles from failed executions: %v\n%v", failPath, err)
-		}
-		defer failClose()
-		fail, err := LoadDot(l.Positions, l.FnNames, l.BBIds, l.Labels, failFile)
-		if err != nil {
-			return fmt.Errorf("Could not load profiles from failed executions: %v\n%v", failPath, err)
-		}
-		okFile, okClose, err := cmd.Input(okPath)
-		if err != nil {
-			return fmt.Errorf("Could not read profiles from successful executions: %v\n%v", okPath, err)
-		}
-		defer okClose()
-		ok, err := LoadDot(l.Positions, l.FnNames, l.BBIds, l.Labels, okFile)
-		if err != nil {
-			return fmt.Errorf("Could not load profiles from successful executions: %v\n%v", okPath, err)
-		}
-		l.Fail = fail
-		l.Ok = ok
-		return nil
-	})
-}
