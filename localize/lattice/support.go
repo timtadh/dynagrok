@@ -1,7 +1,7 @@
-package digraph
+package lattice
 
 import (
-	"github.com/timtadh/dynagrok/localize/digraph/subgraph"
+	"github.com/timtadh/dynagrok/localize/lattice/subgraph"
 )
 
 func (n *Node) support(V int, embs []*subgraph.Embedding) int {

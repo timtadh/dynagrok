@@ -1,4 +1,4 @@
-package digraph
+package lattice
 
 import (
 	"bytes"
@@ -9,7 +9,7 @@ import (
 )
 
 import (
-	"github.com/timtadh/dynagrok/localize/digraph/subgraph"
+	"github.com/timtadh/dynagrok/localize/lattice/subgraph"
 )
 
 func isCanonicalExtension(cur *subgraph.SubGraph, ext *subgraph.SubGraph) (bool, error) {

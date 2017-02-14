@@ -1,4 +1,4 @@
-package digraph
+package lattice
 
 import ()
 
@@ -7,8 +7,8 @@ import (
 )
 
 import (
-	"github.com/timtadh/dynagrok/localize/digraph/digraph"
-	"github.com/timtadh/dynagrok/localize/digraph/subgraph"
+	"github.com/timtadh/dynagrok/localize/lattice/digraph"
+	"github.com/timtadh/dynagrok/localize/lattice/subgraph"
 )
 
 type Digraph struct {

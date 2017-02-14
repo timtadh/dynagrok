@@ -1,4 +1,4 @@
-package digraph
+package lattice
 
 import ()
 
@@ -7,12 +7,11 @@ import (
 )
 
 import (
-	"github.com/timtadh/sfp/lattice"
-	"github.com/timtadh/dynagrok/localize/digraph/digraph"
-	"github.com/timtadh/dynagrok/localize/digraph/subgraph"
+	"github.com/timtadh/dynagrok/localize/lattice/digraph"
+	"github.com/timtadh/dynagrok/localize/lattice/subgraph"
 )
 
-func (n *Node) findChildren(allow func(*subgraph.SubGraph) (bool, error)) (nodes []lattice.Node, err error) {
+func (n *Node) findChildren(allow func(*subgraph.SubGraph) (bool, error)) (nodes []*Node, err error) {
 	if false {
 		errors.Logf("DEBUG", "findChildren %v", n)
 	}
@@ -65,7 +64,7 @@ func (n *Node) findChildren(allow func(*subgraph.SubGraph) (bool, error)) (nodes
 		vords = append(vords, vord)
 	}
 	for i, c := range nodes {
-		c.(*Node).addUnsupportedExts(unsupported, len(n.SubGraph.V), vords[i])
+		c.addUnsupportedExts(unsupported, len(n.SubGraph.V), vords[i])
 	}
 	return nodes, nil
 }

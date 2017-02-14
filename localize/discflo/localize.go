@@ -1,7 +1,7 @@
 package discflo
 
 import (
-	"github.com/timtadh/dynagrok/localize/digraph"
+	"github.com/timtadh/dynagrok/localize/lattice"
 	"github.com/timtadh/dynagrok/localize/stat"
 )
 
@@ -21,6 +21,6 @@ import (
 // 	return f/(f + o) - F/(F + O)
 // }
 
-func NewLattice(fail, ok *stat.Digraph) *digraph.Digraph {
+func NewLattice(fail, ok *stat.Digraph) *lattice.Digraph {
 	return nil
 }

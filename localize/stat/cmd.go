@@ -8,7 +8,7 @@ import (
 
 import (
 	"github.com/timtadh/getopt"
-	"github.com/timtadh/dynagrok/localize/digraph/digraph"
+	"github.com/timtadh/dynagrok/localize/lattice/digraph"
 )
 
 import (
