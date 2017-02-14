@@ -16,32 +16,24 @@ func (n *Node) findChildren(allow func(*subgraph.SubGraph) (bool, error)) (nodes
 		errors.Logf("DEBUG", "findChildren %v", n)
 	}
 	if n.SubGraph == nil {
-		for _, n := range n.dt.FrequentVertices { 
+		for _, n := range n.l.frequentVertices { 
 			nodes = append(nodes, n)
 		}
 		return nodes, nil
 	}
-	unsupported := n.unsupportedExts
-	vords := make([][]int, 0, 10)
 	builder := n.SubGraph.Builder()
 	seen := make(map[string]bool)
-	exts := n.extensions(unsupported)
+	exts := n.extensions()
 	for ext, embs := range exts {
 		// ext := p.ext
 		// embs := p.embs
-		if len(embs) < n.dt.Support {
-			unsupported[ext] = true
+		if len(embs) <= 0 {
 			continue
 		}
 		b := builder.Copy()
 		_, _, err := b.Extend(&ext)
 		if err != nil {
 			return nil, err
-		}
-		support := n.support(len(b.V), embs)
-		if support < n.dt.Support {
-			unsupported[ext] = true
-			continue
 		}
 		vord, eord := b.CanonicalPermutation()
 		extended := b.BuildFromPermutation(vord, eord)
@@ -60,30 +52,26 @@ func (n *Node) findChildren(allow func(*subgraph.SubGraph) (bool, error)) (nodes
 			}
 		}
 		tembs := embs.Translate(len(extended.V), vord)
-		nodes = append(nodes, NewNode(n.dt, extended, tembs))
-		vords = append(vords, vord)
-	}
-	for i, c := range nodes {
-		c.addUnsupportedExts(unsupported, len(n.SubGraph.V), vords[i])
+		nodes = append(nodes, NewNode(n.l, extended, tembs))
 	}
 	return nodes, nil
 }
 
-func (n *Node) extensions(unsupported map[subgraph.Extension]bool) map[subgraph.Extension]subgraph.Embeddings {
+func (n *Node) extensions() map[subgraph.Extension]subgraph.Embeddings {
 	// exts := make(extensions, 0, 10)
 	exts := make(map[subgraph.Extension]subgraph.Embeddings)
-	add := n.validExtChecker(unsupported, func(emb *subgraph.Embedding, ext *subgraph.Extension) {
+	add := n.validExtChecker(func(emb *subgraph.Embedding, ext *subgraph.Extension) {
 		// exts = append(exts, extension{ext, emb})
 		exts[*ext] = append(exts[*ext], emb)
 	})
 	for _, embedding := range n.Embeddings {
 		for emb := embedding; emb != nil; emb = emb.Prev {
-			for _, e := range n.dt.G.Kids[emb.EmbIdx] {
-				edge := &n.dt.G.E[e]
+			for _, e := range n.l.Fail.G.Kids[emb.EmbIdx] {
+				edge := &n.l.Fail.G.E[e]
 				add(embedding, edge, emb.SgIdx, -1)
 			}
-			for _, e := range n.dt.G.Parents[emb.EmbIdx] {
-				edge := &n.dt.G.E[e]
+			for _, e := range n.l.Fail.G.Parents[emb.EmbIdx] {
+				edge := &n.l.Fail.G.E[e]
 				add(embedding, edge, -1, emb.SgIdx)
 			}
 		}
@@ -92,16 +80,13 @@ func (n *Node) extensions(unsupported map[subgraph.Extension]bool) map[subgraph.
 	return exts
 }
 
-func (n *Node) validExtChecker(unsupported map[subgraph.Extension]bool, do func(*subgraph.Embedding, *subgraph.Extension)) func (*subgraph.Embedding, *digraph.Edge, int, int) {
+func (n *Node) validExtChecker(do func(*subgraph.Embedding, *subgraph.Extension)) func (*subgraph.Embedding, *digraph.Edge, int, int) {
 	return func(emb *subgraph.Embedding, e *digraph.Edge, src, targ int) {
-		if n.dt.Indices.EdgeCounts[n.dt.Indices.Colors(e)] < n.dt.Support {
+		if n.l.Fail.EdgeCounts[n.l.Fail.Colors(e)] <= 0 {
 			return
 		}
 		emb, ext := n.extension(emb, e, src, targ)
 		if n.SubGraph.HasExtension(ext) {
-			return
-		}
-		if unsupported[*ext] {
 			return
 		}
 		do(emb, ext)
@@ -135,8 +120,8 @@ func (n *Node) extension(embedding *subgraph.Embedding, e *digraph.Edge, src, ta
 		}
 	}
 	ext := subgraph.NewExt(
-		subgraph.Vertex{Idx: srcIdx, Color: n.dt.G.V[e.Src].Color},
-		subgraph.Vertex{Idx: targIdx, Color: n.dt.G.V[e.Targ].Color},
+		subgraph.Vertex{Idx: srcIdx, Color: n.l.Fail.G.V[e.Src].Color},
+		subgraph.Vertex{Idx: targIdx, Color: n.l.Fail.G.V[e.Targ].Color},
 		e.Color)
 	var newVE *subgraph.VertexEmbedding = nil
 	if !hasSrc && !hasTarg {

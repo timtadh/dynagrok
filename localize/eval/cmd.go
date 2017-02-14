@@ -71,12 +71,12 @@ Option Flags
 		if err != nil {
 			return nil, cmd.Err(1, err)
 		}
-		fail, ok, err := stat.Load(o.FailsPath, o.OksPath)
+		lat, err := stat.Load(o.FailsPath, o.OksPath)
 		if err != nil {
 			return nil, cmd.Err(1, err)
 		}
 		eval := func(f *Failure, name string, m stat.Method) {
-			localized := Group(m(fail, ok))
+			localized := Group(m(lat))
 			sum := 0
 			for _, g := range localized {
 				for _, l := range g {

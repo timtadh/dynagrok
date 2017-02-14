@@ -8,10 +8,10 @@ import (
 
 import (
 	"github.com/timtadh/getopt"
-	"github.com/timtadh/dynagrok/localize/lattice/digraph"
 )
 
 import (
+	"github.com/timtadh/dynagrok/localize/lattice"
 	"github.com/timtadh/dynagrok/cmd"
 )
 
@@ -105,37 +105,37 @@ func NewRunner(c *cmd.Config, o *Options) cmd.Runnable {
 			}
 			defer ouf.Close()
 		}
-		fail, ok, err := Load(o.FailsPath, o.OksPath)
+		l, err := Load(o.FailsPath, o.OksPath)
 		if err != nil {
 			return nil, cmd.Err(2, err)
 		}
-		fmt.Fprintln(ouf, o.Method(fail, ok))
+		fmt.Fprintln(ouf, o.Method(l))
 		return args, nil
 	})
 }
 
-func Load(failPath, okPath string) (fail, ok *Digraph, err error) {
-	labels := digraph.NewLabels()
-	positions := make(map[int]string)
-	fnNames := make(map[int]string)
-	bbids := make(map[int]int)
-	failFile, failClose, err := cmd.Input(failPath)
-	if err != nil {
-		return nil, nil, fmt.Errorf("Could not read profiles from failed executions: %v\n%v", failPath, err)
-	}
-	defer failClose()
-	fail, err = LoadDot(positions, fnNames, bbids, labels, failFile)
-	if err != nil {
-		return nil, nil, fmt.Errorf("Could not load profiles from failed executions: %v\n%v", failPath, err)
-	}
-	okFile, okClose, err := cmd.Input(okPath)
-	if err != nil {
-		return nil, nil, fmt.Errorf("Could not read profiles from successful executions: %v\n%v", okPath, err)
-	}
-	defer okClose()
-	ok, err = LoadDot(positions, fnNames, bbids, labels, okFile)
-	if err != nil {
-		return nil, nil, fmt.Errorf("Could not load profiles from successful executions: %v\n%v", okPath, err)
-	}
-	return fail, ok, nil
+func Load(failPath, okPath string) (l *lattice.Lattice, err error) {
+	return lattice.NewLattice(func(l *lattice.Lattice) error {
+		failFile, failClose, err := cmd.Input(failPath)
+		if err != nil {
+			return fmt.Errorf("Could not read profiles from failed executions: %v\n%v", failPath, err)
+		}
+		defer failClose()
+		fail, err := LoadDot(l.Positions, l.FnNames, l.BBIds, l.Labels, failFile)
+		if err != nil {
+			return fmt.Errorf("Could not load profiles from failed executions: %v\n%v", failPath, err)
+		}
+		okFile, okClose, err := cmd.Input(okPath)
+		if err != nil {
+			return fmt.Errorf("Could not read profiles from successful executions: %v\n%v", okPath, err)
+		}
+		defer okClose()
+		ok, err := LoadDot(l.Positions, l.FnNames, l.BBIds, l.Labels, okFile)
+		if err != nil {
+			return fmt.Errorf("Could not load profiles from successful executions: %v\n%v", okPath, err)
+		}
+		l.Fail = fail
+		l.Ok = ok
+		return nil
+	})
 }

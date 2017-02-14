@@ -6,4 +6,5 @@ type Digraph struct {
 	Adj          [][]int
 	Kids         [][]int
 	Parents      [][]int
+	Graphs       int
 }

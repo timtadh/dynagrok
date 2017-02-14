@@ -17,17 +17,6 @@ import (
 	"github.com/timtadh/dynagrok/localize/lattice/digraph"
 )
 
-type Digraph struct {
-	*digraph.Digraph
-	Indices *digraph.Indices
-	Labels *digraph.Labels
-	Attrs VertexAttrs
-	Positions map[int]string
-	FnNames   map[int]string
-	BBIds     map[int]int
-	Graphs int
-}
-
 type VertexAttrs map[int]map[string]interface{}
 
 type DotLoader struct {
@@ -40,7 +29,7 @@ type DotLoader struct {
 	vidxs     map[int]int
 }
 
-func LoadDot(positions, fnNames map[int]string, bbids map[int]int, labels *digraph.Labels, input io.Reader) (*Digraph, error) {
+func LoadDot(positions, fnNames map[int]string, bbids map[int]int, labels *digraph.Labels, input io.Reader) (*digraph.Indices, error) {
 	l := &DotLoader{
 		Builder: digraph.Build(100, 1000),
 		Labels: labels,
@@ -53,7 +42,7 @@ func LoadDot(positions, fnNames map[int]string, bbids map[int]int, labels *digra
 	return l.load(input)
 }
 
-func (l *DotLoader) load(input io.Reader) (*Digraph, error) {
+func (l *DotLoader) load(input io.Reader) (*digraph.Indices, error) {
 	text, err := ioutil.ReadAll(input)
 	if err != nil {
 		return nil, err
@@ -66,18 +55,9 @@ func (l *DotLoader) load(input io.Reader) (*Digraph, error) {
 	if err != nil {
 		return nil, err
 	}
+	l.Builder.Graphs = dp.graphId
 	indices := digraph.NewIndices(l.Builder, 0)
-	d := &Digraph{
-		Digraph: indices.G,
-		Indices: indices,
-		Labels: l.Labels,
-		Attrs: l.Attrs,
-		Positions: l.Positions,
-		BBIds: l.BBIds,
-		FnNames: l.FnNames,
-		Graphs: dp.graphId,
-	}
-	return d, nil
+	return indices, nil
 }
 
 func (l *DotLoader) addVertex(id int, color int, label string, attrs map[string]interface{}) (err error) {

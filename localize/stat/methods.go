@@ -7,6 +7,10 @@ import (
 	"math"
 )
 
+import (
+	"github.com/timtadh/dynagrok/localize/lattice"
+)
+
 type Location struct {
 	Position string
 	FnName   string
@@ -28,7 +32,7 @@ func (r Result) String() string {
 	return strings.Join(parts, "\n")
 }
 
-type Method func(fail, ok *Digraph) Result
+type Method func(lat *lattice.Lattice) Result
 
 var Methods = map[string]Method{
 	"pr-fail-given-line": prFailGivenLine,
@@ -60,23 +64,23 @@ func (r Result) Sort() {
 	})
 }
 
-func prFailGivenLine(fail, ok *Digraph) Result {
+func prFailGivenLine(lat *lattice.Lattice) Result {
 	lineFails := make(map[int]int)
 	lineTotal := make(map[int]int)
-	for color, instances := range fail.Indices.ColorIndex {
+	for color, instances := range lat.Fail.ColorIndex {
 		lineFails[color] += len(instances)
 		lineTotal[color] += len(instances)
 	}
-	for color, instances := range ok.Indices.ColorIndex {
+	for color, instances := range lat.Ok.ColorIndex {
 		lineTotal[color] += len(instances)
 	}
-	lines := fail.Labels.Labels()
+	lines := lat.Labels.Labels()
 	result := make(Result, 0, len(lines))
 	for color := range lines {
 		l := Location{
-			fail.Positions[color],
-			fail.FnNames[color],
-			fail.BBIds[color],
+			lat.Positions[color],
+			lat.FnNames[color],
+			lat.BBIds[color],
 			float64(lineFails[color])/float64(lineTotal[color]),
 		}
 		if l.ValidProbability() {
@@ -87,19 +91,19 @@ func prFailGivenLine(fail, ok *Digraph) Result {
 	return result
 }
 
-func prLineGivenFail(fail, ok *Digraph) Result {
+func prLineGivenFail(lat *lattice.Lattice) Result {
 	lineFails := make(map[int]int)
-	for color, instances := range fail.Indices.ColorIndex {
+	for color, instances := range lat.Fail.ColorIndex {
 		lineFails[color] += len(instances)
 	}
-	lines := fail.Labels.Labels()
+	lines := lat.Labels.Labels()
 	result := make(Result, 0, len(lines))
 	for color := range lines {
 		l := Location{
-			fail.Positions[color],
-			fail.FnNames[color],
-			fail.BBIds[color],
-			float64(lineFails[color])/float64(fail.Graphs),
+			lat.Positions[color],
+			lat.FnNames[color],
+			lat.BBIds[color],
+			float64(lineFails[color])/float64(lat.Fail.G.Graphs),
 		}
 		if l.ValidProbability() {
 			result = append(result, l)
@@ -110,25 +114,25 @@ func prLineGivenFail(fail, ok *Digraph) Result {
 }
 
 
-func relativePrecision(fail, ok *Digraph) Result {
+func relativePrecision(lat *lattice.Lattice) Result {
 	lineFails := make(map[int]int)
 	lineTotal := make(map[int]int)
-	for color, instances := range fail.Indices.ColorIndex {
+	for color, instances := range lat.Fail.ColorIndex {
 		lineFails[color] += len(instances)
 		lineTotal[color] += len(instances)
 	}
-	for color, instances := range ok.Indices.ColorIndex {
+	for color, instances := range lat.Ok.ColorIndex {
 		lineTotal[color] += len(instances)
 	}
-	totalTests := fail.Graphs + ok.Graphs
-	lines := fail.Labels.Labels()
+	totalTests := lat.Fail.G.Graphs + lat.Ok.G.Graphs
+	lines := lat.Labels.Labels()
 	result := make(Result, 0, len(lines))
 	for color := range lines {
 		l := Location{
-			fail.Positions[color],
-			fail.FnNames[color],
-			fail.BBIds[color],
-			float64(lineFails[color])/float64(lineTotal[color]) - float64(fail.Graphs)/float64(totalTests),
+			lat.Positions[color],
+			lat.FnNames[color],
+			lat.BBIds[color],
+			float64(lineFails[color])/float64(lineTotal[color]) - float64(lat.Fail.G.Graphs)/float64(totalTests),
 		}
 		if l.ValidRelativeMeasure() {
 			result = append(result, l)
@@ -138,25 +142,25 @@ func relativePrecision(fail, ok *Digraph) Result {
 	return result
 }
 
-func relativeRecall(fail, ok *Digraph) Result {
+func relativeRecall(lat *lattice.Lattice) Result {
 	lineFails := make(map[int]int)
 	lineTotal := make(map[int]int)
-	for color, instances := range fail.Indices.ColorIndex {
+	for color, instances := range lat.Fail.ColorIndex {
 		lineFails[color] += len(instances)
 		lineTotal[color] += len(instances)
 	}
-	for color, instances := range ok.Indices.ColorIndex {
+	for color, instances := range lat.Ok.ColorIndex {
 		lineTotal[color] += len(instances)
 	}
-	totalTests := fail.Graphs + ok.Graphs
-	lines := fail.Labels.Labels()
+	totalTests := lat.Fail.G.Graphs + lat.Ok.G.Graphs
+	lines := lat.Labels.Labels()
 	result := make(Result, 0, len(lines))
 	for color := range lines {
 		l := Location{
-			fail.Positions[color],
-			fail.FnNames[color],
-			fail.BBIds[color],
-			float64(lineFails[color])/float64(fail.Graphs) - float64(lineTotal[color])/float64(totalTests),
+			lat.Positions[color],
+			lat.FnNames[color],
+			lat.BBIds[color],
+			float64(lineFails[color])/float64(lat.Fail.G.Graphs) - float64(lineTotal[color])/float64(totalTests),
 		}
 		if l.ValidRelativeMeasure() {
 			result = append(result, l)
@@ -166,27 +170,27 @@ func relativeRecall(fail, ok *Digraph) Result {
 	return result
 }
 
-func precisionGain(fail, ok *Digraph) Result {
+func precisionGain(lat *lattice.Lattice) Result {
 	lineFails := make(map[int]int)
 	lineTotal := make(map[int]int)
-	for color, instances := range fail.Indices.ColorIndex {
+	for color, instances := range lat.Fail.ColorIndex {
 		lineFails[color] += len(instances)
 		lineTotal[color] += len(instances)
 	}
-	for color, instances := range ok.Indices.ColorIndex {
+	for color, instances := range lat.Ok.ColorIndex {
 		lineTotal[color] += len(instances)
 	}
-	totalTests := fail.Graphs + ok.Graphs
-	lines := fail.Labels.Labels()
+	totalTests := lat.Fail.G.Graphs + lat.Ok.G.Graphs
+	lines := lat.Labels.Labels()
 	result := make(Result, 0, len(lines))
 	for color := range lines {
 		l := Location{
-			fail.Positions[color],
-			fail.FnNames[color],
-			fail.BBIds[color],
+			lat.Positions[color],
+			lat.FnNames[color],
+			lat.BBIds[color],
 			float64(lineTotal[color]) *
-				((float64(lineFails[color])/float64(lineTotal[color]) - float64(fail.Graphs)/float64(totalTests)) /
-					(float64(fail.Graphs))),
+				((float64(lineFails[color])/float64(lineTotal[color]) - float64(lat.Fail.G.Graphs)/float64(totalTests)) /
+					(float64(lat.Fail.G.Graphs))),
 		}
 		if l.ValidRelativeMeasure() {
 			result = append(result, l)
@@ -196,23 +200,23 @@ func precisionGain(fail, ok *Digraph) Result {
 	return result
 }
 
-func jaccard(fail, ok *Digraph) Result {
+func jaccard(lat *lattice.Lattice) Result {
 	lineFails := make(map[int]int)
-	for color, instances := range fail.Indices.ColorIndex {
+	for color, instances := range lat.Fail.ColorIndex {
 		lineFails[color] += len(instances)
 	}
 	lineOks := make(map[int]int)
-	for color, instances := range ok.Indices.ColorIndex {
+	for color, instances := range lat.Ok.ColorIndex {
 		lineOks[color] += len(instances)
 	}
-	lines := fail.Labels.Labels()
+	lines := lat.Labels.Labels()
 	result := make(Result, 0, len(lines))
 	for color := range lines {
 		l := Location{
-			fail.Positions[color],
-			fail.FnNames[color],
-			fail.BBIds[color],
-			float64(lineFails[color])/float64(fail.Graphs + lineOks[color]),
+			lat.Positions[color],
+			lat.FnNames[color],
+			lat.BBIds[color],
+			float64(lineFails[color])/float64(lat.Fail.G.Graphs + lineOks[color]),
 		}
 		if l.ValidProbability() {
 			result = append(result, l)
@@ -222,24 +226,24 @@ func jaccard(fail, ok *Digraph) Result {
 	return result
 }
 
-func sorensenDice(fail, ok *Digraph) Result {
+func sorensenDice(lat *lattice.Lattice) Result {
 	lineFails := make(map[int]int)
 	lineTotal := make(map[int]int)
-	for color, instances := range fail.Indices.ColorIndex {
+	for color, instances := range lat.Fail.ColorIndex {
 		lineFails[color] += len(instances)
 		lineTotal[color] += len(instances)
 	}
-	for color, instances := range ok.Indices.ColorIndex {
+	for color, instances := range lat.Ok.ColorIndex {
 		lineTotal[color] += len(instances)
 	}
-	lines := fail.Labels.Labels()
+	lines := lat.Labels.Labels()
 	result := make(Result, 0, len(lines))
 	for color := range lines {
 		l := Location{
-			fail.Positions[color],
-			fail.FnNames[color],
-			fail.BBIds[color],
-			2 * float64(lineFails[color])/float64(fail.Graphs + lineTotal[color]),
+			lat.Positions[color],
+			lat.FnNames[color],
+			lat.BBIds[color],
+			2 * float64(lineFails[color])/float64(lat.Fail.G.Graphs + lineTotal[color]),
 		}
 		if l.ValidProbability() {
 			result = append(result, l)
@@ -249,27 +253,27 @@ func sorensenDice(fail, ok *Digraph) Result {
 	return result
 }
 
-func relativeF1(fail, ok *Digraph) Result {
+func relativeF1(lat *lattice.Lattice) Result {
 	lineFails := make(map[int]int)
 	lineTotal := make(map[int]int)
-	for color, instances := range fail.Indices.ColorIndex {
+	for color, instances := range lat.Fail.ColorIndex {
 		lineFails[color] += len(instances)
 		lineTotal[color] += len(instances)
 	}
-	for color, instances := range ok.Indices.ColorIndex {
+	for color, instances := range lat.Ok.ColorIndex {
 		lineTotal[color] += len(instances)
 	}
-	totalTests := fail.Graphs + ok.Graphs
-	lines := fail.Labels.Labels()
+	totalTests := lat.Fail.G.Graphs + lat.Ok.G.Graphs
+	lines := lat.Labels.Labels()
 	result := make(Result, 0, len(lines))
 	for color := range lines {
 		l := Location{
-			fail.Positions[color],
-			fail.FnNames[color],
-			fail.BBIds[color],
+			lat.Positions[color],
+			lat.FnNames[color],
+			lat.BBIds[color],
 			2 *
-				float64(lineTotal[color])/float64(fail.Graphs + lineTotal[color]) *
-				(float64(lineFails[color])/float64(lineTotal[color]) - float64(fail.Graphs)/float64(totalTests)),
+				float64(lineTotal[color])/float64(lat.Fail.G.Graphs + lineTotal[color]) *
+				(float64(lineFails[color])/float64(lineTotal[color]) - float64(lat.Fail.G.Graphs)/float64(totalTests)),
 		}
 		if l.ValidRelativeMeasure() {
 			result = append(result, l)
@@ -279,24 +283,24 @@ func relativeF1(fail, ok *Digraph) Result {
 	return result
 }
 
-func ochiai(fail, ok *Digraph) Result {
+func ochiai(lat *lattice.Lattice) Result {
 	lineFails := make(map[int]int)
 	lineTotal := make(map[int]int)
-	for color, instances := range fail.Indices.ColorIndex {
+	for color, instances := range lat.Fail.ColorIndex {
 		lineFails[color] += len(instances)
 		lineTotal[color] += len(instances)
 	}
-	for color, instances := range ok.Indices.ColorIndex {
+	for color, instances := range lat.Ok.ColorIndex {
 		lineTotal[color] += len(instances)
 	}
-	lines := fail.Labels.Labels()
+	lines := lat.Labels.Labels()
 	result := make(Result, 0, len(lines))
 	for color := range lines {
 		l := Location{
-			fail.Positions[color],
-			fail.FnNames[color],
-			fail.BBIds[color],
-			math.Sqrt(float64(lineTotal[color])/float64(fail.Graphs)) * float64(lineFails[color])/float64(lineTotal[color]),
+			lat.Positions[color],
+			lat.FnNames[color],
+			lat.BBIds[color],
+			math.Sqrt(float64(lineTotal[color])/float64(lat.Fail.G.Graphs)) * float64(lineFails[color])/float64(lineTotal[color]),
 		}
 		if l.ValidProbability() {
 			result = append(result, l)
@@ -306,26 +310,26 @@ func ochiai(fail, ok *Digraph) Result {
 	return result
 }
 
-func relativeOchiai(fail, ok *Digraph) Result {
+func relativeOchiai(lat *lattice.Lattice) Result {
 	lineFails := make(map[int]int)
 	lineTotal := make(map[int]int)
-	for color, instances := range fail.Indices.ColorIndex {
+	for color, instances := range lat.Fail.ColorIndex {
 		lineFails[color] += len(instances)
 		lineTotal[color] += len(instances)
 	}
-	for color, instances := range ok.Indices.ColorIndex {
+	for color, instances := range lat.Ok.ColorIndex {
 		lineTotal[color] += len(instances)
 	}
-	totalTests := fail.Graphs + ok.Graphs
-	lines := fail.Labels.Labels()
+	totalTests := lat.Fail.G.Graphs + lat.Ok.G.Graphs
+	lines := lat.Labels.Labels()
 	result := make(Result, 0, len(lines))
 	for color := range lines {
 		l := Location{
-			fail.Positions[color],
-			fail.FnNames[color],
-			fail.BBIds[color],
-			math.Sqrt(float64(lineTotal[color])/float64(fail.Graphs)) *
-				(float64(lineFails[color])/float64(lineTotal[color]) - float64(fail.Graphs)/float64(totalTests)),
+			lat.Positions[color],
+			lat.FnNames[color],
+			lat.BBIds[color],
+			math.Sqrt(float64(lineTotal[color])/float64(lat.Fail.G.Graphs)) *
+				(float64(lineFails[color])/float64(lineTotal[color]) - float64(lat.Fail.G.Graphs)/float64(totalTests)),
 		}
 		if l.ValidRelativeMeasure() {
 			result = append(result, l)
@@ -335,7 +339,7 @@ func relativeOchiai(fail, ok *Digraph) Result {
 	return result
 }
 
-func symmetricKlosgen(fail, ok *Digraph) Result {
+func symmetricKlosgen(lat *lattice.Lattice) Result {
 	max := func(a, b float64) float64 {
 		if a > b {
 			return a
@@ -344,24 +348,24 @@ func symmetricKlosgen(fail, ok *Digraph) Result {
 	}
 	lineFails := make(map[int]int)
 	lineTotal := make(map[int]int)
-	for color, instances := range fail.Indices.ColorIndex {
+	for color, instances := range lat.Fail.ColorIndex {
 		lineFails[color] += len(instances)
 		lineTotal[color] += len(instances)
 	}
-	for color, instances := range ok.Indices.ColorIndex {
+	for color, instances := range lat.Ok.ColorIndex {
 		lineTotal[color] += len(instances)
 	}
-	totalTests := fail.Graphs + ok.Graphs
-	lines := fail.Labels.Labels()
+	totalTests := lat.Fail.G.Graphs + lat.Ok.G.Graphs
+	lines := lat.Labels.Labels()
 	result := make(Result, 0, len(lines))
 	for color := range lines {
 		l := Location{
-			fail.Positions[color],
-			fail.FnNames[color],
-			fail.BBIds[color],
+			lat.Positions[color],
+			lat.FnNames[color],
+			lat.BBIds[color],
 			math.Sqrt(float64(lineFails[color])/float64(totalTests)) *
-				max(float64(lineFails[color])/float64(lineTotal[color]) - float64(fail.Graphs)/float64(totalTests),
-					float64(lineFails[color])/float64(fail.Graphs) - float64(lineTotal[color])/float64(totalTests)),
+				max(float64(lineFails[color])/float64(lineTotal[color]) - float64(lat.Fail.G.Graphs)/float64(totalTests),
+					float64(lineFails[color])/float64(lat.Fail.G.Graphs) - float64(lineTotal[color])/float64(totalTests)),
 		}
 		if l.ValidRelativeMeasure() {
 			result = append(result, l)
@@ -371,26 +375,26 @@ func symmetricKlosgen(fail, ok *Digraph) Result {
 	return result
 }
 
-func enhancedTarantula(fail, ok *Digraph) Result {
+func enhancedTarantula(lat *lattice.Lattice) Result {
 	lineFails := make(map[int]int)
 	lineTotal := make(map[int]int)
-	for color, instances := range fail.Indices.ColorIndex {
+	for color, instances := range lat.Fail.ColorIndex {
 		lineFails[color] += len(instances)
 		lineTotal[color] += len(instances)
 	}
-	for color, instances := range ok.Indices.ColorIndex {
+	for color, instances := range lat.Ok.ColorIndex {
 		lineTotal[color] += len(instances)
 	}
-	totalTests := fail.Graphs + ok.Graphs
-	lines := fail.Labels.Labels()
+	totalTests := lat.Fail.G.Graphs + lat.Ok.G.Graphs
+	lines := lat.Labels.Labels()
 	result := make(Result, 0, len(lines))
 	for color := range lines {
 		l := Location{
-			fail.Positions[color],
-			fail.FnNames[color],
-			fail.BBIds[color],
-			float64(lineFails[color])/float64(fail.Graphs) *
-				(float64(lineFails[color])/float64(lineTotal[color]) - float64(fail.Graphs)/float64(totalTests)),
+			lat.Positions[color],
+			lat.FnNames[color],
+			lat.BBIds[color],
+			float64(lineFails[color])/float64(lat.Fail.G.Graphs) *
+				(float64(lineFails[color])/float64(lineTotal[color]) - float64(lat.Fail.G.Graphs)/float64(totalTests)),
 		}
 		if l.ValidRelativeMeasure() {
 			result = append(result, l)

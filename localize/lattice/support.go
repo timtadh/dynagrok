@@ -1,16 +1,10 @@
 package lattice
 
-import (
-	"github.com/timtadh/dynagrok/localize/lattice/subgraph"
-)
+import ()
 
-func (n *Node) support(V int, embs []*subgraph.Embedding) int {
-	return n.mni(V, embs)
-}
-
-func (n *Node) mni(V int, embs []*subgraph.Embedding) int {
-	sets := make([]map[int]bool, V)
-	for _, emb := range embs {
+func (n *Node) MNI() int {
+	sets := make([]map[int]bool, len(n.SubGraph.V))
+	for _, emb := range n.Embeddings {
 		for e := emb; e != nil; e = e.Prev {
 			set := sets[e.SgIdx]
 			if set == nil {
@@ -20,7 +14,7 @@ func (n *Node) mni(V int, embs []*subgraph.Embedding) int {
 			set[e.EmbIdx] = true
 		}
 	}
-	min := len(embs)
+	min := len(n.Embeddings)
 	for _, set := range sets {
 		if len(set) < min {
 			min = len(set)
@@ -29,10 +23,10 @@ func (n *Node) mni(V int, embs []*subgraph.Embedding) int {
 	return min
 }
 
-func (n *Node) fis(V int, embs []*subgraph.Embedding) int {
-	seen := make(map[int]bool, len(embs)*V)
+func (n *Node) FIS() int {
+	seen := make(map[int]bool, len(n.Embeddings)*len(n.SubGraph.V))
 	fis := 0
-	for _, emb := range embs {
+	for _, emb := range n.Embeddings {
 		saw := false
 		for e := emb; e != nil; e = e.Prev {
 			if seen[e.EmbIdx] {

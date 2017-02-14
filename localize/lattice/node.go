@@ -11,24 +11,16 @@ import (
 )
 
 type Node struct {
-	dt *Digraph
+	l *Lattice
 	SubGraph *subgraph.SubGraph
 	Embeddings subgraph.Embeddings
-	unsupportedExts map[subgraph.Extension]bool
 }
 
-func NewNode(dt *Digraph, sg *subgraph.SubGraph, embs subgraph.Embeddings) *Node {
+func NewNode(l *Lattice, sg *subgraph.SubGraph, embs subgraph.Embeddings) *Node {
 	return &Node{
-		dt: dt,
+		l: l,
 		SubGraph: sg,
 		Embeddings: embs,
-		unsupportedExts: make(map[subgraph.Extension]bool),
-	}
-}
-
-func (n *Node) addUnsupportedExts(unsup map[subgraph.Extension]bool, V int, vord []int) {
-	for u := range unsup {
-		n.unsupportedExts[*u.Translate(V, vord)] = true
 	}
 }
 
@@ -36,7 +28,7 @@ func (n *Node) String() string {
 	if n.SubGraph == nil {
 		return "<Node {0:0}>"
 	}
-	return fmt.Sprintf("<Node %v>", n.SubGraph.Pretty(n.dt.Labels))
+	return fmt.Sprintf("<Node %v>", n.SubGraph.Pretty(n.l.Labels))
 }
 
 func (n *Node) Children() (nodes []*Node, err error) {

@@ -10,6 +10,7 @@ type Builder struct {
 	Adj          [][]int
 	VertexColors map[int]int
 	EdgeColors   map[int]int
+	Graphs       int
 }
 
 func Build(V, E int) *Builder {
@@ -35,6 +36,7 @@ func (b *Builder) Build(indexVertex func(*Vertex), indexEdge func(*Edge)) *Digra
 		Adj: make([][]int, len(b.V)),
 		Kids: make([][]int, len(b.V)),
 		Parents: make([][]int, len(b.V)),
+		Graphs: b.Graphs,
 	}
 	for i := range b.V {
 		g.V[i].Idx = b.V[i].Idx
