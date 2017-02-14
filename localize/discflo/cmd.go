@@ -11,7 +11,7 @@ import (
 
 import (
 	"github.com/timtadh/dynagrok/cmd"
-	"github.com/timtadh/dynagrok/localize/stat"
+	"github.com/timtadh/dynagrok/localize/lattice"
 )
 
 
@@ -33,28 +33,12 @@ from failing and passing runs.
 
 Option Flags
     -h,--help                         Show this message
-    -m,--method=<method>              Statistical method to use
-    --methods                         List available methods
 `,
 	"",
 	[]string{},
 	func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
-		var method stat.Method
 		for _, oa := range optargs {
 			switch oa.Opt() {
-			case "-m", "--method":
-				if m, has := stat.Methods[oa.Arg()]; has {
-					fmt.Println("using method", oa.Arg())
-					method = m
-				} else {
-					return nil, cmd.Errorf(1, "Localization method '%v' is not supported. (use --methods to get a list)", oa.Arg())
-				}
-			case "--methods":
-				fmt.Println("Statisical Localization Methods:")
-				for k, _ := range stat.Methods {
-					fmt.Println("  -", k)
-				}
-				return nil, nil
 			}
 		}
 		if len(args) < 2 {
@@ -62,7 +46,12 @@ Option Flags
 		}
 		failsPath := args[0]
 		oksPath := args[1]
-		fmt.Println(failsPath, oksPath, method)
+		lat, err := lattice.Load(failsPath, oksPath)
+		if err != nil {
+			return nil, cmd.Err(3, err)
+		}
+		Localize(lat)
+		fmt.Println()
 		return nil, nil
 	}))
 }
