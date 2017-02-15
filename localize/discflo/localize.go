@@ -32,8 +32,7 @@ func (s *SearchNode) String() string {
 	return fmt.Sprintf("%v %v", s.Score, s.Node)
 }
 
-func Localize(score Score, lat *lattice.Lattice) {
-	fmt.Println(test.WIZ)
+func Localize(remote *test.Remote, score Score, lat *lattice.Lattice) {
 	WALKS := 100
 	nodes := make([]*SearchNode, 0, WALKS)
 	seen := make(map[string]bool, WALKS)

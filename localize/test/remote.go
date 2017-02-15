@@ -4,13 +4,15 @@ package test
 import (
 	"os"
 	"os/exec"
-	"bytes"
 	"syscall"
+	"bytes"
 	"path/filepath"
 	"time"
 	"fmt"
 	"context"
 	"io/ioutil"
+	"strings"
+	"strconv"
 )
 
 import (
@@ -20,8 +22,6 @@ import (
 import (
 	"github.com/timtadh/dynagrok/cmd"
 )
-
-var WIZ = "wizard"
 
 type Remote struct {
 	Config *cmd.Config
@@ -38,9 +38,9 @@ func Timeout(t time.Duration) RemoteOption {
 	}
 }
 
-func MaxMemory(megabytes int) RemoteOption {
+func MaxMegabytes(megabytes int) RemoteOption {
 	return func(r *Remote) {
-		r.MaxMem = megabytes * 10e7
+		r.MaxMem = megabytes * 1000000
 	}
 }
 
@@ -69,12 +69,18 @@ func NewRemote(path string, opts ...RemoteOption) (r *Remote, err error) {
 	r = &Remote{
 		Path: path,
 		Timeout: 2 * time.Second,
-		MaxMem: 5 * 10e7, // 50 MB
+		MaxMem: 50000000, // 50 MB
 	}
 	for _, opt := range opts {
 		opt(r)
 	}
 	return r, nil
+}
+
+func (r *Remote) Reconfig(opts ...RemoteOption) {
+	for _, opt := range opts {
+		opt(r)
+	}
 }
 
 func (r *Remote) Env(dgprof string) []string {
@@ -108,7 +114,7 @@ func (r *Remote) Execute(args []string, stdin []byte) (stdout, stderr, profile, 
 
 	var outbuf, errbuf bytes.Buffer
 	inbuf := bytes.NewBuffer(stdin)
-	ctx, cancel := context.WithTimeout(context.Background(), r.Timeout)
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	c := exec.CommandContext(ctx, r.Path, args...)
 	c.Env = r.Env(dgprof)
@@ -122,7 +128,7 @@ func (r *Remote) Execute(args []string, stdin []byte) (stdout, stderr, profile, 
 	}
 	var timeKilled bool
 	var memKilled bool
-	r.watchMemory(ctx, cancel, c.Process, &memKilled)
+	r.watch(ctx, cancel, c, &timeKilled, &memKilled)
 	err = c.Wait()
 	cerr := ctx.Err()
 	if err != nil {
@@ -134,6 +140,7 @@ func (r *Remote) Execute(args []string, stdin []byte) (stdout, stderr, profile, 
 		}
 	}
 	if cerr != nil && cerr == context.DeadlineExceeded {
+		errors.Logf("ERROR", "Killed, too much time used")
 		timeKilled = true
 	}
 	ok = c.ProcessState.Success() && !timeKilled && !memKilled
@@ -164,23 +171,48 @@ func (r *Remote) Execute(args []string, stdin []byte) (stdout, stderr, profile, 
 	return outbuf.Bytes(), errbuf.Bytes(), profile, failures, ok, nil
 }
 
-func (r *Remote) watchMemory(ctx context.Context, cancel context.CancelFunc, p *os.Process, killed *bool) {
+func (r *Remote) watch(ctx context.Context, cancel context.CancelFunc, c *exec.Cmd, timeKilled, memKilled *bool) {
+	kill := func() {
+		if c.ProcessState != nil {
+			return
+		}
+		err := c.Process.Signal(syscall.SIGINT)
+		if err != nil && c.ProcessState != nil {
+			cancel()
+		}
+		time.AfterFunc(100 * time.Nanosecond, func() {
+			if c.ProcessState != nil {
+				cancel()
+			}
+		})
+	}
 	go func() {
-		ticker := time.NewTicker(50 * time.Millisecond)
+		timer := time.NewTimer(r.Timeout)
+		defer func() {
+			if timer.Stop() {
+				<-timer.C
+			}
+		}()
+		ticker := time.NewTicker(50 * time.Nanosecond)
 		defer ticker.Stop()
 		for {
 			select {
+			case <-timer.C:
+				errors.Logf("ERROR", "Killed, time limit exceeded")
+				kill()
+				return
 			case <-ticker.C:
-				mem, err := getMemoryUsage(p)
+				mem, err := getMemoryUsage(c.Process)
+				fmt.Println("mem", mem, r.MaxMem)
 				if err != nil {
 					errors.Logf("ERROR", "getMemoryUsage err: %v", err)
 				} else if mem > r.MaxMem {
-					*killed = true
-					cancel()
+					*memKilled = true
 					errors.Logf(
 						"ERROR",
-						"Canceled context, memory usage was too high %v > %v",
+						"Killed, memory usage was too high %v > %v",
 						mem, r.MaxMem)
+					kill()
 					return
 				}
 			case <-ctx.Done():
@@ -193,11 +225,28 @@ func (r *Remote) watchMemory(ctx context.Context, cancel context.CancelFunc, p *
 // this is not at all portable
 // gets the memory usage in bytes
 func getMemoryUsage(p *os.Process) (int, error) {
-	var ru syscall.Rusage
-	err := syscall.Getrusage(p.Pid, &ru)
-	if err != nil {
+	pid := fmt.Sprintf("%d", p.Pid)
+	statmPath := filepath.Join("/proc", pid, "statm")
+	var pages int
+	if f, err := os.Open(statmPath); os.IsNotExist(err) {
+		return 0, nil
+	} else if err != nil {
 		return 0, err
+	} else {
+		bits, err := ioutil.ReadAll(f)
+		if err != nil {
+			return 0, err
+		}
+		statm := string(bits)
+		split := strings.Split(statm, " ")
+		if len(split) < 2 {
+			return 0, errors.Errorf("statm in unexpected format: %v", statm)
+		}
+		pages, err = strconv.Atoi(split[1])
+		if err != nil {
+			return 0, errors.Errorf("could not parse rss: %v", err)
+		}
 	}
-	return int(ru.Maxrss) * 1000, nil
+	return pages * os.Getpagesize(), nil
 }
 
