@@ -32,10 +32,14 @@ func (s *SearchNode) String() string {
 }
 
 func Localize(score Score, lat *lattice.Lattice) {
-	nodes := make([]*SearchNode, 0, 100)
-	seen := make(map[string]bool, 100)
-	for i := 0; i < 100; i++ {
+	WALKS := 100
+	nodes := make([]*SearchNode, 0, WALKS)
+	seen := make(map[string]bool, WALKS)
+	for i := 0; i < WALKS; i++ {
 		n := Walk(score, lat)
+		if n.Node.SubGraph == nil || len(n.Node.SubGraph.E) < 2 {
+			continue
+		}
 		label := string(n.Node.SubGraph.Label())
 		if !seen[label] {
 			nodes = append(nodes, n)
