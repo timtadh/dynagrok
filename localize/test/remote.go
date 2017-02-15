@@ -25,9 +25,7 @@ var WIZ = "wizard"
 
 type Remote struct {
 	Config *cmd.Config
-	DGPROF string
 	Path string
-	Args []string
 	Timeout time.Duration
 	MaxMem int // Maximum Resident Memory in Bytes
 }
@@ -52,7 +50,7 @@ func Config(c *cmd.Config) RemoteOption {
 	}
 }
 
-func NewRemote(dgprof, path string, args []string, opts ...RemoteOption) (r *Remote, err error) {
+func NewRemote(path string, opts ...RemoteOption) (r *Remote, err error) {
 	path, err = filepath.Abs(path)
 	if err != nil {
 		return nil, err
@@ -69,9 +67,7 @@ func NewRemote(dgprof, path string, args []string, opts ...RemoteOption) (r *Rem
 		return nil, errors.Errorf("File %v is not executable", path)
 	}
 	r = &Remote{
-		DGPROF: dgprof,
 		Path: path,
-		Args: args,
 		Timeout: 2 * time.Second,
 		MaxMem: 5 * 10e7, // 50 MB
 	}
@@ -81,12 +77,12 @@ func NewRemote(dgprof, path string, args []string, opts ...RemoteOption) (r *Rem
 	return r, nil
 }
 
-func (r *Remote) Env() []string {
+func (r *Remote) Env(dgprof string) []string {
 	env := []string{
 		fmt.Sprintf("PATH=%v", os.Getenv("PATH")),
 		fmt.Sprintf("USER=%v", os.Getenv("USER")),
 		fmt.Sprintf("HOME=%v", os.Getenv("HOME")),
-		fmt.Sprintf("DGPROF=%v", r.DGPROF),
+		fmt.Sprintf("DGPROF=%v", dgprof),
 	}
 	if r.Config != nil {
 		env = append(env, fmt.Sprintf("GOROOT=%v", r.Config.GOROOT))
@@ -102,13 +98,20 @@ func (r *Remote) Env() []string {
 	return env
 }
 
-func (r *Remote) Execute(stdin []byte) (stdout, stderr, profile, failures []byte, ok bool, err error) {
+func (r *Remote) Execute(args []string, stdin []byte) (stdout, stderr, profile, failures []byte, ok bool, err error) {
+	_, name := filepath.Split(r.Path)
+	dgprof, err := ioutil.TempDir("", fmt.Sprintf("dynagrok-dgprof-%v-", name))
+	if err != nil {
+		return nil, nil, nil, nil, false, err
+	}
+	defer os.RemoveAll(dgprof)
+
 	var outbuf, errbuf bytes.Buffer
 	inbuf := bytes.NewBuffer(stdin)
 	ctx, cancel := context.WithTimeout(context.Background(), r.Timeout)
 	defer cancel()
-	c := exec.CommandContext(ctx, r.Path, r.Args...)
-	c.Env = r.Env()
+	c := exec.CommandContext(ctx, r.Path, args...)
+	c.Env = r.Env(dgprof)
 	c.Stdin = inbuf
 	c.Stdout = &outbuf
 	c.Stderr = &errbuf
@@ -135,7 +138,7 @@ func (r *Remote) Execute(stdin []byte) (stdout, stderr, profile, failures []byte
 	}
 	ok = c.ProcessState.Success() && !timeKilled && !memKilled
 
-	fgPath := filepath.Join(r.DGPROF, "flow-graph.dot")
+	fgPath := filepath.Join(dgprof, "flow-graph.dot")
 	if _, err := os.Stat(fgPath); err == nil {
 		fg, err := os.Open(fgPath)
 		if err != nil {
@@ -146,7 +149,7 @@ func (r *Remote) Execute(stdin []byte) (stdout, stderr, profile, failures []byte
 			return nil, nil, nil, nil, false, err
 		}
 	}
-	failsPath := filepath.Join(r.DGPROF, "failures")
+	failsPath := filepath.Join(dgprof, "failures")
 	if _, err := os.Stat(failsPath); err == nil {
 		fails, err := os.Open(failsPath)
 		if err != nil {
