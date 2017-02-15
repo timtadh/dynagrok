@@ -11,8 +11,13 @@ import (
 )
 
 // diverges
-func Main(r Runnable) {
+func Main(r Runnable, cleans ...*func()) {
 	args, err := r.Run(os.Args[1:])
+	for _, c := range cleans {
+		if c != nil && *c != nil {
+			(*c)()
+		}
+	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(err.ExitCode)

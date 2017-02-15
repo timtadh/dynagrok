@@ -18,7 +18,8 @@ import (
 
 func main() {
 	var config cmd.Config
-	main := NewMain(&config)
+	var cleanup func()
+	main := NewMain(&config, &cleanup)
 	grk := grok.NewCommand(&config)
 	inst := instrument.NewCommand(&config)
 	mut := mutate.NewCommand(&config)
@@ -31,10 +32,10 @@ func main() {
 			mut.Name(): mut,
 			loc.Name(): loc,
 		}),
-	))
+	), &cleanup)
 }
 
-func NewMain(c *cmd.Config) cmd.Runnable {
+func NewMain(c *cmd.Config, cleanup *func()) cmd.Runnable {
 	return cmd.Cmd(os.Args[0],
 	`[options] <pkg>`,
 	`
@@ -70,11 +71,11 @@ Option Flags
 			}
 		}
 		if cpuProfile != "" {
-			cleanup, err := cmd.CPUProfile(cpuProfile)
+			clean, err := cmd.CPUProfile(cpuProfile)
 			if err != nil {
 				return nil, err
 			}
-			defer cleanup()
+			*cleanup = clean
 		}
 		*c = cmd.Config{
 			GOROOT: GOROOT,
