@@ -198,12 +198,12 @@ func (r *Remote) watch(ctx context.Context, cancel context.CancelFunc, c *exec.C
 		for {
 			select {
 			case <-timer.C:
+				*timeKilled = true
 				errors.Logf("ERROR", "Killed, time limit exceeded")
 				kill()
 				return
 			case <-ticker.C:
 				mem, err := getMemoryUsage(c.Process)
-				fmt.Println("mem", mem, r.MaxMem)
 				if err != nil {
 					errors.Logf("ERROR", "getMemoryUsage err: %v", err)
 				} else if mem > r.MaxMem {
