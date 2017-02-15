@@ -21,57 +21,6 @@ import (
 //         (a < b) --> (m(a) >= m(b))
 // - read the leap search paper again
 
-type Score func(lat *lattice.Lattice, n *lattice.Node) float64
-
-func Importance(lat *lattice.Lattice, n *lattice.Node) float64 {
-	var f, pr_o float64
-	E := float64(len(lat.Fail.G.E))
-	F := float64(lat.Fail.G.Graphs)
-	O := float64(lat.Ok.G.Graphs)
-	f = (float64(n.FIS()))
-	pr_f := f/(F+O)
-	size, support, err := n.SubGraph.SupportOf(lat.Ok)
-	if err != nil {
-		panic(err) // should never happen
-	}
-	e := float64(len(n.SubGraph.E)) + 1
-	pr_o = (float64(size + 1)/(e)) * (float64(support)/(F+O))
-	a := pr_f/(pr_f + pr_o)
-	b := F/(F + O)
-	s := ((e+1)/E) * (a - b)
-	if false {
-		errors.Logf("DEBUG", "pr_o %v, pr_f %v a %v b %v s %v %v", pr_o, pr_f, a, b, s, n)
-	}
-	return s
-}
-
-func QuickImportance(lat *lattice.Lattice, n *lattice.Node) float64 {
-	var f, pr_o float64
-	E := float64(len(lat.Fail.G.E))
-	F := float64(lat.Fail.G.Graphs)
-	O := float64(lat.Ok.G.Graphs)
-	f = (float64(n.FIS()))
-	pr_f := f/(F+O)
-	if len(n.SubGraph.E) > 0 {
-		var o float64
-		for i := range n.SubGraph.E {
-			count := lat.Ok.EdgeCounts[n.SubGraph.Colors(i)]
-			o += float64(count)/O
-		}
-		pr_o = o/float64(len(n.SubGraph.E))
-	} else {
-		pr_o = 1
-	}
-	e := float64(len(n.SubGraph.E)) + 1
-	a := pr_f/(pr_f + pr_o)
-	b := F/(F + O)
-	s := ((e+1)/E) * (a - b)
-	if false {
-		errors.Logf("DEBUG", "pr_o %v, pr_f %v a %v b %v s %v %v", pr_o, pr_f, a, b, s, n)
-	}
-	return s
-}
-
 
 type SearchNode struct {
 	Node  *lattice.Node
@@ -82,8 +31,7 @@ func (s *SearchNode) String() string {
 	return fmt.Sprintf("%v %v", s.Score, s.Node)
 }
 
-func Localize(lat *lattice.Lattice) {
-	var score func(*lattice.Lattice, *lattice.Node) float64 = QuickImportance
+func Localize(score Score, lat *lattice.Lattice) {
 	nodes := make([]*SearchNode, 0, 100)
 	seen := make(map[string]bool, 100)
 	for i := 0; i < 100; i++ {
@@ -107,15 +55,21 @@ func Walk(score Score, lat *lattice.Lattice) (*SearchNode) {
 		Node: lat.Root(),
 		Score: -100000000,
 	}
+	i := 0
 	prev := cur
 	for cur != nil {
-		fmt.Println("cur", cur)
+		if true {
+			errors.Logf("DEBUG", "cur %v", cur)
+		}
 		kids, err := cur.Node.Children()
 		if err != nil {
 			panic(err)
 		}
 		prev = cur
 		cur = uniform(filterKids(score, cur.Score, lat, kids))
+		if i == 1 {
+		}
+		i++
 	}
 	return prev
 }
