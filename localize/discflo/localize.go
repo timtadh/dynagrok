@@ -12,6 +12,7 @@ import (
 
 import (
 	"github.com/timtadh/dynagrok/localize/lattice"
+	"github.com/timtadh/dynagrok/localize/test"
 )
 
 // todo
@@ -32,6 +33,7 @@ func (s *SearchNode) String() string {
 }
 
 func Localize(score Score, lat *lattice.Lattice) {
+	fmt.Println(test.WIZ)
 	WALKS := 100
 	nodes := make([]*SearchNode, 0, WALKS)
 	seen := make(map[string]bool, WALKS)
@@ -45,6 +47,9 @@ func Localize(score Score, lat *lattice.Lattice) {
 			nodes = append(nodes, n)
 			seen[label] = true
 		}
+	}
+	if len(nodes) == 0 {
+		fmt.Println("no graphs")
 	}
 	sort.Slice(nodes, func(i, j int) bool {
 		return nodes[i].Score > nodes[j].Score
@@ -62,7 +67,7 @@ func Walk(score Score, lat *lattice.Lattice) (*SearchNode) {
 	i := 0
 	prev := cur
 	for cur != nil {
-		if true {
+		if false {
 			errors.Logf("DEBUG", "cur %v", cur)
 		}
 		kids, err := cur.Node.Children()
