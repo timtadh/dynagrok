@@ -152,6 +152,7 @@ func (r *Remote) Execute(args []string, stdin []byte) (stdout, stderr, profile, 
 			return nil, nil, nil, nil, false, err
 		}
 		profile, err = ioutil.ReadAll(fg)
+		fg.Close()
 		if err != nil {
 			return nil, nil, nil, nil, false, err
 		}
@@ -163,6 +164,7 @@ func (r *Remote) Execute(args []string, stdin []byte) (stdout, stderr, profile, 
 			return nil, nil, nil, nil, false, err
 		}
 		failures, err = ioutil.ReadAll(fails)
+		fails.Close()
 		if err != nil {
 			return nil, nil, nil, nil, false, err
 		}
@@ -234,8 +236,9 @@ func getMemoryUsage(p *os.Process) (int, error) {
 		return 0, err
 	} else {
 		bits, err := ioutil.ReadAll(f)
+		f.Close()
 		if err != nil {
-			return 0, err
+			return 0, nil
 		}
 		statm := string(bits)
 		split := strings.Split(statm, " ")

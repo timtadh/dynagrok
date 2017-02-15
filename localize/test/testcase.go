@@ -19,6 +19,13 @@ func Test(r *Remote, stdin []byte) *Testcase {
 	}
 }
 
+func (t *Testcase) String() string {
+	if t == nil {
+		return ""
+	}
+	return string(t.Case)
+}
+
 func (t *Testcase) Failed() bool {
 	if !t.executed {
 		panic("failed called before execute")
@@ -31,6 +38,13 @@ func (t *Testcase) Usable() bool {
 		panic("usable called before execute")
 	}
 	return len(t.profile) > 0
+}
+
+func (t *Testcase) Profile() []byte {
+	if !t.Usable() {
+		panic("can't get the profile for this test case")
+	}
+	return t.profile
 }
 
 func (t *Testcase) Hash() int {
@@ -53,6 +67,64 @@ func (t *Testcase) Execute() error {
 	return nil
 }
 
-func (t *Testcase) MinimizingMuts() []*Testcase {
-	return nil
+func (t *Testcase) MinimizingMuts() []func()*Testcase {
+	type slice struct {
+		i, j int
+	}
+	fromSlice := func(s slice) *Testcase {
+		left := t.Case[:s.i]
+		right := t.Case[s.j+1:]
+		buf := make([]byte, len(left) + len(right))
+		copy(buf[:len(left)], left)
+		copy(buf[len(left):], left)
+		return Test(t.Remote, buf)
+	}
+	// min := func(i, j int) int {
+	// 	if i < j {
+	// 		return i
+	// 	}
+	// 	return j
+	// }
+	// max := func(i, j int) int {
+	// 	if i > j {
+	// 		return i
+	// 	}
+	// 	return j
+	// }
+	slices := make([]slice, 0, 10)
+	// prefixes
+	// for i := 0; i < len(t.Case)-1; i++ {
+	// 	slices = append(slices, slice{
+	// 		i: 0,
+	// 		j: i,
+	// 	})
+	// }
+	// suffixes
+	for i := 1; i < len(t.Case); i++ {
+		slices = append(slices, slice{
+			i: i,
+			j: len(t.Case)-1,
+		})
+	}
+	// blocks
+	// for i := 1; i < len(t.Case); i++ {
+	// 	end := min(
+	// 		i+min(max(15, int(.1*float64(len(t.Case)))), 100),
+	// 		len(t.Case))
+	// 	for j := i+1; j < end; j++ {
+	// 		slices = append(slices, slice{
+	// 			i: i,
+	// 			j: j,
+	// 		})
+	// 	}
+	// }
+	tests := make([]func()*Testcase, 0, len(slices))
+	for _, s := range slices {
+		tests = append(tests, func(s slice) func() *Testcase {
+			return func() *Testcase {
+				return fromSlice(s)
+			}
+		}(s))
+	}
+	return tests
 }

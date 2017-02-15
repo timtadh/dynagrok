@@ -27,7 +27,9 @@ type Indices struct {
 }
 
 func NewIndices(b *Builder, minSupport int) *Indices {
-	errors.Logf("DEBUG", "About to build indices %v %v", len(b.V), len(b.E))
+	if false {
+		errors.Logf("DEBUG", "About to build indices %v %v", len(b.V), len(b.E))
+	}
 	i := &Indices{
 		ColorIndex:     make(map[int][]int, len(b.VertexColors)),
 		SrcIndex:       make(map[IdColorColor][]int, len(b.V)),

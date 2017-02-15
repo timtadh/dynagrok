@@ -32,8 +32,8 @@ func (s *SearchNode) String() string {
 	return fmt.Sprintf("%v %v", s.Score, s.Node)
 }
 
-func Localize(remote *test.Remote, score Score, lat *lattice.Lattice) {
-	WALKS := 100
+func Localize(tests []*test.Testcase, score Score, lat *lattice.Lattice) error {
+	WALKS := 10
 	nodes := make([]*SearchNode, 0, WALKS)
 	seen := make(map[string]bool, WALKS)
 	for i := 0; i < WALKS; i++ {
@@ -53,9 +53,19 @@ func Localize(remote *test.Remote, score Score, lat *lattice.Lattice) {
 	sort.Slice(nodes, func(i, j int) bool {
 		return nodes[i].Score > nodes[j].Score
 	})
-	for i := 0; i < 10 && i < len(nodes); i++ {
+	for i := 0; i < 1 && i < len(nodes); i++ {
 		fmt.Println(nodes[i])
+		for j, t := range tests {
+			min, err := t.Minimize(lat, nodes[i].Node.SubGraph)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("------------ min test %d -------------\n", j)
+			fmt.Println(min)
+			fmt.Println("--------------------------------------")
+		}
 	}
+	return nil
 }
 
 func Walk(score Score, lat *lattice.Lattice) (*SearchNode) {
