@@ -132,23 +132,23 @@ func (i *instrumenter) function(fnName string, fnAst ast.Node, recv *[]*ast.Fiel
 
 	// if the function has a return statement
 	if ret, ok := (*body)[len(*body)-1].(*ast.ReturnStmt); ok {
-		stmt, vars := i.mkAssignment(ret.Pos(), ret.Results)
+		stmt, vars, varnames := i.mkAssignment(ret.Pos(), ret.Results)
 		*body = instrument.Insert(nil, nil, *body, len(*body)-1, stmt)
 		ret.Results = vars
+		outputs = append(outputs, varnames...)
+		*body = instrument.Insert(nil, nil, *body, len(*body)-1, i.mkMethodOutput(fnAst.Pos(), fnName, outputs))
 	} else {
 		// Otherwise check for named outputs
 		for _, output := range *results {
 			for _, name := range output.Names {
 				outputs = append(outputs, name.Name)
+				*body = instrument.Insert(nil, nil, *body, 1, i.mkDeferMethodOutput(fnAst.Pos(), fnName, outputs))
 			}
 		}
 	}
 
 	if len(inputs) != 0 {
 		*body = instrument.Insert(nil, nil, *body, 0, i.mkMethodInput(fnAst.Pos(), fnName, inputs))
-	}
-	if len(outputs) != 0 {
-		*body = instrument.Insert(nil, nil, *body, 1, i.mkDeferMethodOutput(fnAst.Pos(), fnName, outputs))
 	}
 
 	return nil
@@ -211,13 +211,29 @@ func (i instrumenter) mkDeferMethodOutput(pos token.Pos, name string, inputs []s
 	return &ast.DeferStmt{Call: e.(*ast.CallExpr)}
 }
 
-func (i instrumenter) mkAssignment(pos token.Pos, exprs []ast.Expr) (ast.Stmt, []ast.Expr) {
+func (i instrumenter) mkMethodOutput(pos token.Pos, name string, inputs []string) ast.Stmt {
+	p := i.program.Fset.Position(pos)
+	s := fmt.Sprintf("dgruntime.MethodOutput(%s, %s", strconv.Quote(name), strconv.Quote(p.String()))
+	for _, input := range inputs {
+		s = s + ", " + input
+	}
+	s = s + ")"
+	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
+	if err != nil {
+		panic(fmt.Errorf("mkMethodOutput (%v) error: %v", s, err))
+	}
+	return &ast.ExprStmt{e}
+}
+
+func (i instrumenter) mkAssignment(pos token.Pos, exprs []ast.Expr) (ast.Stmt, []ast.Expr, []string) {
 	s := ""
+	varnames := make([]string, len(exprs))
 	for i := range exprs {
 		if i != 0 {
 			s += ", "
 		}
-		s += fmt.Sprintf("dynagrokV%d", i)
+		varnames[i] = fmt.Sprintf("dynagrokV%d", i)
+		s += varnames[i]
 	}
 	s += ":="
 	for i := range exprs {
@@ -246,7 +262,6 @@ func (i instrumenter) mkAssignment(pos token.Pos, exprs []ast.Expr) (ast.Stmt, [
 		}
 	}
 	stmt.Rhs = exprs
-	ast.Print(i.program.Fset, stmt)
 
-	return &stmt, stmt.Lhs
+	return &stmt, stmt.Lhs, varnames
 }

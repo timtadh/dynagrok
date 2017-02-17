@@ -58,18 +58,23 @@ Option Flags
 			if output == "" {
 				output = fmt.Sprintf("%v.instr", filepath.Base(pkgName))
 			}
-			fmt.Println("intrumenting for object-state", pkgName)
 			program, err := cmd.LoadPkg(c, pkgName)
 			if err != nil {
 				return nil, cmd.Usage(r, 6, err.Error())
 			}
+			fmt.Println("instrumenting for object-state", pkgName)
 			err = Instrument(pkgName, method, program)
 			if err != nil {
 				return nil, cmd.Errorf(7, err.Error())
 			}
-			_, err = instrument.BuildBinary(c, keepWork, work, pkgName, output, program)
+			fmt.Println("instrumenting", pkgName)
+			err = instrument.Instrument(pkgName, program)
 			if err != nil {
 				return nil, cmd.Errorf(8, err.Error())
+			}
+			_, err = instrument.BuildBinary(c, keepWork, work, pkgName, output, program)
+			if err != nil {
+				return nil, cmd.Errorf(9, err.Error())
 			}
 			return nil, nil
 		})

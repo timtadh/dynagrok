@@ -52,7 +52,7 @@ type Field struct {
 	Pointer  uintptr
 	Slice    uintptr
 	Struct   *Instance
-	// TODO distinguish types that are 'uncomparable': slices, maps, and
+	// TODO distinguish types that are 'incomparable': slices, maps, and
 	// functions
 	Other interface{}
 }
@@ -152,13 +152,6 @@ func (o *Instance) addCall(method string) {
 	o.History = append(o.History, method)
 }
 
-// Takes a snapshot of the object state
-func (o *Instance) snap(pos string) {
-	exec.Profile.Instances[pos] = append(exec.Profile.Instances[pos], *o)
-	if len(exec.Profile.Instances[pos]) > 50 {
-		exec.Profile.Instances[pos] = exec.Profile.Instances[pos][1:]
-	}
-}
 func (o *Instance) String() string {
 	return o.Serialize("")
 }

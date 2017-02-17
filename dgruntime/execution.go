@@ -52,7 +52,8 @@ func newExecution() *Execution {
 			Funcs:     make(map[uintptr]*Function),
 			Flows:     make(map[FlowEdge]int),
 			Positions: make(map[BlkEntrance]string),
-			Instances: make(map[string][]Instance),
+			Inputs:    make(map[string][]Instance),
+			Outputs:   make(map[string][]Instance),
 		},
 		OutputDir: outputDir,
 		mergeCh:   make(chan *Goroutine, 15),
@@ -192,5 +193,4 @@ func writeOut(e *Execution, filename string, serializeFunc func(io.Writer)) {
 	}
 	defer fout.Close()
 	serializeFunc(fout)
-	e.Profile.Serialize(fout)
 }

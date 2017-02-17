@@ -156,32 +156,52 @@ func getType(obj interface{}) *ObjectType {
 	return newObjectType(value.Type().String(), false)
 }
 
-// MethodCall takes the name of the call, the position,
-// and a pointer to the object-receiver. It adds this call
-// to the method-call sequence for this particular receiver,
-// and uses the opportunity to take a snapshot of object state
-func MethodCall(field string, pos string, obj interface{}) {
-	execCheck()
-	g := exec.Goroutine(runtime.GoID())
-	o := *(*[2]uintptr)(unsafe.Pointer(&obj))
-	data_ptr := o[1]
-	if instance, has := g.Instances[data_ptr]; has {
-		instance.addCall(field)
-		instance.snap(pos)
-	} else {
-		t := getType(obj)
-		fields := deriveFields(t, &obj)
-		o := newInstance(*t, fields, data_ptr)
-		o.addCall(field)
-		o.snap(pos)
-		g.Instances[data_ptr] = *o
+// Takes a snapshot of the object state
+// TODO replace reference to exec.Profile with reference to Goroutine
+func (o *Instance) recordInput(pos string) {
+	exec.Profile.Inputs[pos] = append(exec.Profile.Inputs[pos], *o)
+	if len(exec.Profile.Inputs[pos]) > 50 {
+		exec.Profile.Inputs[pos] = exec.Profile.Inputs[pos][1:]
+	}
+}
+
+// Takes a snapshot of the object state
+// TODO replace reference to exec.Profile with reference to Goroutine
+func (o *Instance) recordOutput(pos string) {
+	exec.Profile.Outputs[pos] = append(exec.Profile.Outputs[pos], *o)
+	if len(exec.Profile.Outputs[pos]) > 50 {
+		exec.Profile.Outputs[pos] = exec.Profile.Outputs[pos][1:]
 	}
 }
 
 func MethodInput(fnName string, pos string, inputs ...interface{}) {
+	execCheck()
+	var inputProfile []Instance = make([]Instance, len(inputs))
+	for i := range inputs {
+		o := *(*[2]uintptr)(unsafe.Pointer(&inputs[i]))
+		data_ptr := o[1]
+
+		t := getType(inputs[i])
+		fields := deriveFields(t, &inputs[i])
+		inst := newInstance(*t, fields, data_ptr)
+		inputProfile[i] = *inst
+	}
+	exec.Profile.Inputs[fnName] = inputProfile
 }
 
 func MethodOutput(fnName string, pos string, outputs ...interface{}) {
+	execCheck()
+	var outputProfile []Instance = make([]Instance, len(outputs))
+	for i := range outputs {
+		o := *(*[2]uintptr)(unsafe.Pointer(&outputs[i]))
+		data_ptr := o[1]
+
+		t := getType(outputs[i])
+		fields := deriveFields(t, &outputs[i])
+		inst := newInstance(*t, fields, data_ptr)
+		outputProfile[i] = *inst
+	}
+	exec.Profile.Outputs[fnName] = outputProfile
 }
 
 func ExitFunc(name string) {

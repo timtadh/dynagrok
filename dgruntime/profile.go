@@ -8,8 +8,8 @@ import (
 )
 
 type Profile struct {
-	Objects   map[string]ObjectType
-	Instances map[string][]Instance
+	Inputs    map[string][]Instance
+	Outputs   map[string][]Instance
 	Funcs     map[uintptr]*Function
 	Calls     map[Call]int
 	Flows     map[FlowEdge]int
@@ -119,18 +119,13 @@ func (p *Profile) Serialize(fout io.Writer) {
 	fmt.Fprintln(fout, "}\n\n")
 }
 
-func (p *Profile) PrettyObjectState(fout io.Writer) {
-	for pos, instslice := range p.Instances {
-		fmt.Fprintln(fout)
-		fmt.Fprintln(fout, pos)
+func (p *Profile) SerializeObjectState(fout io.Writer) {
+	for pos, instslice := range p.Inputs {
 		for _, inst := range instslice {
-			fmt.Fprintln(fout, inst.PrettyString())
+			fmt.Fprint(fout, inst.Serialize(pos))
 		}
 	}
-}
-
-func (p *Profile) SerializeObjectState(fout io.Writer) {
-	for pos, instslice := range p.Instances {
+	for pos, instslice := range p.Outputs {
 		for _, inst := range instslice {
 			fmt.Fprint(fout, inst.Serialize(pos))
 		}
