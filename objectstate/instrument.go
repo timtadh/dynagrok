@@ -5,7 +5,6 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"sort"
 	"strconv"
 	"strings"
 )
@@ -23,9 +22,11 @@ import (
 )
 
 type instrumenter struct {
-	program     *loader.Program
-	entry       string
-	method      string
+	program *loader.Program
+	entry   string
+	method  string
+	// TODO check if currentFile is what we want - iirc this is used to find
+	// import statements
 	currentFile *ast.File
 }
 
@@ -72,12 +73,32 @@ func (i *instrumenter) instrument() (err error) {
 					if x.Body == nil {
 						return nil
 					}
-					return i.fnBody(pkg, fnName, fn, &x.Body.List)
+					receivers := []*ast.Field{}
+					params := []*ast.Field{}
+					results := []*ast.Field{}
+					if x.Recv != nil {
+						receivers = x.Recv.List
+					}
+					if x.Type.Params != nil {
+						params = x.Type.Params.List
+					}
+					if x.Type.Results != nil {
+						results = x.Type.Results.List
+					}
+					return i.function(fnName, fn, &receivers, &params, &results, &x.Body.List)
 				case *ast.FuncLit:
 					if x.Body == nil {
 						return nil
 					}
-					return i.fnBody(pkg, fnName, fn, &x.Body.List)
+					params := []*ast.Field{}
+					results := []*ast.Field{}
+					if x.Type.Params != nil {
+						params = x.Type.Params.List
+					}
+					if x.Type.Results != nil {
+						results = x.Type.Results.List
+					}
+					return i.function(fnName, fn, new([]*ast.Field), &params, &results, &x.Body.List)
 				default:
 					return errors.Errorf("unexpected type %T", x)
 				}
@@ -95,88 +116,61 @@ func (i *instrumenter) instrument() (err error) {
 	return nil
 }
 
-// exprFuncGenerator defines a function to be called on ast.Expressions
-// if relevant, the returned function inserts a dgruntime.mkMethodCall into the
-// source line directly after the passed ast.Expression
-func (i instrumenter) exprFuncGenerator(pkg *loader.PackageInfo, blk *[]ast.Stmt, pos token.Pos) func(ast.Expr) error {
-	return func(e ast.Expr) error {
-		switch expr := e.(type) {
-		case *ast.SelectorExpr:
-			selExpr := expr
-			if ident, ok := selExpr.X.(*ast.Ident); ok {
-				if ident.Name == "dgruntime" {
-					return nil
-				}
-				for pkgName := range i.program.AllPackages {
-					if pkgName.Name() == ident.Name {
-						return nil
-					}
-				}
-				for _, imports := range astutil.Imports(i.program.Fset, i.currentFile) {
-					for _, importSpec := range imports {
-						if importSpec.Name != nil && importSpec.Name.Name == ident.Name {
-							return nil
-						}
-					}
-				}
-				callName := selExpr.Sel.Name
-				stmt, _ := i.mkMethodCall(pos, ident.Name, callName)
-				methodCallLoc[pos] = stmt
-			}
-		default:
-			return errors.Errorf("Unexpected type %v, %T", e, e)
+func (i *instrumenter) function(fnName string, fnAst ast.Node, recv *[]*ast.Field, params *[]*ast.Field, results *[]*ast.Field, body *[]ast.Stmt) error {
+	inputs := []string{}
+	outputs := []string{}
+	for _, r := range *recv {
+		for _, name := range r.Names {
+			inputs = append(inputs, name.Name)
 		}
-		return nil
 	}
-}
+	for _, input := range *params {
+		for _, name := range input.Names {
+			inputs = append(inputs, name.Name)
+		}
+	}
 
-func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.Node, fnBody *[]ast.Stmt) error {
-	cfg := analysis.BuildCFG(i.program.Fset, fnName, fnAst, fnBody)
-	if true {
-		// first collect the instrumentation points (IPs)
-		// build a map from lexical blocks to a sequence of IPs
-		// The IPs are basic blocks from the CFG
-		instr := make(map[*[]ast.Stmt][]*analysis.Block)
-		for _, b := range cfg.Blocks {
-			// if the block doesn't have a body don't instrument it
-			if b.Body == nil {
-				continue
-			}
-			// associate the basic block with the lexical block
-			instr[b.Body] = append(instr[b.Body], b)
-		}
-		// Now instrument each lexical block
-		for body, blks := range instr {
-			// First stort the IPs (Basic Blocks) in reverse order according
-			// to where they start in the lexical block. That way we can
-			// safely insert the instrumentation points (by doing it in
-			// reverse
-			sort.Slice(blks, func(i, j int) bool {
-				return blks[i].StartsAt > blks[j].StartsAt
-			})
-			// Now we insert object-state instrumentation
-			// This second bottom-up pass performs the insertions without any
-			// strange recursive issues.
-			for _, b := range blks {
-				for _, stmt := range b.Stmts {
-					switch x := (*stmt).(type) {
-					case *ast.IfStmt, *ast.ForStmt, *ast.SelectStmt, *ast.SwitchStmt, *ast.TypeSwitchStmt, *ast.RangeStmt, *ast.LabeledStmt:
-					default:
-						statement(&x, i.exprFuncGenerator(pkg, body, x.Pos()))
-					}
-				}
-				for j := len(b.Stmts) - 1; j >= 0; j-- {
-					var stmt ast.Stmt = *((b.Stmts)[j])
-					pos := stmt.Pos()
-					if stmt, has := methodCallLoc[pos]; has {
-						*body = instrument.Insert(cfg, b, *body, j+1, stmt)
-						delete(methodCallLoc, pos)
-					}
-				}
+	// if the function has a return statement
+	if ret, ok := (*body)[len(*body)-1].(*ast.ReturnStmt); ok {
+		stmt, vars := i.mkAssignment(ret.Pos(), ret.Results)
+		*body = instrument.Insert(nil, nil, *body, len(*body)-1, stmt)
+		ret.Results = vars
+	} else {
+		// Otherwise check for named outputs
+		for _, output := range *results {
+			for _, name := range output.Names {
+				outputs = append(outputs, name.Name)
 			}
 		}
 	}
+
+	if len(inputs) != 0 {
+		*body = instrument.Insert(nil, nil, *body, 0, i.mkMethodInput(fnAst.Pos(), fnName, inputs))
+	}
+	if len(outputs) != 0 {
+		*body = instrument.Insert(nil, nil, *body, 1, i.mkDeferMethodOutput(fnAst.Pos(), fnName, outputs))
+	}
+
 	return nil
+}
+func Insert(blk []ast.Stmt, j int, stmt ast.Stmt) []ast.Stmt {
+	if cap(blk) <= len(blk)+1 {
+		nblk := make([]ast.Stmt, len(blk), (cap(blk)+1)*2)
+		copy(nblk, blk)
+		blk = nblk
+	}
+	blk = blk[:len(blk)+1]
+	for i := len(blk) - 1; i > 0; i-- {
+		if j == i {
+			blk[i] = stmt
+			break
+		}
+		blk[i] = blk[i-1]
+	}
+	if j == 0 {
+		blk[j] = stmt
+	}
+	return blk
 }
 
 func (i instrumenter) mkMethodCall(pos token.Pos, name string, callName string) (ast.Stmt, string) {
@@ -187,4 +181,72 @@ func (i instrumenter) mkMethodCall(pos token.Pos, name string, callName string) 
 		panic(fmt.Errorf("mkMethodCall (%v) error: %v", s, err))
 	}
 	return &ast.ExprStmt{e}, s
+}
+
+func (i instrumenter) mkMethodInput(pos token.Pos, name string, inputs []string) ast.Stmt {
+	p := i.program.Fset.Position(pos)
+	s := fmt.Sprintf("dgruntime.MethodInput(%s, %s", strconv.Quote(name), strconv.Quote(p.String()))
+	for _, input := range inputs {
+		s = s + ", " + input
+	}
+	s = s + ")"
+	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
+	if err != nil {
+		panic(fmt.Errorf("mkMethodInput (%v) error: %v", s, err))
+	}
+	return &ast.ExprStmt{e}
+}
+
+func (i instrumenter) mkDeferMethodOutput(pos token.Pos, name string, inputs []string) ast.Stmt {
+	p := i.program.Fset.Position(pos)
+	s := fmt.Sprintf("func() { dgruntime.MethodOutput(%s, %s", strconv.Quote(name), strconv.Quote(p.String()))
+	for _, input := range inputs {
+		s = s + ", " + input
+	}
+	s = s + ") }()"
+	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
+	if err != nil {
+		panic(fmt.Errorf("mkMethodOutput (%v) error: %v", s, err))
+	}
+	return &ast.DeferStmt{Call: e.(*ast.CallExpr)}
+}
+
+func (i instrumenter) mkAssignment(pos token.Pos, exprs []ast.Expr) (ast.Stmt, []ast.Expr) {
+	s := ""
+	for i := range exprs {
+		if i != 0 {
+			s += ", "
+		}
+		s += fmt.Sprintf("dynagrokV%d", i)
+	}
+	s += ":="
+	for i := range exprs {
+		if i != 0 {
+			s += ", "
+		}
+		s += fmt.Sprintf("%v", i)
+	}
+	s = fmt.Sprintf("func() { %s }()", s)
+	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
+	if err != nil {
+		panic(fmt.Errorf("AssignStmt: %v error: %v", s, err))
+	}
+
+	var stmt ast.AssignStmt
+	if call, ok := e.(*ast.CallExpr); ok {
+		if fun, ok := call.Fun.(*ast.FuncLit); ok {
+			if assign, ok := fun.Body.List[0].(*ast.AssignStmt); ok {
+				stmt = *assign
+			}
+		}
+	}
+	for i, e := range exprs {
+		if id, ok := e.(*ast.Ident); ok {
+			id.NamePos = stmt.Rhs[i].Pos()
+		}
+	}
+	stmt.Rhs = exprs
+	ast.Print(i.program.Fset, stmt)
+
+	return &stmt, stmt.Lhs
 }

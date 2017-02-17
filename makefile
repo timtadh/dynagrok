@@ -20,5 +20,12 @@ html:
 example:
 	dynagrok -g $(DIR)/examples -d $(DIR) instrument -w /tmp/work --keep-work -o example.instr dynagrok/examples/shapes/client
 
-tmp:
-	./dynagrok -r ~/dev/repos/go-research -d /home/koby/dev/repos/dynagrok -g /home/koby/dev/repos/dynagrok/examples objectstate -m Move --keep-work -w /tmp/work dynagrok/examples/shapes/client
+client:
+	dynagrok -r ~/dev/repos/go-research -d /home/koby/dev/repos/dynagrok -g /home/koby/dev/repos/dynagrok/examples objectstate --keep-work -w /tmp/work dynagrok/examples/shapes/client
+
+move:
+	dynagrok -r ~/dev/repos/go-research -d /home/koby/dev/repos/dynagrok -g /home/koby/dev/repos/dynagrok/examples objectstate -m Move --keep-work -w /tmp/work dynagrok/examples/shapes/client
+
+clean:
+	rm *.instr
+	rm dynagrok

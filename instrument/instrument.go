@@ -191,29 +191,39 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.
 }
 
 func Insert(cfg *analysis.CFG, cfgBlk *analysis.Block, blk []ast.Stmt, j int, stmt ast.Stmt) []ast.Stmt {
-	if cfgBlk == nil {
-		if len(blk) == 0 {
-			cfgBlk = nil
-		} else if j >= len(blk) {
-			j = len(blk)
-			cfgBlk = cfg.GetClosestBlk(len(blk)-1, blk, blk[len(blk)-1])
-		} else if j < 0 {
-			j = 0
-			cfgBlk = cfg.GetClosestBlk(0, blk, blk[0])
-		} else if j == len(blk) {
-			cfgBlk = cfg.GetClosestBlk(j-1, blk, blk[j-1])
-		} else {
-			cfgBlk = cfg.GetClosestBlk(j, blk, blk[j])
-		}
+	if cfg != nil {
 		if cfgBlk == nil {
-			p := cfg.FSet.Position(stmt.Pos())
-			fmt.Printf("nil cfg-blk %T %v %v \n", stmt, analysis.FmtNode(cfg.FSet, stmt), p)
-			// panic(fmt.Errorf("nil cfgBlk"))
+			if len(blk) == 0 {
+				cfgBlk = nil
+			} else if j >= len(blk) {
+				j = len(blk)
+				cfgBlk = cfg.GetClosestBlk(len(blk)-1, blk, blk[len(blk)-1])
+			} else if j < 0 {
+				j = 0
+				cfgBlk = cfg.GetClosestBlk(0, blk, blk[0])
+			} else if j == len(blk) {
+				cfgBlk = cfg.GetClosestBlk(j-1, blk, blk[j-1])
+			} else {
+				cfgBlk = cfg.GetClosestBlk(j, blk, blk[j])
+			}
+			if cfgBlk == nil {
+				p := cfg.FSet.Position(stmt.Pos())
+				fmt.Printf("nil cfg-blk %T %v %v \n", stmt, analysis.FmtNode(cfg.FSet, stmt), p)
+				// panic(fmt.Errorf("nil cfgBlk"))
+			}
+		}
+		if cfgBlk != nil {
+			cfg.AddAllToBlk(cfgBlk, stmt)
+		}
+	} else {
+		if j > len(blk) {
+			j = len(blk)
+		}
+		if j < 0 {
+			j = 0
 		}
 	}
-	if cfgBlk != nil {
-		cfg.AddAllToBlk(cfgBlk, stmt)
-	}
+
 	if cap(blk) <= len(blk)+1 {
 		nblk := make([]ast.Stmt, len(blk), (cap(blk)+1)*2)
 		copy(nblk, blk)

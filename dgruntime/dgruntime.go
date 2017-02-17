@@ -178,6 +178,12 @@ func MethodCall(field string, pos string, obj interface{}) {
 	}
 }
 
+func MethodInput(fnName string, pos string, inputs ...interface{}) {
+}
+
+func MethodOutput(fnName string, pos string, outputs ...interface{}) {
+}
+
 func ExitFunc(name string) {
 	execCheck()
 	g := exec.Goroutine(runtime.GoID())
