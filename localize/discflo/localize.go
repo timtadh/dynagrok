@@ -60,10 +60,20 @@ func Localize(tests []*test.Testcase, score Score, lat *lattice.Lattice) error {
 		fmt.Printf("------------ ranks %d ----------------\n", i)
 		fmt.Println(RankNodes(score, lat, nodes[i].Node.SubGraph))
 		fmt.Println("--------------------------------------")
-		for j, t := range tests {
+		count := 0
+		for {
+			if count >= len(tests) {
+				break
+			}
+			count++
+			j := rand.Intn(len(tests))
+			t := tests[j]
 			min, err := t.Minimize(lat, nodes[i].Node.SubGraph)
 			if err != nil {
 				return err
+			}
+			if min == nil {
+				continue
 			}
 			fmt.Printf("------------ min test %d %d ----------\n", i, j)
 			fmt.Println(min)
