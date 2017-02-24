@@ -45,13 +45,17 @@ func Prs(lat *lattice.Lattice, n *lattice.Node) (prF, prO, prf, pro float64) {
 	O := float64(lat.Ok.G.Graphs)
 	T := F + O
 	f := (float64(n.FIS()))
-	if len(n.SubGraph.E) > 0 {
+	if len(n.SubGraph.E) > 0 || len(n.SubGraph.V) >= 1 {
 		var o float64
 		for i := range n.SubGraph.E {
 			count := lat.Ok.EdgeCounts[n.SubGraph.Colors(i)]
 			o += float64(count)/T
 		}
-		pro = o/float64(len(n.SubGraph.E))
+		for i := range n.SubGraph.V {
+			count := float64(len(lat.Ok.ColorIndex[n.SubGraph.V[i].Color]))
+			o += float64(count)/T
+		}
+		pro = o/float64(len(n.SubGraph.V) + len(n.SubGraph.E))
 	} else {
 		pro = O/T
 	}

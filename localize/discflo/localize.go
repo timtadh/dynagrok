@@ -12,7 +12,9 @@ import (
 
 import (
 	"github.com/timtadh/dynagrok/localize/lattice"
+	"github.com/timtadh/dynagrok/localize/lattice/subgraph"
 	"github.com/timtadh/dynagrok/localize/test"
+	"github.com/timtadh/dynagrok/localize/stat"
 )
 
 // todo
@@ -53,19 +55,46 @@ func Localize(tests []*test.Testcase, score Score, lat *lattice.Lattice) error {
 	sort.Slice(nodes, func(i, j int) bool {
 		return nodes[i].Score > nodes[j].Score
 	})
-	for i := 0; i < 1 && i < len(nodes); i++ {
+	for i := 0; i < 10 && i < len(nodes); i++ {
 		fmt.Println(nodes[i])
+		fmt.Printf("------------ ranks %d ----------------\n", i)
+		fmt.Println(RankNodes(score, lat, nodes[i].Node.SubGraph))
+		fmt.Println("--------------------------------------")
 		for j, t := range tests {
 			min, err := t.Minimize(lat, nodes[i].Node.SubGraph)
 			if err != nil {
 				return err
 			}
-			fmt.Printf("------------ min test %d -------------\n", j)
+			fmt.Printf("------------ min test %d %d ----------\n", i, j)
 			fmt.Println(min)
 			fmt.Println("--------------------------------------")
+			break
 		}
 	}
 	return nil
+}
+
+func RankNodes(score Score, lat *lattice.Lattice, sg *subgraph.SubGraph) stat.Result {
+	result := make(stat.Result, 0, len(sg.V))
+	for i := range sg.V {
+		color := sg.V[i].Color
+		vsg := subgraph.Build(1, 0).FromVertex(color).Build()
+		embIdxs := lat.Fail.ColorIndex[color]
+		embs := make([]*subgraph.Embedding, 0, len(embIdxs))
+		for _, embIdx := range embIdxs {
+			embs = append(embs, subgraph.StartEmbedding(subgraph.VertexEmbedding{SgIdx: 0, EmbIdx: embIdx}))
+		}
+		n := lattice.NewNode(lat, vsg, embs)
+		s := score(lat, n)
+		result = append(result, stat.Location{
+			lat.Positions[color],
+			lat.FnNames[color],
+			lat.BBIds[color],
+			s,
+		})
+	}
+	result.Sort()
+	return result
 }
 
 func Walk(score Score, lat *lattice.Lattice) (*SearchNode) {

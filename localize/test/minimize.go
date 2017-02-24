@@ -83,7 +83,7 @@ func (t *Testcase) minimizeWith(lat *lattice.Lattice, sg *subgraph.SubGraph, f f
 		var mut *Mutant
 		muts, mut = uniform(muts)
 		if mut == nil {
-			errors.Logf("ERROR", "no more muts")
+			// errors.Logf("DEBUG", "no more muts")
 			prev = cur
 			break
 		}
