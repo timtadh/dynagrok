@@ -29,26 +29,44 @@ func (t *Testcase) Minimize(lat *lattice.Lattice, sg *subgraph.SubGraph) (*Testc
 	if !sg.EmbeddedIn(p) {
 		return nil, nil
 	}
+	errors.Logf("DEBUG", "trim suffixes")
 	t, err = t.minimizeWith(lat, sg, func(test *Testcase)[]*Mutant {
-		return test.LineEndTrimmingMuts()
+		return atMost(200, test.LineEndTrimmingMuts())
 	})
 	if err != nil {
 		return nil, err
 	}
+	errors.Logf("DEBUG", "trim prefixes")
 	t, err = t.minimizeWith(lat, sg, func(test *Testcase)[]*Mutant {
-		return test.LineStartTrimmingMuts()
+		return atMost(200, test.LineStartTrimmingMuts())
 	})
 	if err != nil {
 		return nil, err
 	}
+	errors.Logf("DEBUG", "trim lines")
 	t, err = t.minimizeWith(lat, sg, func(test *Testcase)[]*Mutant {
-		return percent(.5, test.LineBlockTrimmingMuts())
+		return atMost(200, test.LineTrimmingMuts())
 	})
 	if err != nil {
 		return nil, err
 	}
+	errors.Logf("DEBUG", "trim blocks of lines")
 	t, err = t.minimizeWith(lat, sg, func(test *Testcase)[]*Mutant {
-		return percent(.05, test.BlockTrimmingMuts())
+		return atMost(350, test.LineBlockTrimmingMuts())
+	})
+	if err != nil {
+		return nil, err
+	}
+	errors.Logf("DEBUG", "trim blocks")
+	t, err = t.minimizeWith(lat, sg, func(test *Testcase)[]*Mutant {
+		return atMost(350, test.BlockTrimmingMuts())
+	})
+	if err != nil {
+		return nil, err
+	}
+	errors.Logf("DEBUG", "trim lines")
+	t, err = t.minimizeWith(lat, sg, func(test *Testcase)[]*Mutant {
+		return atMost(200, test.LineTrimmingMuts())
 	})
 	if err != nil {
 		return nil, err
@@ -94,6 +112,13 @@ func (t *Testcase) minimizeWith(lat *lattice.Lattice, sg *subgraph.SubGraph, f f
 		errors.Logf("DEBUG", "cur %d %d", len(cur.Case), len(muts))
 	}
 	return prev, nil
+}
+
+func atMost(amt int, muts []*Mutant) []*Mutant {
+	for len(muts) > amt {
+		muts = percent(.9, muts)
+	}
+	return muts
 }
 
 func percent(p float64, slice []*Mutant) ([]*Mutant) {

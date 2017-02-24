@@ -1,6 +1,7 @@
 package test
 
-import ()
+import (
+)
 
 type Mutant struct {
 	Test *Testcase
@@ -26,7 +27,7 @@ func (m *Mutant) Testcase() *Testcase {
 	right := m.Test.Case[m.J+1:]
 	buf := make([]byte, len(left) + len(right))
 	copy(buf[:len(left)], left)
-	copy(buf[len(left):], left)
+	copy(buf[len(left):], right)
 	return Test(m.Test.Remote, buf)
 }
 
@@ -94,6 +95,30 @@ func (t *Testcase) LineStartTrimmingMuts() []*Mutant {
 	return muts
 }
 
+func (t *Testcase) LineTrimmingMuts() []*Mutant {
+	safe := func(i int) int {
+		for i > len(t.Case) {
+			i--
+		}
+		if i < 0 {
+			i = 0
+		}
+		return i
+	}
+	lines := t.Lines()
+	muts := make([]*Mutant, 0, len(lines))
+	for idx := 0; idx < len(lines)-1; idx++ {
+		i := safe(lines[idx] + 1)
+		j := safe(lines[idx + 1])
+		muts = append(muts, &Mutant{
+			Test: t,
+			I: i,
+			J: j,
+		})
+	}
+	return muts
+}
+
 func (t *Testcase) LineBlockTrimmingMuts() []*Mutant {
 	safe := func(i int) int {
 		for i > len(t.Case) {
@@ -112,7 +137,10 @@ func (t *Testcase) LineBlockTrimmingMuts() []*Mutant {
 			len(lines))
 		for eIdx := sIdx+1; eIdx < end; eIdx++ {
 			i := safe(lines[sIdx] + 1)
-			j := safe(lines[eIdx] - 1)
+			j := safe(lines[eIdx])
+			if i + 1 >= j {
+				continue
+			}
 			muts = append(muts, &Mutant{
 				Test: t,
 				I: i,
@@ -125,7 +153,7 @@ func (t *Testcase) LineBlockTrimmingMuts() []*Mutant {
 
 func (t *Testcase) BlockTrimmingMuts() []*Mutant {
 	muts := make([]*Mutant, 0, len(t.Case))
-	for i := 1; i < len(t.Case); i++ {
+	for i := 0; i < len(t.Case); i++ {
 		end := min(
 			i+min(max(15, int(.1*float64(len(t.Case)))), 100),
 			len(t.Case))
