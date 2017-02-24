@@ -1,8 +1,15 @@
 package test
 
 import (
+	"bytes"
 	"hash/fnv"
 )
+
+import (
+	"github.com/timtadh/dynagrok/localize/lattice"
+	"github.com/timtadh/dynagrok/localize/lattice/digraph"
+)
+
 
 type Testcase struct {
 	Remote   *Remote
@@ -47,6 +54,15 @@ func (t *Testcase) Profile() []byte {
 	return t.profile
 }
 
+func (t *Testcase) Digraph(l *lattice.Lattice) (*digraph.Indices, error) {
+	var buf bytes.Buffer
+	_, err := buf.Write(t.Profile())
+	if err != nil {
+		return nil, err
+	}
+	return digraph.LoadDot(l.Positions, l.FnNames, l.BBIds, l.Labels, &buf)
+}
+
 func (t *Testcase) Hash() int {
 	h := fnv.New64a()
 	h.Write(t.Case)
@@ -65,66 +81,4 @@ func (t *Testcase) Execute() error {
 	t.ok = ok && len(fails) <= 0
 	t.profile = profile
 	return nil
-}
-
-func (t *Testcase) MinimizingMuts() []func()*Testcase {
-	type slice struct {
-		i, j int
-	}
-	fromSlice := func(s slice) *Testcase {
-		left := t.Case[:s.i]
-		right := t.Case[s.j+1:]
-		buf := make([]byte, len(left) + len(right))
-		copy(buf[:len(left)], left)
-		copy(buf[len(left):], left)
-		return Test(t.Remote, buf)
-	}
-	// min := func(i, j int) int {
-	// 	if i < j {
-	// 		return i
-	// 	}
-	// 	return j
-	// }
-	// max := func(i, j int) int {
-	// 	if i > j {
-	// 		return i
-	// 	}
-	// 	return j
-	// }
-	slices := make([]slice, 0, 10)
-	// prefixes
-	// for i := 0; i < len(t.Case)-1; i++ {
-	// 	slices = append(slices, slice{
-	// 		i: 0,
-	// 		j: i,
-	// 	})
-	// }
-	// suffixes
-	for i := 1; i < len(t.Case); i++ {
-		slices = append(slices, slice{
-			i: i,
-			j: len(t.Case)-1,
-		})
-	}
-	// blocks
-	// for i := 1; i < len(t.Case); i++ {
-	// 	end := min(
-	// 		i+min(max(15, int(.1*float64(len(t.Case)))), 100),
-	// 		len(t.Case))
-	// 	for j := i+1; j < end; j++ {
-	// 		slices = append(slices, slice{
-	// 			i: i,
-	// 			j: j,
-	// 		})
-	// 	}
-	// }
-	tests := make([]func()*Testcase, 0, len(slices))
-	for _, s := range slices {
-		tests = append(tests, func(s slice) func() *Testcase {
-			return func() *Testcase {
-				return fromSlice(s)
-			}
-		}(s))
-	}
-	return tests
 }
