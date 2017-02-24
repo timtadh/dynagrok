@@ -22,6 +22,7 @@ func init() {
 		"swro": "SizeWeightedRelativeOchiai",
 		"rp": "RelativePrecision",
 		"rf1": "RelativeF1",
+		"rj": "RelativeJaccard",
 		"ro": "RelativeOchiai",
 		"precision": "Precision",
 		"p": "Precision",
@@ -113,6 +114,12 @@ var Scores = map[string]Score {
 		b := prF/(prF + prO)
 		prt := prf + pro
 		s := 2 * (prt/(prF + prt)) * (a - b)
+		return s
+	},
+	"RelativeJaccard": func(lat *lattice.Lattice, n *lattice.Node) float64 {
+		prF, prO, prf, pro := Prs(lat, n)
+		b := prF/(prF + prO)
+		s := ((prf / (prF + pro)) - b)
 		return s
 	},
 	"RelativeOchiai": func(lat *lattice.Lattice, n *lattice.Node) float64 {

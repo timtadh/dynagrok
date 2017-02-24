@@ -105,6 +105,7 @@ Option Flags
 		}
 		var fails bytes.Buffer
 		tests := make([]*test.Testcase, 0, len(testBits))
+		count := 0
 		for i, bits := range testBits {
 			t := test.Test(remote, bits)
 			err := t.Execute()
@@ -112,6 +113,10 @@ Option Flags
 				return nil, cmd.Usage(r, 2, "Could not execute the test %d. err: %v", i, err)
 			}
 			if !t.Usable() {
+				count++
+				if count < 10 {
+					continue
+				}
 				return nil, cmd.Usage(r, 2, "Can't use test %d", i)
 			}
 			_, err = fails.Write(t.Profile())
