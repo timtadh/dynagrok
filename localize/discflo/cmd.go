@@ -135,11 +135,14 @@ Option Flags
 		if err != nil {
 			return nil, cmd.Err(3, err)
 		}
-		err = Localize(tests, method, lat)
+		result, err := Localize(tests, method, lat)
 		if err != nil {
 			return nil, cmd.Err(3, err)
 		}
-		fmt.Println()
+		fmt.Println("results for graph boosted statistical fault localization")
+		fmt.Println(result.StatResult())
+		fmt.Println("results for line based statistical fault localization")
+		fmt.Println(LocalizeNodes(method, lat))
 		return nil, nil
 	}))
 }

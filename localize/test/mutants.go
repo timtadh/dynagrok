@@ -31,32 +31,6 @@ func (m *Mutant) Testcase() *Testcase {
 	return Test(m.Test.Remote, buf)
 }
 
-func (t *Testcase) MinimizingMuts() []*Mutant {
-	muts := make([]*Mutant, 0, 10)
-	// suffixes
-	muts = append(muts, t.LineEndTrimmingMuts()...)
-	// prefixes
-	// for i := 0; i < len(t.Case)-1; i++ {
-	// 	slices = append(slices, slice{
-	// 		i: 0,
-	// 		j: i,
-	// 	})
-	// }
-	// blocks
-	// for i := 1; i < len(t.Case); i++ {
-	// 	end := min(
-	// 		i+min(max(15, int(.1*float64(len(t.Case)))), 100),
-	// 		len(t.Case))
-	// 	for j := i+1; j < end; j++ {
-	// 		slices = append(slices, slice{
-	// 			i: i,
-	// 			j: j,
-	// 		})
-	// 	}
-	// }
-	return muts
-}
-
 func (t *Testcase) EndTrimmingMuts() []*Mutant {
 	muts := make([]*Mutant, 0, len(t.Case))
 	for i := 1; i < len(t.Case); i++ {
@@ -155,7 +129,7 @@ func (t *Testcase) BlockTrimmingMuts() []*Mutant {
 	muts := make([]*Mutant, 0, len(t.Case))
 	for i := 0; i < len(t.Case); i++ {
 		end := min(
-			i+min(max(15, int(.1*float64(len(t.Case)))), 100),
+			i+min(max(15, int(.1*float64(len(t.Case)))), 10),
 			len(t.Case))
 		for j := i+1; j < end; j++ {
 			muts = append(muts, &Mutant{

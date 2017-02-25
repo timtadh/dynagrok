@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"sort"
+	"strings"
 )
 
 import (
@@ -17,25 +18,96 @@ import (
 	"github.com/timtadh/dynagrok/localize/stat"
 )
 
-// todo
-// - make it possible to compute a statistical measure on a subgraph
-// - use a subgraph measure to guide a discriminative search
-// - make the measure statisfy downward closure?
-//         (a < b) --> (m(a) >= m(b))
-// - read the leap search paper again
 
 
 type SearchNode struct {
 	Node  *lattice.Node
 	Score float64
+	Test  *test.Testcase
 }
 
 func (s *SearchNode) String() string {
 	return fmt.Sprintf("%v %v", s.Score, s.Node)
 }
 
-func Localize(tests []*test.Testcase, score Score, lat *lattice.Lattice) error {
-	WALKS := 500
+type Location struct {
+	stat.Location
+	Graphs   []*SearchNode
+}
+
+func (l *Location) String() string {
+	graphLine := "--------------------- graph %-2v ----------------------------"
+	testLine  := "---------------------- test %-2v ----------------------------"
+	parts := make([]string, 0, len(l.Graphs))
+	for i, g := range l.Graphs {
+		parts = append(parts, fmt.Sprintf(graphLine, i))
+		parts = append(parts, g.String())
+		parts = append(parts, fmt.Sprintf(testLine, i))
+		parts = append(parts, fmt.Sprintf("%v", g.Test))
+	}
+	graphs := strings.Join(parts, "\n")
+	return fmt.Sprintf(
+`---------------------- location ---------------------------
+Position: %v
+Function: %v
+BasicBlock: %v
+------------------------ score ----------------------------
+Score: %v
+%v
+-----------------------------------------------------------`, l.Position, l.FnName, l.BasicBlockId, l.Score, graphs)
+}
+
+func (l *Location) ShortString() string {
+	return fmt.Sprintf("%v", &l.Location)
+}
+
+type Result []Location
+
+func (r Result) StatResult() stat.Result {
+	result := make(stat.Result, 0, len(r))
+	for _, l := range r {
+		result = append(result, l.Location)
+	}
+	return result
+}
+
+func (r Result) String() string {
+	parts := make([]string, 0, len(r))
+	for _, l := range r {
+		parts = append(parts, l.String())
+	}
+	return strings.Join(parts, "\n")
+}
+
+func (r Result) Sort() {
+	sort.SliceStable(r, func(i, j int) bool {
+		return r[i].Score > r[j].Score
+	})
+}
+
+func LocalizeNodes(score Score, lat *lattice.Lattice) stat.Result {
+	result := make(stat.Result, 0, len(lat.Fail.ColorIndex))
+	for color, embIdxs := range lat.Fail.ColorIndex {
+		vsg := subgraph.Build(1, 0).FromVertex(color).Build()
+		embs := make([]*subgraph.Embedding, 0, len(embIdxs))
+		for _, embIdx := range embIdxs {
+			embs = append(embs, subgraph.StartEmbedding(subgraph.VertexEmbedding{SgIdx: 0, EmbIdx: embIdx}))
+		}
+		n := lattice.NewNode(lat, vsg, embs)
+		s := score(lat, n)
+		result = append(result, stat.Location{
+			lat.Positions[color],
+			lat.FnNames[color],
+			lat.BBIds[color],
+			s,
+		})
+	}
+	result.Sort()
+	return result
+}
+
+func Localize(tests []*test.Testcase, score Score, lat *lattice.Lattice) (Result, error) {
+	WALKS := 10
 	nodes := make([]*SearchNode, 0, WALKS)
 	seen := make(map[string]bool, WALKS)
 	for i := 0; i < WALKS; i++ {
@@ -63,28 +135,33 @@ func Localize(tests []*test.Testcase, score Score, lat *lattice.Lattice) error {
 		for j := range nodes[i].Node.SubGraph.V {
 			colors[nodes[i].Node.SubGraph.V[j].Color] = append(colors[nodes[i].Node.SubGraph.V[j].Color], nodes[i])
 		}
-		fmt.Println(nodes[i])
-		fmt.Printf("------------ ranks %d ----------------\n", i)
-		fmt.Println(RankNodes(score, lat, nodes[i].Node.SubGraph))
-		fmt.Println("--------------------------------------")
-		for count := 0; count < len(tests) ; count++ {
-			j := rand.Intn(len(tests))
-			t := tests[j]
-			min, err := t.Minimize(lat, nodes[i].Node.SubGraph)
-			if err != nil {
-				return err
-			}
-			if min == nil {
-				continue
-			}
-			fmt.Printf("------------ min test %d %d ----------\n", i, j)
-			fmt.Println(min)
+	}
+	result := RankColors(score, lat, colors)
+	if false {
+		for i := 0; i < 10 && i < len(nodes); i++ {
+			fmt.Println(nodes[i])
+			fmt.Printf("------------ ranks %d ----------------\n", i)
+			fmt.Println(RankNodes(score, lat, nodes[i].Node.SubGraph))
 			fmt.Println("--------------------------------------")
-			break
+			for count := 0; count < len(tests) ; count++ {
+				j := rand.Intn(len(tests))
+				t := tests[j]
+				min, err := t.Minimize(lat, nodes[i].Node.SubGraph)
+				if err != nil {
+					return nil, err
+				}
+				if min == nil {
+					continue
+				}
+				nodes[i].Test = min
+				fmt.Printf("------------ min test %d %d ----------\n", i, j)
+				fmt.Println(min)
+				fmt.Println("--------------------------------------")
+				break
+			}
 		}
 	}
-	fmt.Println(RankColors(score, lat, colors))
-	return nil
+	return result, nil
 }
 
 func RankNodes(score Score, lat *lattice.Lattice, sg *subgraph.SubGraph) stat.Result {
@@ -110,8 +187,8 @@ func RankNodes(score Score, lat *lattice.Lattice, sg *subgraph.SubGraph) stat.Re
 	return result
 }
 
-func RankColors(score Score, lat *lattice.Lattice, colors map[int][]*SearchNode) stat.Result {
-	result := make(stat.Result, 0, len(colors))
+func RankColors(score Score, lat *lattice.Lattice, colors map[int][]*SearchNode) Result {
+	result := make(Result, 0, len(colors))
 	for color, searchNodes := range colors {
 		vsg := subgraph.Build(1, 0).FromVertex(color).Build()
 		embIdxs := lat.Fail.ColorIndex[color]
@@ -126,11 +203,14 @@ func RankColors(score Score, lat *lattice.Lattice, colors map[int][]*SearchNode)
 			s += sn.Score
 		}
 		s = (colorScore * s) / float64(len(searchNodes))
-		result = append(result, stat.Location{
-			lat.Positions[color],
-			lat.FnNames[color],
-			lat.BBIds[color],
-			s,
+		result = append(result, Location{
+			stat.Location{
+				lat.Positions[color],
+				lat.FnNames[color],
+				lat.BBIds[color],
+				s,
+			},
+			searchNodes,
 		})
 	}
 	result.Sort()
@@ -169,7 +249,7 @@ func filterKids(score Score, parentScore float64, lat *lattice.Lattice, kids []*
 		}
 		kidScore := score(lat, kid)
 		if kidScore > parentScore {
-			entries = append(entries, &SearchNode{kid, kidScore})
+			entries = append(entries, &SearchNode{kid, kidScore, nil})
 		}
 	}
 	return entries
