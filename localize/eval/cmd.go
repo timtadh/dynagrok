@@ -95,7 +95,7 @@ Option Flags
 		}
 		dflo := func(s discflo.Score) stat.Method {
 			return func(lat *lattice.Lattice) stat.Result {
-				r, err := discflo.Localize(o.Walks, nil, nil, s, lat)
+				r, err := o.LocalizeWithScore(s)
 				if err != nil {
 					panic(err)
 				}

@@ -186,15 +186,23 @@ func NewRunner(c *cmd.Config, o *Options) cmd.Runnable {
 		if o.Score == nil {
 			return nil, cmd.Usage(r, 2, "You must supply a score (see -s or --scores)")
 		}
-		var tests []*test.Testcase
-		if o.Minimize {
-			tests = o.Tests
-		}
-		result, err := Localize(o.Walks, tests, o.Oracle, o.Score, o.Lattice)
+		result, err := o.Localize()
 		if err != nil {
 			return nil, cmd.Err(3, err)
 		}
 		fmt.Println(result.StatResult())
 		return nil, nil
 	})
+}
+
+func (o *Options) Localize() (Result, error) {
+	return o.LocalizeWithScore(o.Score)
+}
+
+func (o *Options) LocalizeWithScore(s Score) (Result, error) {
+	var tests []*test.Testcase
+	if o.Minimize {
+		tests = o.Tests
+	}
+	return Localize(o.Walks, tests, o.Oracle, s, o.Lattice)
 }
