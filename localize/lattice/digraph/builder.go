@@ -69,7 +69,9 @@ func (b *Builder) Build(indexVertex func(*Vertex), indexEdge func(*Edge)) *Digra
 			indexVertex(&g.V[i])
 		}
 	}
-	errors.Logf("DEBUG", "Built vertex indices about to build edge indices")
+	if false {
+		errors.Logf("DEBUG", "Built vertex indices about to build edge indices")
+	}
 	for i := range b.E {
 		g.E[i].Src = b.E[i].Src
 		g.E[i].Targ = b.E[i].Targ

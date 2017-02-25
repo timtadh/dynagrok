@@ -13,18 +13,19 @@ import (
 
 import (
 	"github.com/timtadh/dynagrok/cmd"
+	"github.com/timtadh/dynagrok/localize/discflo"
 	"github.com/timtadh/dynagrok/localize/stat"
 	"github.com/timtadh/dynagrok/localize/lattice"
 )
 
 type Options struct {
-	stat.Options
+	discflo.Options
 	FailuresPath string
 }
 
 func NewCommand(c *cmd.Config) cmd.Runnable {
 	var o Options
-	optsParser := stat.NewOptionParser(c, &o.Options)
+	optsParser := discflo.NewOptionParser(c, &o.Options)
 	return cmd.Concat(cmd.Cmd(
 	"eval",
 	`[options]`,
@@ -72,12 +73,8 @@ Option Flags
 		if err != nil {
 			return nil, cmd.Err(1, err)
 		}
-		lat, err := lattice.Load(o.FailsPath, o.OksPath)
-		if err != nil {
-			return nil, cmd.Err(1, err)
-		}
-		eval := func(f *Failure, name string, m stat.Method) {
-			localized := Group(m(lat))
+		eval := func(f *Failure, name string, method stat.Method) {
+			localized := Group(method(o.Lattice))
 			sum := 0
 			for _, g := range localized {
 				for _, l := range g {
@@ -96,14 +93,33 @@ Option Flags
 				sum += len(g)
 			}
 		}
+		dflo := func(s discflo.Score) stat.Method {
+			return func(lat *lattice.Lattice) stat.Result {
+				r, err := discflo.Localize(o.Walks, o.Tests, s, lat)
+				if err != nil {
+					panic(err)
+				}
+				return r.StatResult()
+			}
+		}
 		for _, f := range failures {
 			fmt.Println(f)
-			if o.Method == nil {
-				for name, method := range stat.Methods {
-					eval(f, name, method)
+			if o.Score == nil {
+				for name, score := range discflo.Scores {
+					eval(f, name, func(s discflo.Score) stat.Method {
+						return func(lat *lattice.Lattice) stat.Result {
+							return discflo.LocalizeNodes(s, lat)
+						}
+					}(score))
+					eval(f, "Discflo + "+name, dflo(score))
 				}
 			} else {
-				eval(f, o.MethodName, o.Method)
+				eval(f, o.ScoreName, func(s discflo.Score) stat.Method {
+					return func(lat *lattice.Lattice) stat.Result {
+						return discflo.LocalizeNodes(s, lat)
+					}
+				}(o.Score))
+				eval(f, "Discflo + "+o.ScoreName, dflo(o.Score))
 			}
 		}
 		return nil, nil

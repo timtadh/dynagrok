@@ -30,6 +30,13 @@ const (
 type EmbIterator func(bool) (*Embedding, EmbIterator)
 
 
+func (sg *SubGraph) EmbeddedIn(indices *digraph.Indices) bool {
+	for _, next := sg.IterEmbeddings(MostConnected, indices, nil, nil)(false); next != nil; _, next = next(true) {
+		return true
+	}
+	return false
+}
+
 func (sg *SubGraph) searchStartingPoint(mode EmbSearchStartPoint, indices *digraph.Indices, overlap []map[int]bool) int {
 	switch mode {
 	case LeastFrequent:
