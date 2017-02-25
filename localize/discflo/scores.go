@@ -16,10 +16,10 @@ var scoreNames map[string][]string
 
 func init() {
 	scoreAbbrvs = map[string]string{
-		"swrp": "SizeWeightedRelativePrecision",
-		"swrf1": "SizeWeightedRelativeF1",
-		"swrj": "SizeWeightedRelativeJaccard",
-		"swro": "SizeWeightedRelativeOchiai",
+		// "swrp": "SizeWeightedRelativePrecision",
+		// "swrf1": "SizeWeightedRelativeF1",
+		// "swrj": "SizeWeightedRelativeJaccard",
+		// "swro": "SizeWeightedRelativeOchiai",
 		"rp": "RelativePrecision",
 		"rf1": "RelativeF1",
 		"rj": "RelativeJaccard",
@@ -64,43 +64,43 @@ func Prs(lat *lattice.Lattice, n *lattice.Node) (prF, prO, prf, pro float64) {
 }
 
 var Scores = map[string]Score {
-	"SizeWeightedRelativePrecision": func(lat *lattice.Lattice, n *lattice.Node) float64 {
-		prF, prO, prf, pro := Prs(lat, n)
-		E := float64(len(lat.Fail.G.E))
-		e := float64(len(n.SubGraph.E)) + 1
-		a := prf/(prf + pro)
-		b := prF/(prF + prO)
-		s := ((e+1)/E) * (a - b)
-		return s
-	},
-	"SizeWeightedRelativeF1": func(lat *lattice.Lattice, n *lattice.Node) float64 {
-		prF, prO, prf, pro := Prs(lat, n)
-		E := float64(len(lat.Fail.G.E))
-		e := float64(len(n.SubGraph.E)) + 1
-		a := prf/(prf + pro)
-		b := prF/(prF + prO)
-		prt := prf + pro
-		s := ((e+1)/E) * 2 * (prt/(prF + prt)) * (a - b)
-		return s
-	},
-	"SizeWeightedRelativeJaccard": func(lat *lattice.Lattice, n *lattice.Node) float64 {
-		prF, prO, prf, pro := Prs(lat, n)
-		E := float64(len(lat.Fail.G.E))
-		e := float64(len(n.SubGraph.E)) + 1
-		b := prF/(prF + prO)
-		s := ((e+1)/E) * ((prf / (prF + pro)) - b)
-		return s
-	},
-	"SizeWeightedRelativeOchiai": func(lat *lattice.Lattice, n *lattice.Node) float64 {
-		prF, prO, prf, pro := Prs(lat, n)
-		E := float64(len(lat.Fail.G.E))
-		e := float64(len(n.SubGraph.E)) + 1
-		prt := prf + pro
-		a := prf/(prf + pro)
-		b := prF/(prF + prO)
-		s := ((e+1)/E) * math.Sqrt((prt/prF)) * (a - b)
-		return s
-	},
+	// "SizeWeightedRelativePrecision": func(lat *lattice.Lattice, n *lattice.Node) float64 {
+	// 	prF, prO, prf, pro := Prs(lat, n)
+	// 	E := float64(len(lat.Fail.G.E))
+	// 	e := float64(len(n.SubGraph.E)) + 1
+	// 	a := prf/(prf + pro)
+	// 	b := prF/(prF + prO)
+	// 	s := ((e+1)/E) * (a - b)
+	// 	return s
+	// },
+	// "SizeWeightedRelativeF1": func(lat *lattice.Lattice, n *lattice.Node) float64 {
+	// 	prF, prO, prf, pro := Prs(lat, n)
+	// 	E := float64(len(lat.Fail.G.E))
+	// 	e := float64(len(n.SubGraph.E)) + 1
+	// 	a := prf/(prf + pro)
+	// 	b := prF/(prF + prO)
+	// 	prt := prf + pro
+	// 	s := ((e+1)/E) * 2 * (prt/(prF + prt)) * (a - b)
+	// 	return s
+	// },
+	// "SizeWeightedRelativeJaccard": func(lat *lattice.Lattice, n *lattice.Node) float64 {
+	// 	prF, prO, prf, pro := Prs(lat, n)
+	// 	E := float64(len(lat.Fail.G.E))
+	// 	e := float64(len(n.SubGraph.E)) + 1
+	// 	b := prF/(prF + prO)
+	// 	s := ((e+1)/E) * ((prf / (prF + pro)) - b)
+	// 	return s
+	// },
+	// "SizeWeightedRelativeOchiai": func(lat *lattice.Lattice, n *lattice.Node) float64 {
+	// 	prF, prO, prf, pro := Prs(lat, n)
+	// 	E := float64(len(lat.Fail.G.E))
+	// 	e := float64(len(n.SubGraph.E)) + 1
+	// 	prt := prf + pro
+	// 	a := prf/(prf + pro)
+	// 	b := prF/(prF + prO)
+	// 	s := ((e+1)/E) * math.Sqrt((prt/prF)) * (a - b)
+	// 	return s
+	// },
 	"RelativePrecision": func(lat *lattice.Lattice, n *lattice.Node) float64 {
 		prF, prO, prf, pro := Prs(lat, n)
 		a := prf/(prf + pro)

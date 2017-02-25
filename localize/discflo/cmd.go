@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"fmt"
 	"strings"
+	"strconv"
 )
 
 import (
@@ -18,9 +19,25 @@ import (
 	"github.com/timtadh/dynagrok/localize/test"
 )
 
+type Options struct {
+	Lattice   *lattice.Lattice
+	Remote    *test.Remote
+	Tests     []*test.Testcase
+	Score     Score
+	ScoreName string
+	Walks     int
+}
 
 func NewCommand(c *cmd.Config) cmd.Runnable {
-	return cmd.Concat(cmd.Cmd(
+	var o Options
+	return cmd.Concat(
+		NewOptionParser(c, &o),
+		NewRunner(c, &o),
+	)
+}
+
+func NewOptionParser(c *cmd.Config, o *Options) cmd.Runnable {
+	return cmd.Cmd(
 	"disc-flo",
 	`[options]`,
 	`
@@ -39,20 +56,21 @@ Option Flags
     -t,--test=<path>                  Failing test case to minimize. (May be
                                       specified multiple times or with a comma
                                       separated list).
-    -m,--method=<method>              Statistical method to use
-    --methods                         List localization methods available
+    -s,--score=<score>                Suspiciousness score to use
+    --scores                          List of available suspiciousness scores
+	-w,--walks=<int>                  Number of walks to perform (default: 100)
 `,
-	"m:b:t:",
+	"s:b:t:w:",
 	[]string{
 		"binary=",
 		"test=",
-		"method=",
-		"methods",
+		"score=",
+		"scores",
+		"walks=",
 	},
 	func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
-		var remote *test.Remote
-        var testBits [][]byte
-		var method Score
+		o.Walks = 100
+		var testBits [][]byte
 		for _, oa := range optargs {
 			switch oa.Opt() {
 			case "-b", "--binary":
@@ -60,8 +78,8 @@ Option Flags
 				if err != nil {
 					return nil, cmd.Err(1, err)
 				}
-				remote = r
-            case "-t", "--test":
+				o.Remote = r
+			case "-t", "--test":
 				for _, path := range strings.Split(oa.Arg(), ",") {
 					fmt.Println("test", path)
 					if f, err := os.Open(path); err != nil {
@@ -75,39 +93,46 @@ Option Flags
 						testBits = append(testBits, bits)
 					}
 				}
-			case "-m", "--method":
+			case "-s", "--score":
 				name := oa.Arg()
 				if n, has := scoreAbbrvs[oa.Arg()]; has {
 					name = n
 				}
 				if m, has := Scores[name]; has {
 					fmt.Println("using method", name)
-					method = m
+					o.Score = m
+					o.ScoreName = name
 				} else {
 					return nil, cmd.Errorf(1, "Localization method '%v' is not supported. (use --methods to get a list)", oa.Arg())
 				}
-			case "--methods":
-				fmt.Println("Graphs Scoring Method Names (and Abbrevations):")
+			case "--scores":
+				fmt.Println("\nNames of Suspicousness Scores (and Abbrevations):")
 				for name, abbrvs := range scoreNames {
 					fmt.Printf("  - %v : [%v]\n", name, strings.Join(abbrvs, ", "))
 				}
-				return nil, nil
+				return nil, cmd.Errorf(0, "")
+			case "-w","--walks":
+				w, err := strconv.Atoi(oa.Arg())
+				if err != nil {
+					return nil, cmd.Errorf(1, "Could not parse arg to `%v` expected an int (got %v). err: %v", oa.Opt(), oa.Arg(), err)
+				}
+				o.Walks = w
 			}
 		}
 		if len(args) < 1 {
 			return nil, cmd.Usage(r, 2, "Expected an argument for successful test profiles got: [%v]", strings.Join(args, ", "))
 		}
-		if method == nil {
-			return nil, cmd.Usage(r, 2, "You must supply a method (see -m or --methods)")
+		if len(testBits) < 1 {
+			return nil, cmd.Usage(r, 2, "Expected at least one test. (see -t)")
 		}
-		if remote == nil {
+		if o.Remote == nil {
 			return nil, cmd.Usage(r, 2, "You must supply a binary (see -b)")
 		}
 		var fails bytes.Buffer
 		tests := make([]*test.Testcase, 0, len(testBits))
 		count := 0
 		for i, bits := range testBits {
-			t := test.Test(remote, bits)
+			t := test.Test(o.Remote, bits)
 			err := t.Execute()
 			if err != nil {
 				return nil, cmd.Usage(r, 2, "Could not execute the test %d. err: %v", i, err)
@@ -125,24 +150,35 @@ Option Flags
 			}
 			tests = append(tests, t)
 		}
+		o.Tests = tests
 		oksPath := args[0]
 		oks, okClose, err := cmd.Input(oksPath)
 		if err != nil {
 			return nil, cmd.Usage(r, 2, "Could not open ok profiles, %v. err: %v", oksPath, err)
 		}
 		defer okClose()
-		lat, err := lattice.LoadFrom(&fails, oks)
+		o.Lattice, err = lattice.LoadFrom(&fails, oks)
 		if err != nil {
 			return nil, cmd.Err(3, err)
 		}
-		result, err := Localize(tests, method, lat)
+		return args[1:], nil
+	})
+}
+
+func NewRunner(c *cmd.Config, o *Options) cmd.Runnable {
+	return cmd.BareCmd(
+	func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
+		if o.Score == nil {
+			return nil, cmd.Usage(r, 2, "You must supply a score (see -s or --scores)")
+		}
+		result, err := Localize(o.Walks, o.Tests, o.Score, o.Lattice)
 		if err != nil {
 			return nil, cmd.Err(3, err)
 		}
 		fmt.Println("results for graph boosted statistical fault localization")
 		fmt.Println(result.StatResult())
 		fmt.Println("results for line based statistical fault localization")
-		fmt.Println(LocalizeNodes(method, lat))
+		fmt.Println(LocalizeNodes(o.Score, o.Lattice))
 		return nil, nil
-	}))
+	})
 }

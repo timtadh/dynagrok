@@ -106,8 +106,8 @@ func LocalizeNodes(score Score, lat *lattice.Lattice) stat.Result {
 	return result
 }
 
-func Localize(tests []*test.Testcase, score Score, lat *lattice.Lattice) (Result, error) {
-	WALKS := 10
+func Localize(walks int, tests []*test.Testcase, score Score, lat *lattice.Lattice) (Result, error) {
+	WALKS := walks
 	nodes := make([]*SearchNode, 0, WALKS)
 	seen := make(map[string]bool, WALKS)
 	for i := 0; i < WALKS; i++ {
