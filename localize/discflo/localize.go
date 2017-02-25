@@ -137,7 +137,7 @@ func Localize(walks int, tests []*test.Testcase, score Score, lat *lattice.Latti
 		}
 	}
 	result := RankColors(score, lat, colors)
-	if false {
+	if len(tests) > 0 {
 		for i := 0; i < 10 && i < len(nodes); i++ {
 			fmt.Println(nodes[i])
 			fmt.Printf("------------ ranks %d ----------------\n", i)

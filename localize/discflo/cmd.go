@@ -26,6 +26,7 @@ type Options struct {
 	Score     Score
 	ScoreName string
 	Walks     int
+	Minimize  bool
 }
 
 func NewCommand(c *cmd.Config) cmd.Runnable {
@@ -58,7 +59,8 @@ Option Flags
                                       separated list).
     -s,--score=<score>                Suspiciousness score to use
     --scores                          List of available suspiciousness scores
-	-w,--walks=<int>                  Number of walks to perform (default: 100)
+    -w,--walks=<int>                  Number of walks to perform (default: 100)
+    --minimize-tests                  Do the test case minimization
 `,
 	"s:b:t:w:",
 	[]string{
@@ -67,6 +69,7 @@ Option Flags
 		"score=",
 		"scores",
 		"walks=",
+		"minimize-tests",
 	},
 	func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
 		o.Walks = 100
@@ -117,6 +120,8 @@ Option Flags
 					return nil, cmd.Errorf(1, "Could not parse arg to `%v` expected an int (got %v). err: %v", oa.Opt(), oa.Arg(), err)
 				}
 				o.Walks = w
+			case "--minimize-tests":
+				o.Minimize = true
 			}
 		}
 		if len(args) < 1 {
@@ -171,14 +176,15 @@ func NewRunner(c *cmd.Config, o *Options) cmd.Runnable {
 		if o.Score == nil {
 			return nil, cmd.Usage(r, 2, "You must supply a score (see -s or --scores)")
 		}
-		result, err := Localize(o.Walks, o.Tests, o.Score, o.Lattice)
+		var tests []*test.Testcase
+		if o.Minimize {
+			tests = o.Tests
+		}
+		result, err := Localize(o.Walks, tests, o.Score, o.Lattice)
 		if err != nil {
 			return nil, cmd.Err(3, err)
 		}
-		fmt.Println("results for graph boosted statistical fault localization")
 		fmt.Println(result.StatResult())
-		fmt.Println("results for line based statistical fault localization")
-		fmt.Println(LocalizeNodes(o.Score, o.Lattice))
 		return nil, nil
 	})
 }
