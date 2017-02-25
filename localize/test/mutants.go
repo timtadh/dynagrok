@@ -43,13 +43,26 @@ func (t *Testcase) EndTrimmingMuts() []*Mutant {
 	return muts
 }
 
+func (t *Testcase) safe(i int) int {
+	for i > len(t.Case) {
+		i--
+	}
+	if i < 0 {
+		i = 0
+	}
+	return i
+}
+
 func (t *Testcase) LineEndTrimmingMuts() []*Mutant {
 	lines := t.Lines()
 	muts := make([]*Mutant, 0, len(lines))
 	for _, i := range lines {
+		if t.safe(i + 1) >= len(t.Case) - 1 {
+			continue
+		}
 		muts = append(muts, &Mutant{
 			Test: t,
-			I: i,
+			I: t.safe(i + 1),
 			J: len(t.Case)-1,
 		})
 	}
@@ -70,20 +83,11 @@ func (t *Testcase) LineStartTrimmingMuts() []*Mutant {
 }
 
 func (t *Testcase) LineTrimmingMuts() []*Mutant {
-	safe := func(i int) int {
-		for i > len(t.Case) {
-			i--
-		}
-		if i < 0 {
-			i = 0
-		}
-		return i
-	}
 	lines := t.Lines()
 	muts := make([]*Mutant, 0, len(lines))
 	for idx := 0; idx < len(lines)-1; idx++ {
-		i := safe(lines[idx] + 1)
-		j := safe(lines[idx + 1])
+		i := t.safe(lines[idx] + 1)
+		j := t.safe(lines[idx + 1])
 		muts = append(muts, &Mutant{
 			Test: t,
 			I: i,
@@ -94,15 +98,6 @@ func (t *Testcase) LineTrimmingMuts() []*Mutant {
 }
 
 func (t *Testcase) LineBlockTrimmingMuts() []*Mutant {
-	safe := func(i int) int {
-		for i > len(t.Case) {
-			i--
-		}
-		if i < 0 {
-			i = 0
-		}
-		return i
-	}
 	lines := t.Lines()
 	muts := make([]*Mutant, 0, len(lines))
 	for sIdx := 0; sIdx < len(lines); sIdx++ {
@@ -110,8 +105,8 @@ func (t *Testcase) LineBlockTrimmingMuts() []*Mutant {
 			sIdx+min(max(15, int(.1*float64(len(lines)))), 100),
 			len(lines))
 		for eIdx := sIdx+1; eIdx < end; eIdx++ {
-			i := safe(lines[sIdx] + 1)
-			j := safe(lines[eIdx])
+			i := t.safe(lines[sIdx] + 1)
+			j := t.safe(lines[eIdx])
 			if i + 1 >= j {
 				continue
 			}

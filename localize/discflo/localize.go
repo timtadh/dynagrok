@@ -106,7 +106,7 @@ func LocalizeNodes(score Score, lat *lattice.Lattice) stat.Result {
 	return result
 }
 
-func Localize(walks int, tests []*test.Testcase, score Score, lat *lattice.Lattice) (Result, error) {
+func Localize(walks int, tests []*test.Testcase, oracle *test.Remote, score Score, lat *lattice.Lattice) (Result, error) {
 	WALKS := walks
 	nodes := make([]*SearchNode, 0, WALKS)
 	seen := make(map[string]bool, WALKS)
@@ -130,37 +130,56 @@ func Localize(walks int, tests []*test.Testcase, score Score, lat *lattice.Latti
 	sort.Slice(nodes, func(i, j int) bool {
 		return nodes[i].Score > nodes[j].Score
 	})
-	colors := make(map[int][]*SearchNode)
-	for i := 0; i < 10 && i < len(nodes); i++ {
-		for j := range nodes[i].Node.SubGraph.V {
-			colors[nodes[i].Node.SubGraph.V[j].Color] = append(colors[nodes[i].Node.SubGraph.V[j].Color], nodes[i])
-		}
-	}
-	result := RankColors(score, lat, colors)
+	filtered := make([]*SearchNode, 0, len(nodes))
 	if len(tests) > 0 {
-		for i := 0; i < 10 && i < len(nodes); i++ {
-			fmt.Println(nodes[i])
+		for i, n := range nodes {
+			fmt.Println(n)
 			fmt.Printf("------------ ranks %d ----------------\n", i)
-			fmt.Println(RankNodes(score, lat, nodes[i].Node.SubGraph))
+			fmt.Println(RankNodes(score, lat, n.Node.SubGraph))
 			fmt.Println("--------------------------------------")
 			for count := 0; count < len(tests) ; count++ {
 				j := rand.Intn(len(tests))
 				t := tests[j]
-				min, err := t.Minimize(lat, nodes[i].Node.SubGraph)
+				min, err := t.Minimize(lat, n.Node.SubGraph)
 				if err != nil {
 					return nil, err
 				}
 				if min == nil {
 					continue
 				}
-				nodes[i].Test = min
+				n.Test = min
 				fmt.Printf("------------ min test %d %d ----------\n", i, j)
 				fmt.Println(min)
 				fmt.Println("--------------------------------------")
 				break
 			}
+			if n.Test == nil {
+				// skip this graph
+				errors.Logf("INFO", "filtered %d %v", i, n)
+			} else if oracle == nil {
+				filtered = append(filtered, n)
+			} else {
+				_, _, _, failures, _, err := n.Test.ExecuteWith(oracle)
+				if err != nil {
+					return nil, err
+				}
+				if len(failures) > 0 {
+					filtered = append(filtered, n)
+				} else {
+					errors.Logf("INFO", "filtered %d %v", i, n)
+				}
+			}
+		}
+	} else {
+		filtered = nodes
+	}
+	colors := make(map[int][]*SearchNode)
+	for _, n := range filtered {
+		for j := range n.Node.SubGraph.V {
+			colors[n.Node.SubGraph.V[j].Color] = append(colors[n.Node.SubGraph.V[j].Color], n)
 		}
 	}
+	result := RankColors(score, lat, colors)
 	return result, nil
 }
 

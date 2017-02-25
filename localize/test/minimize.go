@@ -72,6 +72,15 @@ func (t *Testcase) Minimize(lat *lattice.Lattice, sg *subgraph.SubGraph) (*Testc
 	// if err != nil {
 	// 	return nil, err
 	// }
+	p, err = t.Digraph(lat)
+	if err != nil {
+		errors.Logf("ERROR", "could not load: %v", err)
+		return nil, err
+	}
+	if !sg.EmbeddedIn(p) {
+		// errors.Logf("DEBUG", "didn't contain subgraph")
+		return nil, errors.Errorf("Minimized test didn't contain subgraph. %v", t)
+	}
 	return t, nil
 }
 
@@ -85,7 +94,6 @@ func (t *Testcase) minimizeWith(lat *lattice.Lattice, sg *subgraph.SubGraph, f f
 		muts, mut = uniform(muts)
 		if mut == nil {
 			// errors.Logf("DEBUG", "no more muts")
-			prev = cur
 			break
 		}
 		test := mut.Testcase()
@@ -111,6 +119,9 @@ func (t *Testcase) minimizeWith(lat *lattice.Lattice, sg *subgraph.SubGraph, f f
 		cur = test
 		muts = f(cur)
 		errors.Logf("DEBUG", "cur %d %d", len(cur.Case), len(muts))
+	}
+	if cur != nil {
+		return cur, nil
 	}
 	return prev, nil
 }

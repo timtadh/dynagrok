@@ -82,3 +82,8 @@ func (t *Testcase) Execute() error {
 	t.profile = profile
 	return nil
 }
+
+func (t *Testcase) ExecuteWith(remote *Remote) (stdout, stderr, profile, failures []byte, ok bool, err error) {
+	return remote.Execute(nil, t.Case)
+}
+

@@ -22,6 +22,7 @@ import (
 type Options struct {
 	Lattice   *lattice.Lattice
 	Remote    *test.Remote
+	Oracle    *test.Remote
 	Tests     []*test.Testcase
 	Score     Score
 	ScoreName string
@@ -61,6 +62,8 @@ Option Flags
     --scores                          List of available suspiciousness scores
     -w,--walks=<int>                  Number of walks to perform (default: 100)
     --minimize-tests                  Do the test case minimization
+    --failure-oracle=<path>           A failure oracle to filter out graphs with
+                                      non-failing minimized tests.
 `,
 	"s:b:t:w:",
 	[]string{
@@ -70,6 +73,7 @@ Option Flags
 		"scores",
 		"walks=",
 		"minimize-tests",
+		"failure-oracle=",
 	},
 	func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
 		o.Walks = 100
@@ -82,6 +86,12 @@ Option Flags
 					return nil, cmd.Err(1, err)
 				}
 				o.Remote = r
+			case "--failure-oracle":
+				r, err := test.NewRemote(oa.Arg())
+				if err != nil {
+					return nil, cmd.Err(1, err)
+				}
+				o.Oracle = r
 			case "-t", "--test":
 				for _, path := range strings.Split(oa.Arg(), ",") {
 					fmt.Println("test", path)
@@ -180,7 +190,7 @@ func NewRunner(c *cmd.Config, o *Options) cmd.Runnable {
 		if o.Minimize {
 			tests = o.Tests
 		}
-		result, err := Localize(o.Walks, tests, o.Score, o.Lattice)
+		result, err := Localize(o.Walks, tests, o.Oracle, o.Score, o.Lattice)
 		if err != nil {
 			return nil, cmd.Err(3, err)
 		}
