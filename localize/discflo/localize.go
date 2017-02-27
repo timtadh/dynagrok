@@ -109,7 +109,8 @@ func LocalizeNodes(score Score, lat *lattice.Lattice) stat.Result {
 func Localize(walks int, tests []*test.Testcase, oracle *test.Remote, score Score, lat *lattice.Lattice) (Result, error) {
 	WALKS := walks
 	nodes := make([]*SearchNode, 0, WALKS)
-	seen := make(map[string]bool, WALKS)
+	seen := make(map[string]*SearchNode, WALKS)
+	db := NewDbScan(.25)
 	for i := 0; i < WALKS; i++ {
 		n := Walk(score, lat)
 		if n.Node.SubGraph == nil || len(n.Node.SubGraph.E) < 2 {
@@ -119,14 +120,36 @@ func Localize(walks int, tests []*test.Testcase, oracle *test.Remote, score Scor
 			errors.Logf("DEBUG", "found %d %v", i, n)
 		}
 		label := string(n.Node.SubGraph.Label())
-		if !seen[label] {
+		if _, has := seen[label]; !has {
+			db.Add(n.Node)
 			nodes = append(nodes, n)
-			seen[label] = true
+			seen[label] = n
 		}
 	}
 	if len(nodes) == 0 {
 		fmt.Println("no graphs")
 	}
+	// clusters := db.Clusters()
+	// reps := make([]*SearchNode, 0, len(clusters))
+	// fmt.Printf("+ Clusters %v of %v graphs\n", len(clusters), len(nodes))
+	// for i, cluster := range clusters {
+	// 	j := 0
+	// 	var rep *SearchNode
+	// 	for _, item := range cluster {
+	// 		sn := seen[string(item.Label())]
+	// 		if j == 0 {
+	// 			fmt.Println("  ", "-", i, sn)
+	// 		} else {
+	// 			fmt.Println("      ", "o", j, sn)
+	// 		}
+	// 		if rep == nil || sn.Score > rep.Score {
+	// 			rep = sn
+	// 		}
+	// 		j++
+	// 	}
+	// 	reps = append(reps, rep)
+	// }
+	// nodes = reps
 	sort.Slice(nodes, func(i, j int) bool {
 		return nodes[i].Score > nodes[j].Score
 	})

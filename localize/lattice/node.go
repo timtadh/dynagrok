@@ -40,3 +40,4 @@ func (n *Node) CanonKids() (nodes []*Node, err error) {
 		return isCanonicalExtension(n.SubGraph, ext)
 	})
 }
+
