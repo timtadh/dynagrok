@@ -106,20 +106,20 @@ Option Flags
 			fmt.Println(f)
 			if o.Score == nil {
 				for name, score := range discflo.Scores {
+					eval(f, "Discflo + "+name, dflo(score))
 					eval(f, name, func(s discflo.Score) stat.Method {
 						return func(lat *lattice.Lattice) stat.Result {
 							return discflo.LocalizeNodes(s, lat)
 						}
 					}(score))
-					eval(f, "Discflo + "+name, dflo(score))
 				}
 			} else {
+				eval(f, "Discflo + "+o.ScoreName, dflo(o.Score))
 				eval(f, o.ScoreName, func(s discflo.Score) stat.Method {
 					return func(lat *lattice.Lattice) stat.Result {
 						return discflo.LocalizeNodes(s, lat)
 					}
 				}(o.Score))
-				eval(f, "Discflo + "+o.ScoreName, dflo(o.Score))
 			}
 		}
 		return nil, nil

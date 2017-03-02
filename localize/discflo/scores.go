@@ -4,12 +4,16 @@ import (
 	"math"
 )
 
-import ()
+import (
+	"github.com/timtadh/data-structures/errors"
+)
 
 import (
 	"github.com/timtadh/dynagrok/localize/lattice"
+	"github.com/timtadh/dynagrok/localize/lattice/subgraph"
 )
 
+var DEBUG = true
 
 var scoreAbbrvs map[string]string
 var scoreNames map[string][]string
@@ -30,8 +34,10 @@ func init() {
 		"jaccard": "Jaccard",
 		"j": "Jaccard",
 		"o": "Ochiai",
+		"o2": "OchiaiSquared",
 		"och": "Ochiai",
 		"ochiai": "Ochiai",
+		"c": "Contrast",
 	}
 	scoreNames = make(map[string][]string)
 	for abbrv, name := range scoreAbbrvs {
@@ -47,19 +53,36 @@ func Prs(lat *lattice.Lattice, n *lattice.Node) (prF, prO, prf, pro float64) {
 	T := F + O
 	f := (float64(n.FIS()))
 	if len(n.SubGraph.E) > 0 || len(n.SubGraph.V) >= 1 {
-		var o float64
-		for i := range n.SubGraph.E {
-			count := lat.Ok.EdgeCounts[n.SubGraph.Colors(i)]
-			o += float64(count)/T
+		if true {
+			var o float64
+			for i := range n.SubGraph.E {
+				count := lat.Ok.EdgeCounts[n.SubGraph.Colors(i)]
+				o += float64(count)/T
+			}
+			for i := range n.SubGraph.V {
+				count := float64(len(lat.Ok.ColorIndex[n.SubGraph.V[i].Color]))
+				o += float64(count)/T
+			}
+			// if DEBUG {
+			// 	errors.Logf("DEBUG", "o %v", o)
+			// }
+			// pro = math.Sqrt((E - e)/E) * o/float64(len(n.SubGraph.V) + len(n.SubGraph.E))
+			pro = o/float64(len(n.SubGraph.V) + len(n.SubGraph.E))
+		} else {
+			var o float64
+			for _, next := n.SubGraph.IterEmbeddings(subgraph.MostConnected, lat.Ok, nil, nil)(false); next != nil; _, next = next(false) {
+				o += 1
+			}
+			// pro = math.Sqrt((E - e)/E) * o/T
 		}
-		for i := range n.SubGraph.V {
-			count := float64(len(lat.Ok.ColorIndex[n.SubGraph.V[i].Color]))
-			o += float64(count)/T
-		}
-		pro = o/float64(len(n.SubGraph.V) + len(n.SubGraph.E))
 	} else {
 		pro = O/T
 	}
+	// if false && pro <= 0 {
+	// 	E := float64(len(lat.Fail.G.E))
+	// 	e := float64(len(n.SubGraph.E)) + 1
+	// 	pro = math.Sqrt((E - e)/E) * (O/T) * .5
+	// }
 	return F/T, O/T, f/T, pro
 }
 
@@ -101,6 +124,16 @@ var Scores = map[string]Score {
 	// 	s := ((e+1)/E) * math.Sqrt((prt/prF)) * (a - b)
 	// 	return s
 	// },
+	"SizeWeightedPrecision": func(lat *lattice.Lattice, n *lattice.Node) float64 {
+		E := float64(len(lat.Fail.G.E)) * .25
+		e := float64(len(n.SubGraph.E)) + 1
+		_, _, prf, pro := Prs(lat, n)
+		a := (1/math.Log(E/e))*prf/(prf + pro)
+		if DEBUG {
+			errors.Logf("DEBUG", "prf %v, pro %v, a %v %v", prf, pro, a, n)
+		}
+		return a
+	},
 	"RelativePrecision": func(lat *lattice.Lattice, n *lattice.Node) float64 {
 		prF, prO, prf, pro := Prs(lat, n)
 		a := prf/(prf + pro)
@@ -133,6 +166,9 @@ var Scores = map[string]Score {
 	"Precision": func(lat *lattice.Lattice, n *lattice.Node) float64 {
 		_, _, prf, pro := Prs(lat, n)
 		a := prf/(prf + pro)
+		if DEBUG {
+			errors.Logf("DEBUG", "prf %v, pro %v, a %v %v", prf, pro, a, n)
+		}
 		return a
 	},
 	"F1": func(lat *lattice.Lattice, n *lattice.Node) float64 {
@@ -147,10 +183,24 @@ var Scores = map[string]Score {
 		s := prf / (prF + pro)
 		return s
 	},
+	"OchiaiSquared": func(lat *lattice.Lattice, n *lattice.Node) float64 {
+		prF, _, prf, pro := Prs(lat, n)
+		prt := prf + pro
+		s := (prf/prF) * (prf/prt)
+		return s
+	},
 	"Ochiai": func(lat *lattice.Lattice, n *lattice.Node) float64 {
 		prF, _, prf, pro := Prs(lat, n)
 		prt := prf + pro
 		s := math.Sqrt((prf/prF) * (prf/prt))
 		return s
+	},
+	"Contrast": func(lat *lattice.Lattice, n *lattice.Node) float64 {
+		_, _, prf, pro := Prs(lat, n)
+		return prf - pro
+	},
+	"expr": func(lat *lattice.Lattice, n *lattice.Node) float64 {
+		prF, _, prf, pro := Prs(lat, n)
+		return (prf - pro)/(prF + pro)
 	},
 }

@@ -86,8 +86,11 @@ func (t *Testcase) LineTrimmingMuts() []*Mutant {
 	lines := t.Lines()
 	muts := make([]*Mutant, 0, len(lines))
 	for idx := 0; idx < len(lines)-1; idx++ {
-		i := t.safe(lines[idx] + 1)
-		j := t.safe(lines[idx + 1])
+		i := lines[idx]
+		for t.Case[i] == '\n' {
+			i = t.safe(i + 1)
+		}
+		j := lines[idx + 1]
 		muts = append(muts, &Mutant{
 			Test: t,
 			I: i,
@@ -105,8 +108,11 @@ func (t *Testcase) LineBlockTrimmingMuts() []*Mutant {
 			sIdx+min(max(15, int(.1*float64(len(lines)))), 100),
 			len(lines))
 		for eIdx := sIdx+1; eIdx < end; eIdx++ {
-			i := t.safe(lines[sIdx] + 1)
-			j := t.safe(lines[eIdx])
+			i := lines[sIdx]
+			for t.Case[i] == '\n' {
+				i = t.safe(i + 1)
+			}
+			j := lines[eIdx]
 			if i + 1 >= j {
 				continue
 			}

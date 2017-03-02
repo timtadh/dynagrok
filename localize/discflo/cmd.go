@@ -190,6 +190,7 @@ func NewRunner(c *cmd.Config, o *Options) cmd.Runnable {
 		if err != nil {
 			return nil, cmd.Err(3, err)
 		}
+		fmt.Println(result)
 		fmt.Println(result.StatResult())
 		return nil, nil
 	})

@@ -113,7 +113,7 @@ func Localize(walks int, tests []*test.Testcase, oracle *test.Remote, score Scor
 	db := NewDbScan(.25)
 	for i := 0; i < WALKS; i++ {
 		n := Walk(score, lat)
-		if n.Node.SubGraph == nil || len(n.Node.SubGraph.E) < 2 {
+		if n.Node.SubGraph == nil || len(n.Node.SubGraph.E) < 1 {
 			continue
 		}
 		if false {
@@ -153,6 +153,7 @@ func Localize(walks int, tests []*test.Testcase, oracle *test.Remote, score Scor
 	sort.Slice(nodes, func(i, j int) bool {
 		return nodes[i].Score > nodes[j].Score
 	})
+	passing := make([]*SearchNode, 0, len(nodes))
 	filtered := make([]*SearchNode, 0, len(nodes))
 	if len(tests) > 0 {
 		for i, n := range nodes {
@@ -190,6 +191,7 @@ func Localize(walks int, tests []*test.Testcase, oracle *test.Remote, score Scor
 					filtered = append(filtered, n)
 				} else {
 					errors.Logf("INFO", "filtered %d %v", i, n)
+					passing = append(passing, n)
 				}
 			}
 		}
@@ -197,7 +199,10 @@ func Localize(walks int, tests []*test.Testcase, oracle *test.Remote, score Scor
 		filtered = nodes
 	}
 	colors := make(map[int][]*SearchNode)
-	for _, n := range filtered {
+	for i := 0; i < 100 && i < len(filtered); i++ {
+		n := filtered[i]
+	// for _, n := range filtered {
+		errors.Logf("DEBUG", "%v", n)
 		for j := range n.Node.SubGraph.V {
 			colors[n.Node.SubGraph.V[j].Color] = append(colors[n.Node.SubGraph.V[j].Color], n)
 		}
@@ -260,14 +265,26 @@ func RankColors(score Score, lat *lattice.Lattice, colors map[int][]*SearchNode)
 }
 
 func Walk(score Score, lat *lattice.Lattice) (*SearchNode) {
+	// color := lat.Labels.Color("(*dynagrok/examples/avl.Avl).Verify blk 3")
+	// vsg := subgraph.Build(1, 0).FromVertex(color).Build()
+	// embIdxs := lat.Fail.ColorIndex[color]
+	// embs := make([]*subgraph.Embedding, 0, len(embIdxs))
+	// for _, embIdx := range embIdxs {
+	// 	embs = append(embs, subgraph.StartEmbedding(subgraph.VertexEmbedding{SgIdx: 0, EmbIdx: embIdx}))
+	// }
+	// colorNode := lattice.NewNode(lat, vsg, embs)
+	// cur := &SearchNode{
+	// 	Node: colorNode,
+	// 	Score: score(lat, colorNode),
+	// }
 	cur := &SearchNode{
 		Node: lat.Root(),
-		Score: -100000000,
+		Score: 0,
 	}
 	i := 0
 	prev := cur
 	for cur != nil {
-		if false {
+		if true {
 			errors.Logf("DEBUG", "cur %v", cur)
 		}
 		kids, err := cur.Node.Children()
@@ -276,76 +293,83 @@ func Walk(score Score, lat *lattice.Lattice) (*SearchNode) {
 		}
 		prev = cur
 		cur = weighted(filterKids(score, cur.Score, lat, kids))
-		if i == 1 {
+		if i == 20 {
 		}
 		i++
 	}
 	return prev
 }
 
-func filterKids(score Score, parentScore float64, lat *lattice.Lattice, kids []*lattice.Node) []*SearchNode {
+func filterKids(score Score, parentScore float64, lat *lattice.Lattice, kids []*lattice.Node) (float64, []*SearchNode) {
+	abs := func(a float64) float64 {
+		if a < 0 {
+			return -a
+		}
+		return a
+	}
+	var epsilon float64 = 0
 	entries := make([]*SearchNode, 0, len(kids))
 	for _, kid := range kids {
 		if kid.FIS() < 2 {
 			continue
 		}
 		kidScore := score(lat, kid)
-		if kidScore > parentScore {
+		_, _, prf, pro := Prs(lat, kid)
+		if (abs(parentScore - kidScore) <= epsilon && abs(1 - prf/(pro + prf)) <= epsilon) || kidScore > parentScore {
 			entries = append(entries, &SearchNode{kid, kidScore, nil})
 		}
 	}
-	return entries
+	return parentScore, entries
 }
 
-func uniform(slice []*SearchNode) (*SearchNode) {
+func uniform(parentScore float64, slice []*SearchNode) (*SearchNode) {
 	if len(slice) > 0 {
 		return slice[rand.Intn(len(slice))]
 	}
 	return nil
 }
 
-func weighted(slice []*SearchNode) (*SearchNode) {
+func weighted(parentScore float64, slice []*SearchNode) (*SearchNode) {
 	if len(slice) <= 0 {
 		return nil
 	}
 	if len(slice) == 1 {
 		return slice[0]
 	}
-	prs := transitionPrs(slice)
-	if prs == nil {
-		return nil
-	}
-	i := weightedSample(prs)
+	i := weightedSample(weights(parentScore, slice))
 	return slice[i]
 }
 
-func transitionPrs(slice []*SearchNode) []float64 {
+func weights(parentScore float64, slice []*SearchNode) []float64 {
 	weights := make([]float64, 0, len(slice))
-	var total float64 = 0
+	// var total float64 = 0
+	// for _, v := range slice {
+	// 	total += v.Score
+	// }
+	// mean := total/float64(len(slice))
+	// var vari float64
+	// for _, v := range slice {
+	// 	vari += math.Pow(v.Score - mean, 2)
+	// }
+	// stdev := math.Sqrt(vari)
 	for _, v := range slice {
-		weights = append(weights, v.Score)
-		total += v.Score
+		// w := math.Pow(v.Score - parentScore, 2)
+		// w := (v.Score + stdev)/mean
+		w := v.Score
+		weights = append(weights, w)
 	}
-	if total == 0 {
-		return nil
-	}
-	prs := make([]float64, 0, len(slice))
-	for _, wght := range weights {
-		prs = append(prs, wght/total)
-	}
-	return prs
+	return weights
 }
 
-func weightedSample(prs []float64) int {
+func weightedSample(weights []float64) int {
 	var total float64
-	for _, pr := range prs {
-		total += pr
+	for _, w := range weights {
+		total += w
 	}
 	i := 0
-	x := total * (1 - rand.Float64())
-	for x > prs[i] {
-		x -= prs[i]
-		i += 1
+	r := total * rand.Float64()
+	for ; i < len(weights) && r > weights[i]; i++ {
+		r -= weights[i]
 	}
 	return i
 }
