@@ -52,8 +52,8 @@ func newExecution() *Execution {
 			Funcs:     make(map[uintptr]*Function),
 			Flows:     make(map[FlowEdge]int),
 			Positions: make(map[BlkEntrance]string),
-			Inputs:    make(map[string][]Instance),
-			Outputs:   make(map[string][]Instance),
+			Inputs:    make(map[string][]ObjectProfile),
+			Outputs:   make(map[string][]ObjectProfile),
 		},
 		OutputDir: outputDir,
 		mergeCh:   make(chan *Goroutine, 15),
@@ -134,6 +134,9 @@ func (e *Execution) merge(g *Goroutine) {
 	for be, pos := range g.Positions {
 		e.Profile.Positions[be] = pos
 	}
+	for funcName, instances := range g.Inputs {
+		e.Profile.Inputs[funcName] = append(e.Profile.Inputs[funcName], instances...)
+	}
 }
 
 func shutdown(e *Execution) {
@@ -159,9 +162,10 @@ func shutdown(e *Execution) {
 	defer e.m.Unlock()
 
 	if !e.Profile.Empty() {
-		files := []string{"dynagrok-profile.dot", "object-states.json"}
+		files := []string{"dynagrok-profile.dot", "input-profiles.json", "output-profiles.jspm"}
 		writeOut(e, files[0], e.Profile.Serialize)
-		writeOut(e, files[1], e.Profile.SerializeObjectState)
+		writeOut(e, files[1], e.Profile.SerializeInProfs)
+		writeOut(e, files[2], e.Profile.SerializeOutProfs)
 		fmt.Println("done shutting down")
 	}
 	if len(e.fails) > 0 {

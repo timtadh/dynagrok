@@ -46,12 +46,6 @@ func Instrument(entryPkgName string, methodName string, program *loader.Program)
 	return i.instrument()
 }
 
-// methodCallLoc is a global map which allows blocks to be instrumented
-// in two passes
-var (
-	methodCallLoc = make(map[token.Pos]ast.Stmt)
-)
-
 func (i *instrumenter) instrument() (err error) {
 	for _, pkg := range i.program.AllPackages {
 		//if len(pkg.BuildPackage.CgoFiles) > 0 {
@@ -152,35 +146,6 @@ func (i *instrumenter) function(fnName string, fnAst ast.Node, recv *[]*ast.Fiel
 	}
 
 	return nil
-}
-func Insert(blk []ast.Stmt, j int, stmt ast.Stmt) []ast.Stmt {
-	if cap(blk) <= len(blk)+1 {
-		nblk := make([]ast.Stmt, len(blk), (cap(blk)+1)*2)
-		copy(nblk, blk)
-		blk = nblk
-	}
-	blk = blk[:len(blk)+1]
-	for i := len(blk) - 1; i > 0; i-- {
-		if j == i {
-			blk[i] = stmt
-			break
-		}
-		blk[i] = blk[i-1]
-	}
-	if j == 0 {
-		blk[j] = stmt
-	}
-	return blk
-}
-
-func (i instrumenter) mkMethodCall(pos token.Pos, name string, callName string) (ast.Stmt, string) {
-	p := i.program.Fset.Position(pos)
-	s := fmt.Sprintf("dgruntime.MethodCall(\"%s\", %s, %s)", callName, strconv.Quote(p.String()), name)
-	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
-	if err != nil {
-		panic(fmt.Errorf("mkMethodCall (%v) error: %v", s, err))
-	}
-	return &ast.ExprStmt{e}, s
 }
 
 func (i instrumenter) mkMethodInput(pos token.Pos, name string, inputs []string) ast.Stmt {

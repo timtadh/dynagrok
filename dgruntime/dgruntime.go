@@ -88,7 +88,7 @@ func EnterFunc(name, pos string) {
 // deriveFields is a helper method which takes an object reference and ObjectType and
 // uses reflection to determine the fields of the object. It returns the results
 // in a slice.
-func deriveFields(t *ObjectType, obj *interface{}) []Field {
+func deriveFields(t *ObjectType, obj *interface{}) []Value {
 	var v reflect.Value
 	if (*t).Pointer {
 		v = reflect.ValueOf(*obj).Elem()
@@ -96,7 +96,7 @@ func deriveFields(t *ObjectType, obj *interface{}) []Field {
 		v = reflect.ValueOf(*obj)
 	}
 
-	fields := make([]Field, 0)
+	fields := make([]Value, 0)
 	typeOfObj := v.Type()
 	if typeOfObj.Kind() == reflect.Struct {
 		for i := 0; i < v.NumField(); i++ {
@@ -107,28 +107,28 @@ func deriveFields(t *ObjectType, obj *interface{}) []Field {
 				ft := *getType(f.Interface())
 				if f.Kind() == reflect.Slice {
 					if f.CanAddr() {
-						fields = append(fields, Field{Exported: true, Name: name, Type: ft, Slice: f.UnsafeAddr()})
+						fields = append(fields, Value{Exported: true, Name: name, Type: ft, Slice: f.UnsafeAddr()})
 					} else {
-						fields = append(fields, Field{Exported: true, Name: name, Type: ft, Slice: 1})
+						fields = append(fields, Value{Exported: true, Name: name, Type: ft, Slice: 1})
 					}
 				} else if f.Kind() == reflect.Ptr {
 					if f.CanAddr() {
-						fields = append(fields, Field{Exported: true, Name: name, Type: ft, Pointer: f.UnsafeAddr()})
+						fields = append(fields, Value{Exported: true, Name: name, Type: ft, Pointer: f.UnsafeAddr()})
 					} else {
-						fields = append(fields, Field{Exported: true, Name: name, Type: ft, Pointer: 1})
+						fields = append(fields, Value{Exported: true, Name: name, Type: ft, Pointer: 1})
 
 					}
 				} else if f.Kind() == reflect.Struct {
 					if f.CanAddr() {
-						fields = append(fields, Field{Exported: true, Name: name, Type: ft, Struct: newShallowInstance(ft, f.UnsafeAddr())})
+						fields = append(fields, Value{Exported: true, Name: name, Type: ft, Struct: newShallowInstance(ft, f.UnsafeAddr())})
 					} else {
-						fields = append(fields, Field{Exported: true, Name: name, Type: ft, Struct: newShallowInstance(ft, 1)})
+						fields = append(fields, Value{Exported: true, Name: name, Type: ft, Struct: newShallowInstance(ft, 1)})
 					}
 				} else {
-					fields = append(fields, Field{Exported: true, Name: name, Type: ft, Other: f.Interface()})
+					fields = append(fields, Value{Exported: true, Name: name, Type: ft, Other: f.Interface()})
 				}
 			} else {
-				fields = append(fields, Field{Exported: false, Name: name, Type: *newObjectType(fieldType.Name(), false)})
+				fields = append(fields, Value{Exported: false, Name: name, Type: ObjectType{fieldType.Name(), false}})
 				log.Printf("Could not access unexported %v field: %v", f.Kind(), name)
 			}
 		}
@@ -149,59 +149,61 @@ func getType(obj interface{}) *ObjectType {
 		if value.Elem() == zero {
 			return &ObjectType{}
 		}
-		return newObjectType("*"+value.Elem().Type().Name(), true)
+		return &ObjectType{value.Elem().Type().Name(), true}
 	} else if tipe.Kind() == reflect.Struct {
-		return newObjectType(reflect.TypeOf(obj).Name(), false)
+		return &ObjectType{reflect.TypeOf(obj).Name(), false}
 	}
-	return newObjectType(value.Type().String(), false)
+	return &ObjectType{value.Type().String(), false}
 }
 
-// Takes a snapshot of the object state
-// TODO replace reference to exec.Profile with reference to Goroutine
-func (o *Instance) recordInput(pos string) {
-	exec.Profile.Inputs[pos] = append(exec.Profile.Inputs[pos], *o)
-	if len(exec.Profile.Inputs[pos]) > 50 {
-		exec.Profile.Inputs[pos] = exec.Profile.Inputs[pos][1:]
-	}
-}
-
-// Takes a snapshot of the object state
-// TODO replace reference to exec.Profile with reference to Goroutine
-func (o *Instance) recordOutput(pos string) {
-	exec.Profile.Outputs[pos] = append(exec.Profile.Outputs[pos], *o)
-	if len(exec.Profile.Outputs[pos]) > 50 {
-		exec.Profile.Outputs[pos] = exec.Profile.Outputs[pos][1:]
-	}
-}
+//// Takes a snapshot of the object state
+//// TODO replace reference to exec.Profile with reference to Goroutine
+//func (o *Instance) recordInput(pos string, g Goroutine) {
+//	exec.Profile.Inputs[pos] = append(exec.Profile.Inputs[pos], *o)
+//	if len(exec.Profile.Inputs[pos]) > 50 {
+//		exec.Profile.Inputs[pos] = exec.Profile.Inputs[pos][1:]
+//	}
+//}
+//
+//// Takes a snapshot of the object state
+//// TODO replace reference to exec.Profile with reference to Goroutine
+//func (o *Instance) recordOutput(pos string, g Goroutine) {
+//	exec.Profile.Outputs[pos] = append(exec.Profile.Outputs[pos], *o)
+//	if len(exec.Profile.Outputs[pos]) > 50 {
+//		exec.Profile.Outputs[pos] = exec.Profile.Outputs[pos][1:]
+//	}
+//}
 
 func MethodInput(fnName string, pos string, inputs ...interface{}) {
 	execCheck()
-	var inputProfile []Instance = make([]Instance, len(inputs))
+	g := exec.Goroutine(runtime.GoID())
+	var inputProfile []StructT = make([]StructT, len(inputs))
 	for i := range inputs {
 		o := *(*[2]uintptr)(unsafe.Pointer(&inputs[i]))
 		data_ptr := o[1]
 
 		t := getType(inputs[i])
 		fields := deriveFields(t, &inputs[i])
-		inst := newInstance(*t, fields, data_ptr)
-		inputProfile[i] = *inst
+		inst := StructT{*t, fields, data_ptr}
+		inputProfile[i] = inst
 	}
-	exec.Profile.Inputs[fnName] = inputProfile
+	g.Inputs[fnName] = append(g.Inputs[fnName], inputProfile)
 }
 
 func MethodOutput(fnName string, pos string, outputs ...interface{}) {
 	execCheck()
-	var outputProfile []Instance = make([]Instance, len(outputs))
+	g := exec.Goroutine(runtime.GoID())
+	var outputProfile []StructT = make([]StructT, len(outputs))
 	for i := range outputs {
 		o := *(*[2]uintptr)(unsafe.Pointer(&outputs[i]))
 		data_ptr := o[1]
 
 		t := getType(outputs[i])
 		fields := deriveFields(t, &outputs[i])
-		inst := newInstance(*t, fields, data_ptr)
-		outputProfile[i] = *inst
+		inst := StructT{*t, fields, data_ptr}
+		outputProfile[i] = inst
 	}
-	exec.Profile.Outputs[fnName] = outputProfile
+	g.Outputs[fnName] = append(g.Inputs[fnName], outputProfile)
 }
 
 func ExitFunc(name string) {
