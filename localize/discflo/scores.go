@@ -13,7 +13,7 @@ import (
 	"github.com/timtadh/dynagrok/localize/lattice/subgraph"
 )
 
-var DEBUG = true
+var DEBUG = false
 
 var scoreAbbrvs map[string]string
 var scoreNames map[string][]string
@@ -38,6 +38,7 @@ func init() {
 		"och": "Ochiai",
 		"ochiai": "Ochiai",
 		"c": "Contrast",
+		"ar": "AssociationalRisk",
 	}
 	scoreNames = make(map[string][]string)
 	for abbrv, name := range scoreAbbrvs {
@@ -156,6 +157,7 @@ var Scores = map[string]Score {
 		return s
 	},
 	"RelativeOchiai": func(lat *lattice.Lattice, n *lattice.Node) float64 {
+		// Only works when prF < (prf/(prf + pro))
 		prF, prO, prf, pro := Prs(lat, n)
 		prt := prf + pro
 		a := prf/(prf + pro)
@@ -202,5 +204,12 @@ var Scores = map[string]Score {
 	"expr": func(lat *lattice.Lattice, n *lattice.Node) float64 {
 		prF, _, prf, pro := Prs(lat, n)
 		return (prf - pro)/(prF + pro)
+	},
+	"AssociationalRisk": func(lat *lattice.Lattice, n *lattice.Node) float64 {
+		prF, _, prf, pro := Prs(lat, n)
+		c, x, y := prF, prf, pro
+		top := x - c*x - c*y
+		bot := (x+y+.00001) - ((x+y)*(x+y))
+		return top/bot
 	},
 }

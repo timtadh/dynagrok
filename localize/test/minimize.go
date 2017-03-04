@@ -36,13 +36,13 @@ func (t *Testcase) Minimize(lat *lattice.Lattice, sg *subgraph.SubGraph) (*Testc
 	// if err != nil {
 	// 	return nil, err
 	// }
-	errors.Logf("DEBUG", "trim prefixes")
-	t, err = t.minimizeWith(lat, sg, func(test *Testcase)[]*Mutant {
-		return atMost(200, test.LineStartTrimmingMuts())
-	})
-	if err != nil {
-		return nil, err
-	}
+	// errors.Logf("DEBUG", "trim prefixes")
+	// t, err = t.minimizeWith(lat, sg, func(test *Testcase)[]*Mutant {
+	// 	return atMost(200, test.LineStartTrimmingMuts())
+	// })
+	// if err != nil {
+	// 	return nil, err
+	// }
 	errors.Logf("DEBUG", "trim lines")
 	t, err = t.minimizeWith(lat, sg, func(test *Testcase)[]*Mutant {
 		return atMost(200, test.LineTrimmingMuts())

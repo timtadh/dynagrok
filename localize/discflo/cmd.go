@@ -147,7 +147,7 @@ Option Flags
 		tests := make([]*test.Testcase, 0, len(testBits))
 		count := 0
 		for i, bits := range testBits {
-			t := test.Test(o.Remote, bits)
+			t := test.Test(test.StdinExecutor(nil, o.Remote), bits)
 			err := t.Execute()
 			if err != nil {
 				return nil, cmd.Usage(r, 2, "Could not execute the test %d. err: %v", i, err)

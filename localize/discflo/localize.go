@@ -235,6 +235,7 @@ func RankNodes(score Score, lat *lattice.Lattice, sg *subgraph.SubGraph) stat.Re
 }
 
 func RankColors(score Score, lat *lattice.Lattice, colors map[int][]*SearchNode) Result {
+	epsilon := .1
 	result := make(Result, 0, len(colors))
 	for color, searchNodes := range colors {
 		vsg := subgraph.Build(1, 0).FromVertex(color).Build()
@@ -246,10 +247,17 @@ func RankColors(score Score, lat *lattice.Lattice, colors map[int][]*SearchNode)
 		colorNode := lattice.NewNode(lat, vsg, embs)
 		colorScore := score(lat, colorNode)
 		var s float64
+		t := 0
 		for _, sn := range searchNodes {
-			s += sn.Score
+			rm := s/float64(t)
+			if t < 1 || abs(sn.Score - rm) < epsilon {
+				s += sn.Score
+				t++
+			} else {
+				errors.Logf("DEBUG", "skipped %v %v %v", lat.Labels.Label(color), rm, sn.Score)
+			}
 		}
-		s = (colorScore * s) / float64(len(searchNodes))
+		s = (colorScore * s) / float64(t)
 		result = append(result, Location{
 			stat.Location{
 				lat.Positions[color],
@@ -300,13 +308,14 @@ func Walk(score Score, lat *lattice.Lattice) (*SearchNode) {
 	return prev
 }
 
-func filterKids(score Score, parentScore float64, lat *lattice.Lattice, kids []*lattice.Node) (float64, []*SearchNode) {
-	abs := func(a float64) float64 {
-		if a < 0 {
-			return -a
-		}
-		return a
+func abs(a float64) float64 {
+	if a < 0 {
+		return -a
 	}
+	return a
+}
+
+func filterKids(score Score, parentScore float64, lat *lattice.Lattice, kids []*lattice.Node) (float64, []*SearchNode) {
 	var epsilon float64 = 0
 	entries := make([]*SearchNode, 0, len(kids))
 	for _, kid := range kids {

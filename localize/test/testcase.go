@@ -10,19 +10,18 @@ import (
 	"github.com/timtadh/dynagrok/localize/lattice/digraph"
 )
 
-
 type Testcase struct {
-	Remote   *Remote
 	Case     []byte
+	Exec     Executor
 	executed bool
 	ok       bool
 	profile  []byte
 }
 
-func Test(r *Remote, stdin []byte) *Testcase {
+func Test(e Executor, stdin []byte) *Testcase {
 	return &Testcase{
-		Remote: r,
 		Case: stdin,
+		Exec: e,
 	}
 }
 
@@ -73,7 +72,7 @@ func (t *Testcase) Execute() error {
 	if t.executed {
 		return nil
 	}
-	_, _, profile, fails, ok, err := t.Remote.Execute(nil, t.Case)
+	_, _, profile, fails, ok, err := t.Exec.Execute(t.Case)
 	if err != nil {
 		return err
 	}
