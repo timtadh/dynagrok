@@ -252,6 +252,8 @@ func (m *IncrementMutation) mutate() ast.Expr {
 		case types.Uint16: cast = "uint16"
 		case types.Uint32: cast = "uint32"
 		case types.Uint64: cast = "uint64"
+		case types.UntypedInt: cast = "uint64"
+		case types.Uintptr: cast = "uintptr"
 		default:
 			panic(fmt.Errorf("unexpected kind %v", m.kind))
 		}

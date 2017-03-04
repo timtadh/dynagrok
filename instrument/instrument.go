@@ -175,10 +175,18 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.
 			return nil
 		}
 	}
-	*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 0, i.mkEnterFunc(fnAst.Pos(), fnName))
-	*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 1, i.mkExitFunc(fnAst.Pos(), fnName))
-	if pkg.Pkg.Path() == i.entry && fnName == fmt.Sprintf("%v.main", pkg.Pkg.Path()) {
-		*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 0, i.mkShutdown(fnAst.Pos()))
+	if len(cfg.Blocks) > 0 {
+		*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 0, i.mkEnterFunc(fnAst.Pos(), fnName))
+		*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 1, i.mkExitFunc(fnAst.Pos(), fnName))
+		if pkg.Pkg.Path() == i.entry && fnName == fmt.Sprintf("%v.main", pkg.Pkg.Path()) {
+			*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 0, i.mkShutdown(fnAst.Pos()))
+		}
+	} else {
+		*fnBody = Insert(cfg, nil, *fnBody, 0, i.mkEnterFunc(fnAst.Pos(), fnName))
+		*fnBody = Insert(cfg, nil, *fnBody, 1, i.mkExitFunc(fnAst.Pos(), fnName))
+		if pkg.Pkg.Path() == i.entry && fnName == fmt.Sprintf("%v.main", pkg.Pkg.Path()) {
+			*fnBody = Insert(cfg, nil, *fnBody, 0, i.mkShutdown(fnAst.Pos()))
+		}
 	}
 	return nil
 }

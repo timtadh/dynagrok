@@ -144,7 +144,7 @@ func (c *CFG) AddAllToBlk(blk *Block, node ast.Node) {
 func (c *CFG) build() {
 	blk := c.addBlock(c.Body, 0)
 	_ = c.visitStmts(c.Body, blk)
-	fmt.Println(c)
+	// fmt.Println(c)
 	c.filterEmpty()
 	for _, blk := range c.Blocks {
 		for _, s := range blk.Stmts {
@@ -664,16 +664,19 @@ func (c *CFG) removeBlock(b *Block) error {
 	if len(b.Next) > 1 {
 		return errors.Errorf("Cannot remove block because it has more than 1 successor:\n%v", b)
 	}
-	if len(b.Next) == 0 {
+	if len(b.Next) == 0 && len(b.Prev) > 0 {
 		return errors.Errorf("Cannot remove block because it has 0 successors:\n%v", b)
 	}
-	fn := b.Next[0] // must have 1 element from assertions above
-	remove := make([]int, 0, len(fn.Block.Prev))
-	for i, flowTo := range fn.Block.Prev {
-		if flowTo.Block.Id != b.Id {
-			continue
+	var fn *Flow
+	remove := make([]int, 0, 10)
+	if len(b.Next) > 0 {
+		fn = b.Next[0] // must have 1 element from assertions above
+		for i, flowTo := range fn.Block.Prev {
+			if flowTo.Block.Id != b.Id {
+				continue
+			}
+			remove = append(remove, i)
 		}
-		remove = append(remove, i)
 	}
 	// remove the flows from the next block in reverse order
 	// there should only be one to remove, this is defensive.
@@ -700,6 +703,7 @@ func (c *CFG) removeBlock(b *Block) error {
 				Cases: flowFrom.Cases,
 			})
 			found = true
+			break
 		}
 		if !found {
 			return errors.Errorf("Flow from blk-%d to blk-%d but could not find matching flows:\n%v\n\n%v",
