@@ -37,3 +37,6 @@
 [submodule "src/github.com/timtadh/matrix"]
 	path = src/github.com/timtadh/matrix
 	url = git@github.com:timtadh/go.matrix
+[submodule "src/github.com/google/shlex"]
+	path = src/github.com/google/shlex
+	url = git@github.com:google/shlex

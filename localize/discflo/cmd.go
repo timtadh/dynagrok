@@ -55,6 +55,8 @@ Option Flags
     -b,--binary=<path>                The binary to test. It should be
                                       instrumented.
                                       (see: dynagrok instrument -h)
+    -a,--binary-args=<string>         Argument flags/files/pattern for the 
+                                      binary under test. (optional) (see notes below)
     -t,--test=<path>                  Failing test case to minimize. (May be
                                       specified multiple times or with a comma
                                       separated list).
@@ -65,9 +67,10 @@ Option Flags
     --failure-oracle=<path>           A failure oracle to filter out graphs with
                                       non-failing minimized tests.
 `,
-	"s:b:t:w:",
+	"s:b:a:t:w:",
 	[]string{
 		"binary=",
+		"binary-args=",
 		"test=",
 		"score=",
 		"scores",
@@ -76,6 +79,10 @@ Option Flags
 		"failure-oracle=",
 	},
 	func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
+		binArgs, err := test.ParseArgs("<$stdin")
+		if err != nil {
+			return nil, cmd.Errorf(3, "Unexpected error: %v", err)
+		}
 		o.Walks = 100
 		var testBits [][]byte
 		for _, oa := range optargs {
@@ -86,6 +93,12 @@ Option Flags
 					return nil, cmd.Err(1, err)
 				}
 				o.Remote = r
+			case "-a", "--binary-args":
+				var err error
+				binArgs, err = test.ParseArgs(oa.Arg())
+				if err != nil {
+					return nil, cmd.Errorf(1, "Could not parse the arguments to %v, err: %v", oa.Opt(), err)
+				}
 			case "--failure-oracle":
 				r, err := test.NewRemote(oa.Arg())
 				if err != nil {
@@ -147,8 +160,12 @@ Option Flags
 		tests := make([]*test.Testcase, 0, len(testBits))
 		count := 0
 		for i, bits := range testBits {
-			t := test.Test(test.StdinExecutor(nil, o.Remote), bits)
-			err := t.Execute()
+			ex, err := test.SingleInputExecutor(binArgs, o.Remote)
+			if err != nil {
+				return nil, cmd.Err(2, err)
+			}
+			t := test.Test(ex, bits)
+			err = t.Execute()
 			if err != nil {
 				return nil, cmd.Usage(r, 2, "Could not execute the test %d. err: %v", i, err)
 			}
