@@ -301,7 +301,8 @@ func Walk(score Score, lat *lattice.Lattice) (*SearchNode) {
 		}
 		prev = cur
 		cur = weighted(filterKids(score, cur.Score, lat, kids))
-		if i == 20 {
+		if i == 25 {
+			break
 		}
 		i++
 	}

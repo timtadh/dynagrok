@@ -191,7 +191,7 @@ func (r *Remote) watch(ctx context.Context, cancel context.CancelFunc, c *exec.C
 	go func() {
 		timer := time.NewTimer(r.Timeout)
 		defer func() {
-			if timer.Stop() {
+			if !timer.Stop() {
 				<-timer.C
 			}
 		}()
@@ -208,6 +208,7 @@ func (r *Remote) watch(ctx context.Context, cancel context.CancelFunc, c *exec.C
 				mem, err := getMemoryUsage(c.Process)
 				if err != nil {
 					errors.Logf("ERROR", "getMemoryUsage err: %v", err)
+					return
 				} else if mem > r.MaxMem {
 					*memKilled = true
 					errors.Logf(

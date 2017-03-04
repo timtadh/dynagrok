@@ -44,7 +44,7 @@ func (t *Testcase) EndTrimmingMuts() []*Mutant {
 }
 
 func (t *Testcase) safe(i int) int {
-	for i > len(t.Case) {
+	for i >= len(t.Case) {
 		i--
 	}
 	if i < 0 {
@@ -91,6 +91,9 @@ func (t *Testcase) LineTrimmingMuts() []*Mutant {
 			i = t.safe(i + 1)
 		}
 		j := lines[idx + 1]
+		if i >= j {
+			continue
+		}
 		muts = append(muts, &Mutant{
 			Test: t,
 			I: i,
