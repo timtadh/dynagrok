@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"strconv"
+	"time"
 )
 
 import (
@@ -66,8 +67,11 @@ Option Flags
     --minimize-tests                  Do the test case minimization
     --failure-oracle=<path>           A failure oracle to filter out graphs with
                                       non-failing minimized tests.
+    -n,--non-failing=<profile>        A non-failing profile or profiles. (May be
+                                      specified multiple times or with a comma
+                                      separated list).
 `,
-	"s:b:a:t:w:",
+	"s:b:a:t:w:n:",
 	[]string{
 		"binary=",
 		"binary-args=",
@@ -77,18 +81,21 @@ Option Flags
 		"walks=",
 		"minimize-tests",
 		"failure-oracle=",
+		"non-failing=",
 	},
 	func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
+		fmt.Println(os.Args)
 		binArgs, err := test.ParseArgs("<$stdin")
 		if err != nil {
 			return nil, cmd.Errorf(3, "Unexpected error: %v", err)
 		}
 		o.Walks = 100
-		var testBits [][]byte
+		var testPaths []string
+		var okPaths []string
 		for _, oa := range optargs {
 			switch oa.Opt() {
 			case "-b", "--binary":
-				r, err := test.NewRemote(oa.Arg())
+				r, err := test.NewRemote(oa.Arg(), test.Timeout(10 * time.Second))
 				if err != nil {
 					return nil, cmd.Err(1, err)
 				}
@@ -107,17 +114,7 @@ Option Flags
 				o.Oracle = r
 			case "-t", "--test":
 				for _, path := range strings.Split(oa.Arg(), ",") {
-					fmt.Println("test", path)
-					if f, err := os.Open(path); err != nil {
-						return nil, cmd.Errorf(1, "Could not open test %v, err: %v", path, err)
-					} else {
-						bits, err := ioutil.ReadAll(f)
-						f.Close()
-						if err != nil {
-							return nil, cmd.Errorf(1, "Could not read test %v, err: %v", path, err)
-						}
-						testBits = append(testBits, bits)
-					}
+					testPaths = append(testPaths, path)
 				}
 			case "-s", "--score":
 				name := oa.Arg()
@@ -145,13 +142,17 @@ Option Flags
 				o.Walks = w
 			case "--minimize-tests":
 				o.Minimize = true
+			case "-n", "--non-failing":
+				for _, path := range strings.Split(oa.Arg(), ",") {
+					okPaths = append(okPaths, path)
+				}
 			}
-		}
-		if len(args) < 1 {
-			return nil, cmd.Usage(r, 2, "Expected an argument for successful test profiles got: [%v]", strings.Join(args, ", "))
 		}
 		if len(testBits) < 1 {
 			return nil, cmd.Usage(r, 2, "Expected at least one test. (see -t)")
+		}
+		if len(okPaths) < 1 {
+			return nil, cmd.Usage(r, 2, "Expected at least one non-failing profile. (see -n)")
 		}
 		if o.Remote == nil {
 			return nil, cmd.Usage(r, 2, "You must supply a binary (see -b)")
@@ -159,41 +160,50 @@ Option Flags
 		var fails bytes.Buffer
 		tests := make([]*test.Testcase, 0, len(testBits))
 		count := 0
-		for i, bits := range testBits {
-			ex, err := test.SingleInputExecutor(binArgs, o.Remote)
-			if err != nil {
-				return nil, cmd.Err(2, err)
-			}
-			t := test.Test(ex, bits)
-			err = t.Execute()
-			if err != nil {
-				return nil, cmd.Usage(r, 2, "Could not execute the test %d. err: %v", i, err)
-			}
-			if !t.Usable() {
-				count++
-				if count < 10 {
-					continue
+		ex, err := test.SingleInputExecutor(binArgs, o.Remote)
+		if err != nil {
+			return nil, cmd.Err(2, err)
+		}
+		for i, path := range testPaths {
+			fmt.Println("loading test", i, path)
+			if f, err := os.Open(path); err != nil {
+				return nil, cmd.Errorf(1, "Could not open test %v, err: %v", path, err)
+			} else {
+				bits, err := ioutil.ReadAll(f)
+				f.Close()
+				if err != nil {
+					return nil, cmd.Errorf(1, "Could not read test %v, err: %v", path, err)
 				}
-				return nil, cmd.Usage(r, 2, "Can't use test %d", i)
+				t := test.Test(ex, bits)
+				err = t.Execute()
+				if err != nil {
+					return nil, cmd.Usage(r, 2, "Could not execute the test %d. err: %v", i, err)
+				}
+				if !t.Usable() {
+					count++
+					if count < 10 {
+						continue
+					}
+					return nil, cmd.Usage(r, 2, "Can't use test %d", i)
+				}
+				_, err = fails.Write(t.Profile())
+				if err != nil {
+					return nil, cmd.Usage(r, 2, "Could not construct buffer for profiles. test %d err: %v", i, err)
+				}
+				tests = append(tests, t)
 			}
-			_, err = fails.Write(t.Profile())
-			if err != nil {
-				return nil, cmd.Usage(r, 2, "Could not construct buffer for profiles. test %d err: %v", i, err)
-			}
-			tests = append(tests, t)
 		}
 		o.Tests = tests
-		oksPath := args[0]
-		oks, okClose, err := cmd.Input(oksPath)
+		oks, okClose, err := cmd.Inputs(okPaths)
 		if err != nil {
-			return nil, cmd.Usage(r, 2, "Could not open ok profiles, %v. err: %v", oksPath, err)
+			return nil, cmd.Usage(r, 2, "Could not open ok profiles, %v. err: %v", okPaths, err)
 		}
 		defer okClose()
 		o.Lattice, err = lattice.LoadFrom(&fails, oks)
 		if err != nil {
 			return nil, cmd.Err(3, err)
 		}
-		return args[1:], nil
+		return args, nil
 	})
 }
 

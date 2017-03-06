@@ -125,16 +125,16 @@ var Scores = map[string]Score {
 	// 	s := ((e+1)/E) * math.Sqrt((prt/prF)) * (a - b)
 	// 	return s
 	// },
-	"SizeWeightedPrecision": func(lat *lattice.Lattice, n *lattice.Node) float64 {
-		E := float64(len(lat.Fail.G.E)) * .25
-		e := float64(len(n.SubGraph.E)) + 1
-		_, _, prf, pro := Prs(lat, n)
-		a := (1/math.Log(E/e))*prf/(prf + pro)
-		if DEBUG {
-			errors.Logf("DEBUG", "prf %v, pro %v, a %v %v", prf, pro, a, n)
-		}
-		return a
-	},
+	// "SizeWeightedPrecision": func(lat *lattice.Lattice, n *lattice.Node) float64 {
+	// 	E := float64(len(lat.Fail.G.E)) * .25
+	// 	e := float64(len(n.SubGraph.E)) + 1
+	// 	_, _, prf, pro := Prs(lat, n)
+	// 	a := (1/math.Log(E/e))*prf/(prf + pro)
+	// 	if DEBUG {
+	// 		errors.Logf("DEBUG", "prf %v, pro %v, a %v %v", prf, pro, a, n)
+	// 	}
+	// 	return a
+	// },
 	"RelativePrecision": func(lat *lattice.Lattice, n *lattice.Node) float64 {
 		prF, prO, prf, pro := Prs(lat, n)
 		a := prf/(prf + pro)

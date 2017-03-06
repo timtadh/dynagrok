@@ -9,6 +9,25 @@ import (
 	"compress/gzip"
 )
 
+func Inputs(paths []string) (reader io.Reader, closeall func(), err error) {
+	readers := make([]io.Reader, 0, len(paths))
+	closers := make([]func(), 0, len(paths))
+	for _, p := range paths {
+		r, c, err := Input(p)
+		if err != nil {
+			return nil, nil, err
+		}
+		readers = append(readers, r)
+		closers = append(closers, c)
+	}
+	reader = io.MultiReader(readers...)
+	return reader, func() {
+		for _, closer := range closers {
+			closer()
+		}
+	}, nil
+}
+
 func Input(input_path string) (reader io.Reader, closeall func(), err error) {
 	stat, err := os.Stat(input_path)
 	if err != nil {

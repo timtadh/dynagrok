@@ -12,6 +12,7 @@ import (
 )
 
 type Location struct {
+	Color    int
 	Position string
 	FnName   string
 	BasicBlockId int
@@ -78,6 +79,7 @@ func prFailGivenLine(lat *lattice.Lattice) Result {
 	result := make(Result, 0, len(lines))
 	for color := range lines {
 		l := Location{
+			color,
 			lat.Positions[color],
 			lat.FnNames[color],
 			lat.BBIds[color],
@@ -100,6 +102,7 @@ func prLineGivenFail(lat *lattice.Lattice) Result {
 	result := make(Result, 0, len(lines))
 	for color := range lines {
 		l := Location{
+			color,
 			lat.Positions[color],
 			lat.FnNames[color],
 			lat.BBIds[color],
@@ -129,6 +132,7 @@ func relativePrecision(lat *lattice.Lattice) Result {
 	result := make(Result, 0, len(lines))
 	for color := range lines {
 		l := Location{
+			color,
 			lat.Positions[color],
 			lat.FnNames[color],
 			lat.BBIds[color],
@@ -157,6 +161,7 @@ func relativeRecall(lat *lattice.Lattice) Result {
 	result := make(Result, 0, len(lines))
 	for color := range lines {
 		l := Location{
+			color,
 			lat.Positions[color],
 			lat.FnNames[color],
 			lat.BBIds[color],
@@ -185,6 +190,7 @@ func precisionGain(lat *lattice.Lattice) Result {
 	result := make(Result, 0, len(lines))
 	for color := range lines {
 		l := Location{
+			color,
 			lat.Positions[color],
 			lat.FnNames[color],
 			lat.BBIds[color],
@@ -213,6 +219,7 @@ func jaccard(lat *lattice.Lattice) Result {
 	result := make(Result, 0, len(lines))
 	for color := range lines {
 		l := Location{
+			color,
 			lat.Positions[color],
 			lat.FnNames[color],
 			lat.BBIds[color],
@@ -240,6 +247,7 @@ func sorensenDice(lat *lattice.Lattice) Result {
 	result := make(Result, 0, len(lines))
 	for color := range lines {
 		l := Location{
+			color,
 			lat.Positions[color],
 			lat.FnNames[color],
 			lat.BBIds[color],
@@ -268,6 +276,7 @@ func relativeF1(lat *lattice.Lattice) Result {
 	result := make(Result, 0, len(lines))
 	for color := range lines {
 		l := Location{
+			color,
 			lat.Positions[color],
 			lat.FnNames[color],
 			lat.BBIds[color],
@@ -297,6 +306,7 @@ func ochiai(lat *lattice.Lattice) Result {
 	result := make(Result, 0, len(lines))
 	for color := range lines {
 		l := Location{
+			color,
 			lat.Positions[color],
 			lat.FnNames[color],
 			lat.BBIds[color],
@@ -325,6 +335,7 @@ func relativeOchiai(lat *lattice.Lattice) Result {
 	result := make(Result, 0, len(lines))
 	for color := range lines {
 		l := Location{
+			color,
 			lat.Positions[color],
 			lat.FnNames[color],
 			lat.BBIds[color],
@@ -360,6 +371,7 @@ func symmetricKlosgen(lat *lattice.Lattice) Result {
 	result := make(Result, 0, len(lines))
 	for color := range lines {
 		l := Location{
+			color,
 			lat.Positions[color],
 			lat.FnNames[color],
 			lat.BBIds[color],
@@ -390,6 +402,7 @@ func enhancedTarantula(lat *lattice.Lattice) Result {
 	result := make(Result, 0, len(lines))
 	for color := range lines {
 		l := Location{
+			color,
 			lat.Positions[color],
 			lat.FnNames[color],
 			lat.BBIds[color],

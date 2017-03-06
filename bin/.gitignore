@@ -2,4 +2,5 @@
 !.gitignore
 !instrument-compile
 !mutate-compile
+!compiler-experiment
 !map-experiment

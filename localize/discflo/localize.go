@@ -96,6 +96,7 @@ func LocalizeNodes(score Score, lat *lattice.Lattice) stat.Result {
 		n := lattice.NewNode(lat, vsg, embs)
 		s := score(lat, n)
 		result = append(result, stat.Location{
+			color,
 			lat.Positions[color],
 			lat.FnNames[color],
 			lat.BBIds[color],
@@ -107,23 +108,49 @@ func LocalizeNodes(score Score, lat *lattice.Lattice) stat.Result {
 }
 
 func Localize(walks int, tests []*test.Testcase, oracle *test.Remote, score Score, lat *lattice.Lattice) (Result, error) {
+	min := func(a, b int) int {
+		if a < b {
+			return a
+		}
+		return b
+	}
+	max := func(a, b int) int {
+		if a > b {
+			return a
+		}
+		return b
+	}
 	WALKS := walks
 	nodes := make([]*SearchNode, 0, WALKS)
 	seen := make(map[string]*SearchNode, WALKS)
 	db := NewDbScan(.25)
-	for i := 0; i < WALKS; i++ {
-		n := Walk(score, lat)
-		if n.Node.SubGraph == nil || len(n.Node.SubGraph.E) < 1 {
-			continue
+	// for i := 0; i < WALKS; i++ {
+	// 	n := Walk(score, lat)
+	total := min(len(lat.Labels.Labels()), max(250, len(lat.Labels.Labels())/16))
+	for i, l := range LocalizeNodes(score, lat) {
+	// for color := range lat.Labels.Labels() {
+		color := l.Color
+		if i >= total {
+			break
 		}
-		if false {
-			errors.Logf("DEBUG", "found %d %v", i, n)
-		}
-		label := string(n.Node.SubGraph.Label())
-		if _, has := seen[label]; !has {
-			db.Add(n.Node)
-			nodes = append(nodes, n)
-			seen[label] = n
+		for w := 0; w < walks; w++ {
+			n := WalkFromColor(color, score, lat)
+			if n.Node.SubGraph == nil { // || len(n.Node.SubGraph.E) < 1 {
+				continue
+			}
+			label := string(n.Node.SubGraph.Label())
+			if _, has := seen[label]; !has {
+				db.Add(n.Node)
+				nodes = append(nodes, n)
+				seen[label] = n
+				if true {
+					errors.Logf("DEBUG", "found %d/%d %d %v", i, total, len(nodes), n)
+				}
+			} else {
+				if false {
+					errors.Logf("DEBUG", "repeat %v", len(nodes), n)
+				}
+			}
 		}
 	}
 	if len(nodes) == 0 {
@@ -157,6 +184,9 @@ func Localize(walks int, tests []*test.Testcase, oracle *test.Remote, score Scor
 	filtered := make([]*SearchNode, 0, len(nodes))
 	if len(tests) > 0 {
 		for i, n := range nodes {
+			if i > 25 {
+				break
+			}
 			fmt.Println(n)
 			fmt.Printf("------------ ranks %d ----------------\n", i)
 			fmt.Println(RankNodes(score, lat, n.Node.SubGraph))
@@ -199,10 +229,12 @@ func Localize(walks int, tests []*test.Testcase, oracle *test.Remote, score Scor
 		filtered = nodes
 	}
 	colors := make(map[int][]*SearchNode)
-	for i := 0; i < 100 && i < len(filtered); i++ {
+	for i := 0; i < len(filtered); i++ {
 		n := filtered[i]
 	// for _, n := range filtered {
-		errors.Logf("DEBUG", "%v", n)
+		if true {
+			errors.Logf("DEBUG", "%v", n)
+		}
 		for j := range n.Node.SubGraph.V {
 			colors[n.Node.SubGraph.V[j].Color] = append(colors[n.Node.SubGraph.V[j].Color], n)
 		}
@@ -224,6 +256,7 @@ func RankNodes(score Score, lat *lattice.Lattice, sg *subgraph.SubGraph) stat.Re
 		n := lattice.NewNode(lat, vsg, embs)
 		s := score(lat, n)
 		result = append(result, stat.Location{
+			color,
 			lat.Positions[color],
 			lat.FnNames[color],
 			lat.BBIds[color],
@@ -235,7 +268,7 @@ func RankNodes(score Score, lat *lattice.Lattice, sg *subgraph.SubGraph) stat.Re
 }
 
 func RankColors(score Score, lat *lattice.Lattice, colors map[int][]*SearchNode) Result {
-	epsilon := .1
+	epsilon := .025
 	result := make(Result, 0, len(colors))
 	for color, searchNodes := range colors {
 		vsg := subgraph.Build(1, 0).FromVertex(color).Build()
@@ -254,12 +287,15 @@ func RankColors(score Score, lat *lattice.Lattice, colors map[int][]*SearchNode)
 				s += sn.Score
 				t++
 			} else {
-				errors.Logf("DEBUG", "skipped %v %v %v", lat.Labels.Label(color), rm, sn.Score)
+				if false {
+					errors.Logf("DEBUG", "skipped %v %v %v", lat.Labels.Label(color), rm, sn.Score)
+				}
 			}
 		}
 		s = (colorScore * s) / float64(t)
 		result = append(result, Location{
 			stat.Location{
+				color,
 				lat.Positions[color],
 				lat.FnNames[color],
 				lat.BBIds[color],
@@ -289,10 +325,30 @@ func Walk(score Score, lat *lattice.Lattice) (*SearchNode) {
 		Node: lat.Root(),
 		Score: 0,
 	}
+	return WalkFrom(cur, score, lat)
+}
+
+func WalkFromColor(color int, score Score, lat *lattice.Lattice) (*SearchNode) {
+	// color := lat.Labels.Color("(*dynagrok/examples/avl.Avl).Verify blk 3")
+	vsg := subgraph.Build(1, 0).FromVertex(color).Build()
+	embIdxs := lat.Fail.ColorIndex[color]
+	embs := make([]*subgraph.Embedding, 0, len(embIdxs))
+	for _, embIdx := range embIdxs {
+		embs = append(embs, subgraph.StartEmbedding(subgraph.VertexEmbedding{SgIdx: 0, EmbIdx: embIdx}))
+	}
+	colorNode := lattice.NewNode(lat, vsg, embs)
+	cur := &SearchNode{
+		Node: colorNode,
+		Score: score(lat, colorNode),
+	}
+	return WalkFrom(cur, score, lat)
+}
+
+func WalkFrom(cur *SearchNode, score Score, lat *lattice.Lattice) (*SearchNode) {
 	i := 0
 	prev := cur
 	for cur != nil {
-		if true {
+		if false {
 			errors.Logf("DEBUG", "cur %v", cur)
 		}
 		kids, err := cur.Node.Children()

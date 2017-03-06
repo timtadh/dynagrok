@@ -1,6 +1,7 @@
 package eval
 
 import (
+	"os"
 	"fmt"
 	"bufio"
 	"bytes"
@@ -13,6 +14,7 @@ import (
 
 import (
 	"github.com/timtadh/dynagrok/cmd"
+	"github.com/timtadh/dynagrok/mutate"
 	"github.com/timtadh/dynagrok/localize/discflo"
 	"github.com/timtadh/dynagrok/localize/stat"
 	"github.com/timtadh/dynagrok/localize/lattice"
@@ -20,7 +22,7 @@ import (
 
 type Options struct {
 	discflo.Options
-	FailuresPath string
+	FaultsPath string
 }
 
 func NewCommand(c *cmd.Config) cmd.Runnable {
@@ -34,26 +36,27 @@ Evaluate a fault localization method from ground truth
 
 Option Flags
     -h,--help                         Show this message
-    -f,--failures=<path>              Path to a failures file.
+    -f,--faults=<path>                Path to a fault file.
 `,
 	optsParser.ShortOpts() + "f:",
 	append(optsParser.LongOpts(),
-		"failures=",
+		"faults=",
 	),
 	func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
-		failures := ""
+		fmt.Println(os.Args)
+		faults := ""
 		consumed := make(map[int]bool)
 		for i, oa := range optargs {
 			switch oa.Opt() {
-			case "-f", "--failures":
-				failures = oa.Arg()
+			case "-f", "--faults":
+				faults = oa.Arg()
 				consumed[i] = true
 			}
 		}
-		if failures == "" {
-			return nil, cmd.Errorf(1, "You must supply the `-f` flag and give a path to the failures")
+		if faults == "" {
+			return nil, cmd.Errorf(1, "You must supply the `-f` flag and give a path to the faults")
 		}
-		o.FailuresPath = failures
+		o.FaultsPath = faults
 		outargs := make([]string, 0, len(optargs) + len(args))
 		for i, oa := range optargs {
 			if !consumed[i] {
@@ -69,28 +72,33 @@ Option Flags
 	optsParser,
 	cmd.BareCmd(
 	func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
-		failures, err := LoadFailures(o.FailuresPath)
+		faults, err := LoadFaults(o.FaultsPath)
 		if err != nil {
 			return nil, cmd.Err(1, err)
 		}
-		eval := func(f *Failure, name string, method stat.Method) {
+		for _, f := range faults {
+			fmt.Println(f)
+		}
+		eval := func(name string, method stat.Method) {
 			localized := Group(method(o.Lattice))
-			sum := 0
-			for _, g := range localized {
-				for _, l := range g {
-					if l.FnName == f.FnName && l.BasicBlockId == f.BasicBlockId {
-						fmt.Printf(
-							"    %v {\n\trank: %v,\n\tscore: %v,\n\tfn: %v (%d),\n\tpos: %v\n    }\n",
-							name,
-							float64(sum) + float64(len(g))/2,
-							l.Score,
-							l.FnName,
-							l.BasicBlockId,
-							l.Position,
-						)
+			for _, f := range faults {
+				sum := 0
+				for _, g := range localized {
+					for _, l := range g {
+						if l.FnName == f.FnName && l.BasicBlockId == f.BasicBlockId {
+							fmt.Printf(
+								"    %v {\n\trank: %v,\n\tscore: %v,\n\tfn: %v (%d),\n\tpos: %v\n    }\n",
+								name,
+								float64(sum) + float64(len(g))/2,
+								l.Score,
+								l.FnName,
+								l.BasicBlockId,
+								l.Position,
+							)
+						}
 					}
+					sum += len(g)
 				}
-				sum += len(g)
 			}
 		}
 		dflo := func(s discflo.Score) stat.Method {
@@ -102,25 +110,22 @@ Option Flags
 				return r.StatResult()
 			}
 		}
-		for _, f := range failures {
-			fmt.Println(f)
-			if o.Score == nil {
-				for name, score := range discflo.Scores {
-					eval(f, "Discflo + "+name, dflo(score))
-					eval(f, name, func(s discflo.Score) stat.Method {
-						return func(lat *lattice.Lattice) stat.Result {
-							return discflo.LocalizeNodes(s, lat)
-						}
-					}(score))
-				}
-			} else {
-				eval(f, "Discflo + "+o.ScoreName, dflo(o.Score))
-				eval(f, o.ScoreName, func(s discflo.Score) stat.Method {
+		if o.Score == nil {
+			for name, score := range discflo.Scores {
+				eval("Discflo + "+name, dflo(score))
+				eval(name, func(s discflo.Score) stat.Method {
 					return func(lat *lattice.Lattice) stat.Result {
 						return discflo.LocalizeNodes(s, lat)
 					}
-				}(o.Score))
+				}(score))
 			}
+		} else {
+			eval("Discflo + "+o.ScoreName, dflo(o.Score))
+			eval(o.ScoreName, func(s discflo.Score) stat.Method {
+				return func(lat *lattice.Lattice) stat.Result {
+					return discflo.LocalizeNodes(s, lat)
+				}
+			}(o.Score))
 		}
 		return nil, nil
 	}))
@@ -140,49 +145,48 @@ func Group(results stat.Result) []stat.Result {
 	return groups
 }
 
-type Failure struct {
-	Position string
+type Fault struct {
 	FnName   string
 	BasicBlockId int
 }
 
-func (f *Failure) String() string {
-	return fmt.Sprintf(`Failure {
-    Position: %v,
+func (f *Fault) String() string {
+	return fmt.Sprintf(`Fault {
     FnName: %v,
     BasicBlockId: %d,
-}`, f.Position, f.FnName, f.BasicBlockId)
+}`, f.FnName, f.BasicBlockId)
 }
 
-func LoadFailure(bits []byte) (*Failure, error) {
-	var f Failure
-	err := json.Unmarshal(bits, &f)
+func LoadFault(bits []byte) (*Fault, error) {
+	var e mutate.ExportedMut
+	err := json.Unmarshal(bits, &e)
 	if err != nil{
 		return nil, err
 	}
-	return &f, nil
+	f := &Fault{FnName: e.FnName, BasicBlockId: e.BasicBlockId}
+	return f, nil
 }
 
-func LoadFailures(path string) ([]*Failure, error) {
+func LoadFaults(path string) ([]*Fault, error) {
 	fin, failClose, err := cmd.Input(path)
 	if err != nil {
 		return nil, fmt.Errorf("Could not read the list of failures: %v\n%v", path, err)
 	}
 	defer failClose()
-	seen := make(map[string]bool)
-	failures := make([]*Failure, 0, 10)
+	seen := make(map[Fault]bool)
+	failures := make([]*Fault, 0, 10)
 	s := bufio.NewScanner(fin)
 	for s.Scan() {
 		line := bytes.TrimSpace(s.Bytes())
 		if len(line) == 0 {
 			continue
 		}
-		f, err := LoadFailure(line)
+		f, err := LoadFault(line)
 		if err != nil {
 			return nil, fmt.Errorf("Could not load failure: `%v`\nerror: %v", string(line), err)
 		}
-		if !seen[f.Position] {
-			seen[f.Position] = true
+		if !seen[*f] {
+			seen[*f] = true
 			failures = append(failures, f)
 		}
 	}

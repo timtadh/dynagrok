@@ -29,6 +29,7 @@ func (t *Testcase) Minimize(lat *lattice.Lattice, sg *subgraph.SubGraph) (*Testc
 	if !sg.EmbeddedIn(p) {
 		return nil, nil
 	}
+	errors.Logf("DEBUG", "minimizing %v with %v lines", len(cur.Case), len(t.Lines()))
 	// errors.Logf("DEBUG", "trim suffixes")
 	// t, err = t.minimizeWith(lat, sg, func(test *Testcase)[]*Mutant {
 	// 	return atMost(200, test.LineEndTrimmingMuts())
@@ -43,20 +44,27 @@ func (t *Testcase) Minimize(lat *lattice.Lattice, sg *subgraph.SubGraph) (*Testc
 	// if err != nil {
 	// 	return nil, err
 	// }
-	errors.Logf("DEBUG", "trim lines")
+	errors.Logf("DEBUG", "trim blocks of lines")
 	t, err = t.minimizeWith(lat, sg, func(test *Testcase)[]*Mutant {
-		return atMost(200, test.LineTrimmingMuts())
+		return atMost(50, test.LineBlockTrimmingMuts())
 	})
 	if err != nil {
 		return nil, err
 	}
-	// errors.Logf("DEBUG", "trim blocks of lines")
-	// t, err = t.minimizeWith(lat, sg, func(test *Testcase)[]*Mutant {
-	// 	return atMost(350, test.LineBlockTrimmingMuts())
-	// })
-	// if err != nil {
-	// 	return nil, err
-	// }
+	errors.Logf("DEBUG", "trim lines")
+	t, err = t.minimizeWith(lat, sg, func(test *Testcase)[]*Mutant {
+		return atMost(150, test.LineTrimmingMuts())
+	})
+	if err != nil {
+		return nil, err
+	}
+	errors.Logf("DEBUG", "trim blocks of lines")
+	t, err = t.minimizeWith(lat, sg, func(test *Testcase)[]*Mutant {
+		return atMost(50, test.LineBlockTrimmingMuts())
+	})
+	if err != nil {
+		return nil, err
+	}
 	// TODO: make this configurable
 	// errors.Logf("DEBUG", "trim blocks")
 	// t, err = t.minimizeWith(lat, sg, func(test *Testcase)[]*Mutant {
