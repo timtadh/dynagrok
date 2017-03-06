@@ -29,7 +29,7 @@ func (t *Testcase) Minimize(lat *lattice.Lattice, sg *subgraph.SubGraph) (*Testc
 	if !sg.EmbeddedIn(p) {
 		return nil, nil
 	}
-	errors.Logf("DEBUG", "minimizing %v with %v lines", len(cur.Case), len(t.Lines()))
+	errors.Logf("DEBUG", "minimizing %v with %v bytes and %v lines", t.From, len(t.Case), len(t.Lines()))
 	// errors.Logf("DEBUG", "trim suffixes")
 	// t, err = t.minimizeWith(lat, sg, func(test *Testcase)[]*Mutant {
 	// 	return atMost(200, test.LineEndTrimmingMuts())

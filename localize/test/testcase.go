@@ -11,6 +11,7 @@ import (
 )
 
 type Testcase struct {
+	From     string
 	Case     []byte
 	Exec     Executor
 	executed bool
@@ -18,8 +19,9 @@ type Testcase struct {
 	profile  []byte
 }
 
-func Test(e Executor, stdin []byte) *Testcase {
+func Test(from string, e Executor, stdin []byte) *Testcase {
 	return &Testcase{
+		From: from,
 		Case: stdin,
 		Exec: e,
 	}

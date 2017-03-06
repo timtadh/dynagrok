@@ -28,7 +28,7 @@ func (m *Mutant) Testcase() *Testcase {
 	buf := make([]byte, len(left) + len(right))
 	copy(buf[:len(left)], left)
 	copy(buf[len(left):], right)
-	return Test(m.Test.Exec, buf)
+	return Test(m.Test.From, m.Test.Exec, buf)
 }
 
 func (t *Testcase) EndTrimmingMuts() []*Mutant {

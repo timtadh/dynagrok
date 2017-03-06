@@ -148,7 +148,7 @@ Option Flags
 				}
 			}
 		}
-		if len(testBits) < 1 {
+		if len(testPaths) < 1 {
 			return nil, cmd.Usage(r, 2, "Expected at least one test. (see -t)")
 		}
 		if len(okPaths) < 1 {
@@ -158,7 +158,7 @@ Option Flags
 			return nil, cmd.Usage(r, 2, "You must supply a binary (see -b)")
 		}
 		var fails bytes.Buffer
-		tests := make([]*test.Testcase, 0, len(testBits))
+		tests := make([]*test.Testcase, 0, len(testPaths))
 		count := 0
 		ex, err := test.SingleInputExecutor(binArgs, o.Remote)
 		if err != nil {
@@ -174,7 +174,7 @@ Option Flags
 				if err != nil {
 					return nil, cmd.Errorf(1, "Could not read test %v, err: %v", path, err)
 				}
-				t := test.Test(ex, bits)
+				t := test.Test(path, ex, bits)
 				err = t.Execute()
 				if err != nil {
 					return nil, cmd.Usage(r, 2, "Could not execute the test %d. err: %v", i, err)

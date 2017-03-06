@@ -208,6 +208,7 @@ func (r *Remote) watch(ctx context.Context, cancel context.CancelFunc, c *exec.C
 				mem, err := getMemoryUsage(c.Process)
 				if err != nil {
 					errors.Logf("ERROR", "getMemoryUsage err: %v", err)
+					kill()
 					return
 				} else if mem > r.MaxMem {
 					*memKilled = true
@@ -219,6 +220,7 @@ func (r *Remote) watch(ctx context.Context, cancel context.CancelFunc, c *exec.C
 					return
 				}
 			case <-ctx.Done():
+				kill()
 				return
 			}
 		}
