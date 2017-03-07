@@ -20,6 +20,7 @@ var excludedPackages = map[string]bool{
 	"time": true,
 	"reflect": true,
 	"unicode": true,
+	"dgruntime": true,
 }
 
 func ExcludedPkg(pkg string) bool {

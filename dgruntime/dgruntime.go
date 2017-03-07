@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"runtime"
 	"unsafe"
+	"dgruntime/dgtypes"
 )
 
 func init() {
@@ -56,8 +57,8 @@ func EnterBlk(bbid int, pos string) {
 	defer g.m.Unlock()
 	fc := g.Stack[len(g.Stack)-1]
 	last := fc.Last
-	cur := BlkEntrance{In: fc.FuncPc, BasicBlockId: bbid}
-	g.Flows[FlowEdge{Src: last, Targ: cur}]++
+	cur := dgtypes.BlkEntrance{In: fc.FuncPc, BasicBlockId: bbid}
+	g.Flows[dgtypes.FlowEdge{Src: last, Targ: cur}]++
 	fc.Last = cur
 	g.Positions[cur] = pos
 }
@@ -73,14 +74,14 @@ func EnterFunc(name, pos string) {
 	pc := runtime.GetCallerPC(unsafe.Pointer(&name))
 	f := runtime.FuncForPC(pc)
 	fpc := f.Entry()
-	cur := BlkEntrance{In: fpc, BasicBlockId: 0}
-	g.Stack = append(g.Stack, &FuncCall{
+	cur := dgtypes.BlkEntrance{In: fpc, BasicBlockId: 0}
+	g.Stack = append(g.Stack, &dgtypes.FuncCall{
 		Name: name,
 		FuncPc: fpc,
 		Last: cur,
 	})
-	g.Flows[FlowEdge{Src: g.Stack[len(g.Stack)-2].Last, Targ: cur}]++
-	g.Calls[Call{Caller: g.Stack[len(g.Stack)-2].FuncPc, Callee: fpc}]++
+	g.Flows[dgtypes.FlowEdge{Src: g.Stack[len(g.Stack)-2].Last, Targ: cur}]++
+	g.Calls[dgtypes.Call{Caller: g.Stack[len(g.Stack)-2].FuncPc, Callee: fpc}]++
 	g.Positions[cur] = pos
 	// g.m.Unlock()
 }
@@ -98,12 +99,12 @@ func ExitFunc(name string) {
 	g.Stack = g.Stack[:len(g.Stack)-1]
 	// Println(fmt.Sprintf("exit %v %v", fc.Name, fc.Flow))
 	if len(g.Stack) >= 1 {
-		g.Flows[FlowEdge{Src: fc.Last, Targ: g.Stack[len(g.Stack)-1].Last}]++
+		g.Flows[dgtypes.FlowEdge{Src: fc.Last, Targ: g.Stack[len(g.Stack)-1].Last}]++
 	}
 	if f, has := g.Funcs[fc.FuncPc]; has {
 		f.Update(fc)
 	} else {
-		g.Funcs[fc.FuncPc] = newFunction(fc)
+		g.Funcs[fc.FuncPc] = dgtypes.NewFunction(fc)
 	}
 	if len(g.Stack) == 1 {
 		// g.m.Unlock()

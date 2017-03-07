@@ -116,7 +116,7 @@ func (r *Remote) Execute(args []string, stdin []byte) (stdout, stderr, profile, 
 	inbuf := bytes.NewBuffer(stdin)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	c := exec.CommandContext(ctx, r.Path, args...)
+	c := exec.Command(r.Path, args...)
 	c.Env = r.Env(dgprof)
 	c.Stdin = inbuf
 	c.Stdout = &outbuf
@@ -128,7 +128,8 @@ func (r *Remote) Execute(args []string, stdin []byte) (stdout, stderr, profile, 
 	}
 	var timeKilled bool
 	var memKilled bool
-	r.watch(ctx, cancel, c, &timeKilled, &memKilled)
+	// r.watch(ctx, cancel, c, &timeKilled, &memKilled)
+
 	err = c.Wait()
 	cerr := ctx.Err()
 	if err != nil {
@@ -145,7 +146,7 @@ func (r *Remote) Execute(args []string, stdin []byte) (stdout, stderr, profile, 
 	}
 	ok = c.ProcessState.Success() && !timeKilled && !memKilled
 
-	fgPath := filepath.Join(dgprof, "flow-graph.dot")
+	fgPath := filepath.Join(dgprof, "flow-graph.txt")
 	if _, err := os.Stat(fgPath); err == nil {
 		fg, err := os.Open(fgPath)
 		if err != nil {
@@ -175,6 +176,7 @@ func (r *Remote) Execute(args []string, stdin []byte) (stdout, stderr, profile, 
 
 func (r *Remote) watch(ctx context.Context, cancel context.CancelFunc, c *exec.Cmd, timeKilled, memKilled *bool) {
 	kill := func() {
+		errors.Logf("ERROR", "Attempting a kill")
 		if c.ProcessState != nil {
 			return
 		}
@@ -220,7 +222,6 @@ func (r *Remote) watch(ctx context.Context, cancel context.CancelFunc, c *exec.C
 					return
 				}
 			case <-ctx.Done():
-				kill()
 				return
 			}
 		}

@@ -1,7 +1,6 @@
 package eval
 
 import (
-	"os"
 	"fmt"
 	"bufio"
 	"bytes"
@@ -43,7 +42,6 @@ Option Flags
 		"faults=",
 	),
 	func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
-		fmt.Println(os.Args)
 		faults := ""
 		consumed := make(map[int]bool)
 		for i, oa := range optargs {

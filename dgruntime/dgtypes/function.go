@@ -1,4 +1,4 @@
-package dgruntime
+package dgtypes
 
 type Function struct {
 	Name   string
@@ -12,7 +12,7 @@ type FuncCall struct {
 	Last   BlkEntrance
 }
 
-func newFunction(fc *FuncCall) *Function {
+func NewFunction(fc *FuncCall) *Function {
 	f := &Function {
 		Name: fc.Name,
 		FuncPc: fc.FuncPc,

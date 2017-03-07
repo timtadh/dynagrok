@@ -34,15 +34,22 @@ if [[ -z "$MUTATE" ]]; then
 	MUTANTS=/tmp/mutants
 fi
 
+function run {
+  >&2 echo $ "${@}"
+  "${@}"
+}
+
+
+
 ##  MUTANT=$6
 ##  if [[ -z "$MUTATE" ]]; then
 ##  	MUTANT=1
 ##  fi
 
 if [[ -d $MUTANTS ]]; then
-	rm -rf $MUTANTS
+	run rm -rf $MUTANTS
 fi
-mkdir $MUTANTS
+run mkdir $MUTANTS
 
 HEAD=$(git -C $goroot rev-parse HEAD)
 COMMIT=$(git -C $goroot show-ref $VERSION)
@@ -57,12 +64,12 @@ echo "head   $HEAD"
 echo "commit $COMMIT"
 
 if [[ $HEAD != $COMMIT ]]; then
-	if ! git -C $goroot checkout $VERSION; then
+	if ! run git -C $goroot checkout $VERSION; then
 		echo "the version supplied could not be checked out"
 		exit 1
 	fi
 
-	if ! git -C $goroot clean -f; then
+	if ! run git -C $goroot clean -f; then
 		echo "could not a do clean"
 		exit 1
 	fi
@@ -81,18 +88,18 @@ if [[ $HEAD != $COMMIT ]]; then
 	)
 fi
 
-COUNT=25
+COUNT=10
 TESTS=$dgpath/examples/compiler-tests/oks
 TARGET=/tmp/mutant-go-$VERSION
 export GOROOT=$goroot
 export GOPATH=/tmp/fake-go-path
 for ((MUTANT=1;MUTANT<=$COUNT;MUTANT++)); do
 	COMPILER=$MUTANTS/m$MUTANT/compiler
-	rm -rf $TARGET/goroot/src/cmd/compile
-	rm -rf $TARGET/goroot/src/cmd/internal/obj
-	rm -rf $TARGET/goroot/src/cmd/internal/x86
+	run rm -rf $TARGET/goroot/src/cmd/compile
+	run rm -rf $TARGET/goroot/src/cmd/internal/obj
+	run rm -rf $TARGET/goroot/src/cmd/internal/x86
 	echo "dyangrok mutate $MUTANT"
-	if ! dynagrok -d $dgpath \
+	if ! run dynagrok -d $dgpath \
 			mutate \
 				--keep-work -w $TARGET \
 				-o $COMPILER \
@@ -109,41 +116,53 @@ for ((MUTANT=1;MUTANT<=$COUNT;MUTANT++)); do
 	then
 		echo "mutating cmd/compile failed"
 		echo "removing the mutant $MUTANTS/m$MUTANT/compiler"
-		rm -rf $COMPILER
+		run rm -r $MUTANTS/m$MUTANT
 		MUTANT=$((MUTANT-1))
 		echo "retrying"
 		continue
 	else
 		echo "successfully mutated cmd/compile"
-		mv $TARGET/mutations $MUTANTS/m$MUTANT/mutations
+		run mv $TARGET/mutations $MUTANTS/m$MUTANT/mutations
 	fi
 
 	if ! $COMPILER -o /dev/null $dgpath/examples/example.go; then
 		echo "mutated compiler could not compile hello world"
-		touch $MUTANTS/m$MUTANT/bad
+		run rm -r $MUTANTS/m$MUTANT
+		MUTANT=$((MUTANT-1))
+		echo "retrying"
+		continue
 	else
 		echo "mutated compiler compiled hello world!"
-		touch $MUTANTS/m$MUTANT/good
+		run touch $MUTANTS/m$MUTANT/good
 		OKS=$MUTANTS/m$MUTANT/oks
 		FAILS=$MUTANTS/m$MUTANT/failed
-		mkdir -p $OKS/tests $OKS/profiles
-		mkdir -p $FAILS/tests $FAILS/profiles $FAILS/failures
+		run mkdir -p $OKS/tests $OKS/profiles
+		run mkdir -p $FAILS/tests $FAILS/profiles $FAILS/failures
 		t=$((0))
 		for path in $(find $TESTS -type f -name "*.go" | sort); do
 			echo "running test $t $path"
 			export DGPROF=$MUTANTS/m$MUTANT/tests/$t
-			mkdir -p $DGPROF
+			run mkdir -p $DGPROF
 			$COMPILER -o /dev/null $path
 			if [[ -f $DGPROF/failures ]]; then
-				cp $path $FAILS/tests/$t.go
-				cp $DGPROF/flow-graph.dot $FAILS/profiles/$t.dot
-				cp $DGPROF/failures $FAILS/failures/$t
+				run cp $path $FAILS/tests/$t.go
+				run cp $DGPROF/flow-graph.txt $FAILS/profiles/$t.txt
+				run cp $DGPROF/failures $FAILS/failures/$t
 			else
-				cp $path $OKS/tests/$t.go
-				cp $DGPROF/flow-graph.dot $OKS/profiles/$t.dot
+				run cp $path $OKS/tests/$t.go
+				run cp $DGPROF/flow-graph.txt $OKS/profiles/$t.txt
 			fi
 			t=$((t+1))
 		done
+		sleep .02
+		if ! [ "$(ls -A $OKS/tests)" ] || ! [ "$(ls -A $FAILS/tests)" ]; then
+			echo "mutant either always failed or always worked"
+			echo "removing it"
+			run rm -rf $MUTANTS/m$MUTANT
+			MUTANT=$((MUTANT-1))
+			echo "retrying"
+			continue
+		fi
 	fi
 done
 

@@ -23,7 +23,7 @@ import (
 type Options struct {
 	Lattice   *lattice.Lattice
 	Remote    *test.Remote
-	Oracle    *test.Remote
+	Oracle    test.Executor
 	Tests     []*test.Testcase
 	Score     Score
 	ScoreName string
@@ -84,12 +84,12 @@ Option Flags
 		"non-failing=",
 	},
 	func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
-		fmt.Println(os.Args)
 		binArgs, err := test.ParseArgs("<$stdin")
 		if err != nil {
 			return nil, cmd.Errorf(3, "Unexpected error: %v", err)
 		}
 		o.Walks = 100
+		var oracle *test.Remote
 		var testPaths []string
 		var okPaths []string
 		for _, oa := range optargs {
@@ -107,11 +107,11 @@ Option Flags
 					return nil, cmd.Errorf(1, "Could not parse the arguments to %v, err: %v", oa.Opt(), err)
 				}
 			case "--failure-oracle":
-				r, err := test.NewRemote(oa.Arg())
+				r, err := test.NewRemote(oa.Arg(), test.Timeout(10 * time.Second))
 				if err != nil {
 					return nil, cmd.Err(1, err)
 				}
-				o.Oracle = r
+				oracle = r
 			case "-t", "--test":
 				for _, path := range strings.Split(oa.Arg(), ",") {
 					testPaths = append(testPaths, path)
@@ -160,6 +160,13 @@ Option Flags
 		var fails bytes.Buffer
 		tests := make([]*test.Testcase, 0, len(testPaths))
 		count := 0
+		if oracle != nil {
+			fex, err := test.SingleInputExecutor(binArgs, oracle)
+			if err != nil {
+				return nil, cmd.Err(2, err)
+			}
+			o.Oracle = fex
+		}
 		ex, err := test.SingleInputExecutor(binArgs, o.Remote)
 		if err != nil {
 			return nil, cmd.Err(2, err)

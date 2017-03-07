@@ -107,7 +107,7 @@ func LocalizeNodes(score Score, lat *lattice.Lattice) stat.Result {
 	return result
 }
 
-func Localize(walks int, tests []*test.Testcase, oracle *test.Remote, score Score, lat *lattice.Lattice) (Result, error) {
+func Localize(walks int, tests []*test.Testcase, oracle test.Executor, score Score, lat *lattice.Lattice) (Result, error) {
 	min := func(a, b int) int {
 		if a < b {
 			return a
@@ -184,7 +184,7 @@ func Localize(walks int, tests []*test.Testcase, oracle *test.Remote, score Scor
 	filtered := make([]*SearchNode, 0, len(nodes))
 	if len(tests) > 0 {
 		for i, n := range nodes {
-			if i > 25 {
+			if i > 5 {
 				break
 			}
 			fmt.Println(n)
@@ -213,9 +213,18 @@ func Localize(walks int, tests []*test.Testcase, oracle *test.Remote, score Scor
 			} else if oracle == nil {
 				filtered = append(filtered, n)
 			} else {
-				_, _, _, failures, _, err := n.Test.ExecuteWith(oracle)
-				if err != nil {
-					return nil, err
+				var profile []byte
+				var failures []byte
+				var ok bool
+				for len(profile) <= 0 {
+					var err error
+					_, _, profile, failures, ok, err = n.Test.ExecuteWith(oracle)
+					if err != nil {
+						return nil, err
+					}
+				}
+				if false {
+					errors.Logf("INFO", "ran failure oracle %v %v %v", len(n.Test.Case), len(failures), ok)
 				}
 				if len(failures) > 0 {
 					filtered = append(filtered, n)

@@ -1,4 +1,4 @@
-package dgruntime
+package dgtypes
 
 import (
 	"fmt"

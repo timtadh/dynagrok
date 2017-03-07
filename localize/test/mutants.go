@@ -32,6 +32,9 @@ func (m *Mutant) Testcase() *Testcase {
 }
 
 func (t *Testcase) EndTrimmingMuts() []*Mutant {
+	if len(t.Case) <= 0 {
+		return nil
+	}
 	muts := make([]*Mutant, 0, len(t.Case))
 	for i := 1; i < len(t.Case); i++ {
 		muts = append(muts, &Mutant{
@@ -44,8 +47,8 @@ func (t *Testcase) EndTrimmingMuts() []*Mutant {
 }
 
 func (t *Testcase) safe(i int) int {
-	for i >= len(t.Case) {
-		i--
+	if i >= len(t.Case) {
+		i = len(t.Case)-1
 	}
 	if i < 0 {
 		i = 0
@@ -54,6 +57,9 @@ func (t *Testcase) safe(i int) int {
 }
 
 func (t *Testcase) LineEndTrimmingMuts() []*Mutant {
+	if len(t.Case) <= 0 {
+		return nil
+	}
 	lines := t.Lines()
 	muts := make([]*Mutant, 0, len(lines))
 	for _, i := range lines {
@@ -70,6 +76,9 @@ func (t *Testcase) LineEndTrimmingMuts() []*Mutant {
 }
 
 func (t *Testcase) LineStartTrimmingMuts() []*Mutant {
+	if len(t.Case) <= 0 {
+		return nil
+	}
 	lines := t.Lines()
 	muts := make([]*Mutant, 0, len(lines))
 	for _, i := range lines {
@@ -83,15 +92,18 @@ func (t *Testcase) LineStartTrimmingMuts() []*Mutant {
 }
 
 func (t *Testcase) LineTrimmingMuts() []*Mutant {
+	if len(t.Case) <= 0 {
+		return nil
+	}
 	lines := t.Lines()
 	muts := make([]*Mutant, 0, len(lines))
 	for idx := 0; idx < len(lines)-1; idx++ {
 		i := lines[idx]
-		for t.Case[i] == '\n' {
+		if i > 0 && t.Case[i] == '\n' {
 			i = t.safe(i + 1)
 		}
 		j := lines[idx + 1]
-		if i >= j {
+		if i > j {
 			continue
 		}
 		muts = append(muts, &Mutant{
@@ -104,6 +116,9 @@ func (t *Testcase) LineTrimmingMuts() []*Mutant {
 }
 
 func (t *Testcase) LineBlockTrimmingMuts() []*Mutant {
+	if len(t.Case) <= 0 {
+		return nil
+	}
 	lines := t.Lines()
 	muts := make([]*Mutant, 0, len(lines))
 	for sIdx := 0; sIdx < len(lines); sIdx++ {
@@ -112,7 +127,7 @@ func (t *Testcase) LineBlockTrimmingMuts() []*Mutant {
 			len(lines))
 		for eIdx := sIdx+1; eIdx < end; eIdx++ {
 			i := lines[sIdx]
-			for t.Case[i] == '\n' {
+			if t.Case[i] == '\n' {
 				i = t.safe(i + 1)
 			}
 			j := lines[eIdx]
@@ -130,6 +145,9 @@ func (t *Testcase) LineBlockTrimmingMuts() []*Mutant {
 }
 
 func (t *Testcase) BlockTrimmingMuts() []*Mutant {
+	if len(t.Case) <= 0 {
+		return nil
+	}
 	muts := make([]*Mutant, 0, len(t.Case))
 	for i := 0; i < len(t.Case); i++ {
 		end := min(

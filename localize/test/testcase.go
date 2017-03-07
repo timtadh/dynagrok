@@ -6,6 +6,10 @@ import (
 )
 
 import (
+	"github.com/timtadh/data-structures/errors"
+)
+
+import (
 	"github.com/timtadh/dynagrok/localize/lattice"
 	"github.com/timtadh/dynagrok/localize/lattice/digraph"
 )
@@ -61,7 +65,7 @@ func (t *Testcase) Digraph(l *lattice.Lattice) (*digraph.Indices, error) {
 	if err != nil {
 		return nil, err
 	}
-	return digraph.LoadDot(l.Positions, l.FnNames, l.BBIds, l.Labels, &buf)
+	return digraph.LoadSimple(l.Positions, l.FnNames, l.BBIds, l.Labels, &buf)
 }
 
 func (t *Testcase) Hash() int {
@@ -81,10 +85,13 @@ func (t *Testcase) Execute() error {
 	t.executed = true
 	t.ok = ok && len(fails) <= 0
 	t.profile = profile
+	if false {
+		errors.Logf("INFO", "executed %v %v %v %v %v", len(t.Case), len(profile) > 0, len(fails), ok, t.ok)
+	}
 	return nil
 }
 
-func (t *Testcase) ExecuteWith(remote *Remote) (stdout, stderr, profile, failures []byte, ok bool, err error) {
-	return remote.Execute(nil, t.Case)
+func (t *Testcase) ExecuteWith(e Executor) (stdout, stderr, profile, failures []byte, ok bool, err error) {
+	return e.Execute(t.Case)
 }
 

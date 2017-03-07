@@ -7,12 +7,13 @@ import (
 	"runtime"
 	"strings"
 	"strconv"
+	"dgruntime/dgtypes"
 )
 
 type Execution struct {
 	m sync.Mutex
 	Goroutines []*Goroutine
-	Profile    *Profile
+	Profile    *dgtypes.Profile
 	OutputDir  string
 	mergeCh    chan *Goroutine
 	async      sync.WaitGroup
@@ -58,12 +59,7 @@ func newExecution() *Execution {
 		panic(fmt.Errorf("dynagrok's dgruntime could not make directory %v", outputDir))
 	}
 	e := &Execution{
-		Profile: &Profile{
-			Calls: make(map[Call]int),
-			Funcs: make(map[uintptr]*Function),
-			Flows: make(map[FlowEdge]int),
-			Positions: make(map[BlkEntrance]string),
-		},
+		Profile: dgtypes.NewProfile(),
 		OutputDir: outputDir,
 		mergeCh: make(chan *Goroutine, 15),
 		failed: make(map[string]bool),
@@ -171,14 +167,23 @@ func shutdown(e *Execution) {
 	e.m.Lock()
 	defer e.m.Unlock()
 	if !e.Profile.Empty() {
-		graphPath := pjoin(e.OutputDir, "flow-graph.dot")
-		fmt.Println("writing flow-graph to:", graphPath)
-		fout, err := os.Create(graphPath)
+		dotPath := pjoin(e.OutputDir, "flow-graph.dot")
+		fmt.Println("writing flow-graph to:", dotPath)
+		dot, err := os.Create(dotPath)
 		if err != nil {
 			panic(err)
 		}
-		defer fout.Close()
-		e.Profile.Serialize(fout)
+		defer dot.Close()
+		e.Profile.WriteDotty(dot)
+
+		txtPath := pjoin(e.OutputDir, "flow-graph.txt")
+		fmt.Println("writing flow-graph to:", txtPath)
+		txt, err := os.Create(txtPath)
+		if err != nil {
+			panic(err)
+		}
+		defer txt.Close()
+		e.Profile.WriteSimple(txt)
 	}
 	if len(e.fails) > 0 {
 		failPath := pjoin(e.OutputDir, "failures")

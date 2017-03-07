@@ -96,7 +96,7 @@ func (t *Testcase) minimizeWith(lat *lattice.Lattice, sg *subgraph.SubGraph, f f
 	cur := t
 	prev := cur
 	muts := f(cur)
-	errors.Logf("DEBUG", "cur %d %d", len(cur.Case), len(muts))
+	errors.Logf("DEBUG", "cur %d %d %v", len(cur.Case), len(muts), cur.Failed())
 	for cur != nil {
 		var mut *Mutant
 		muts, mut = uniform(muts)
@@ -105,6 +105,7 @@ func (t *Testcase) minimizeWith(lat *lattice.Lattice, sg *subgraph.SubGraph, f f
 			break
 		}
 		test := mut.Testcase()
+
 		err := test.Execute()
 		if err != nil {
 			errors.Logf("ERROR", "could not execute: %v", err)
@@ -126,7 +127,7 @@ func (t *Testcase) minimizeWith(lat *lattice.Lattice, sg *subgraph.SubGraph, f f
 		prev = cur
 		cur = test
 		muts = f(cur)
-		errors.Logf("DEBUG", "cur %d %d", len(cur.Case), len(muts))
+		errors.Logf("DEBUG", "cur %d %d %v", len(cur.Case), len(muts), cur.Failed())
 	}
 	if cur != nil {
 		return cur, nil
@@ -147,7 +148,9 @@ func percent(p float64, slice []*Mutant) ([]*Mutant) {
 	for i := 0; i < amt; i++ {
 		var x *Mutant
 		slice, x = uniform(slice)
-		ten = append(ten, x)
+		if x != nil {
+			ten = append(ten, x)
+		}
 	}
 	return ten
 }

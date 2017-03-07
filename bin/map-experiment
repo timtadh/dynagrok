@@ -33,24 +33,19 @@ TARGET=/tmp/avl-expr
 BUILD=$TARGET/build
 
 run mkdir -p $TARGET
-run rm -r $TARGET/m*
+run rm -r  $TARGET/build/goroot/src/dgruntime $TARGET/build/gopath
 
-for ((i=1;i<=$MUTANTS;i++)); do
+for ((i=10;i<=$MUTANTS;i++)); do
     mutdir=$TARGET/m$i
     mut=$mutdir/avl
     tests=$mutdir/tests
-    cases=$mutdir/cases
-    oks=$mutdir/cases/ok
-    fail=$mutdir/cases/fail
-    fail_graphs=$fail/graphs
-    fail_failures=$fail/failures
-    run mkdir -p $mutdir
-    run mkdir -p $oks
-    run mkdir -p $fail_graphs
-    run mkdir -p $fail_failures
+    oks=$mutdir/oks
+    fails=$mutdir/fails
+    run rm -r $mutdir
     if ! run \
          $DYNAGROK -r $goroot -d $dgpath -g $dgpath/examples \
-            mutate --keep-work -w $BUILD --instrument -r $RATE --only dynagrok/examples/avl \
+            mutate --keep-work -w $BUILD --instrument -r $RATE \
+                   --only dynagrok/examples/avl \
                    --mutation=branch -o $mut dynagrok/examples/avl
     then
         echo "creating the $i avl mutant failed"
@@ -58,18 +53,28 @@ for ((i=1;i<=$MUTANTS;i++)); do
     fi
     run cp $BUILD/mutations $mutdir/mutations
     run rm -r $BUILD/mutations $BUILD/gopath
+    run mkdir -p $mutdir
+    run mkdir -p $oks/tests $oks/profiles
+    run mkdir -p $fails/tests $fails/profiles $fails/failures
     for ((t=1;t<=$TESTS;t++)); do
-        output=$tests/test-$t
+        output=$tests/$t
         run mkdir -p $output
         run python $MAPTEST -o $output $mut
         if [[ -e $output/dgprofile/failures ]]; then
             ## the program failed
-            run cp $output/dgprofile/failures $fail_failures/$t.fails
-            run cp $output/dgprofile/flow-graph.dot $fail_graphs/$t.dot
+            run cp $output/dgprofile/failures $fails/failures/$t
+            run cp $output/input $fails/tests/$t
+            run cp $output/dgprofile/flow-graph.txt $fails/profiles/$t.txt
         else
             ## the program succeeded
-            run cp $output/dgprofile/flow-graph.dot $oks/$t.dot
+            run cp $output/input $oks/tests/$t
+            run cp $output/dgprofile/flow-graph.txt $oks/profiles/$t.txt
         fi
     done
+    if ! [ "$(ls -A $oks/tests)" ] || ! [ "$(ls -A $fails/tests)" ]; then
+        echo "mutant either always failed or always worked"
+        echo "removing it"
+        run rm -rf $mutdir
+    fi
 done
 

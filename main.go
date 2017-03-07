@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"fmt"
 )
 
 import (
@@ -17,6 +18,7 @@ import (
 )
 
 func main() {
+	fmt.Println(os.Args)
 	var config cmd.Config
 	var cleanup func()
 	main := NewMain(&config, &cleanup)
