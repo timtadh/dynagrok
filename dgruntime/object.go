@@ -30,7 +30,7 @@ const (
 	Zero // nil value
 )
 
-type ObjectProfile []StructT
+type ObjectProfile []Value
 
 type FuncProfile struct {
 	FuncName string
@@ -44,22 +44,25 @@ type ObjectType struct {
 
 type StructT struct {
 	Type      ObjectType
-	Fields    []Value
+	Fields    []Field
 	Reference uintptr
 }
 
 func (i *StructT) LeveledHash(h hash.Hash, n int) {
 	for _, f := range i.Fields {
-		f.LeveledHash(h, n-1)
+		switch f.Val.Kind() {
+		case Struct:
+			f.Val.Struct.LeveledHash(h, n-1)
+		}
 	}
 }
 
-func newShallowInstance(tipe ObjectType, data_ptr uintptr) *StructT {
+func newShallowStruct(tipe ObjectType, data_ptr uintptr) *StructT {
 	return &StructT{tipe, nil, data_ptr}
 }
 
-func (o *StructT) getExportedFields() []Value {
-	var exported []Value = make([]Value, 0)
+func (o *StructT) getExportedFields() []Field {
+	var exported []Field = make([]Field, 0)
 	for _, f := range o.Fields {
 		if f.Exported {
 			exported = append(exported, f)
@@ -68,20 +71,20 @@ func (o *StructT) getExportedFields() []Value {
 	return exported
 }
 
-type Fiel struct {
-	Name string
-	Val  Value
+type Field struct {
+	Name     string
+	Val      Value
+	Exported bool
 }
 
 type Value struct {
-	Name     string
-	Type     ObjectType
-	Exported bool
-	Func     bool
-	Map      bool
-	Pointer  uintptr
-	Slice    uintptr
-	Struct   *StructT
+	Type    ObjectType
+	Name    string
+	Func    bool
+	Map     bool
+	Pointer uintptr
+	Slice   uintptr
+	Struct  *StructT
 	// TODO distinguish types that are 'incomparable': slices, maps, and
 	// functions
 	Other interface{}
@@ -121,7 +124,7 @@ func (f *Value) Kind() Kind {
 }
 
 func (f Value) Hash(h hash.Hash) {
-	f.LeveledHash(h, Depth)
+	//f.LeveledHash(h, Depth)
 }
 
 func (f Value) LeveledHash(h hash.Hash, n int) {

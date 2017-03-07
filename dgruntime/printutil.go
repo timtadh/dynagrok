@@ -25,6 +25,7 @@ func Unserialize(str string) FuncProfile {
 /*
  * Instance
  */
+
 func (o *StructT) PrettyString() string {
 	return o.PrettySerialize(0)
 }
@@ -38,7 +39,7 @@ func (o *StructT) PrettySerialize(depth int) string {
 	str := fmt.Sprintf("%s%s: { Reference: %d\n", space, o.Type.Name, o.Reference)
 	str += space + "  Fields: \n"
 	for _, f := range o.Fields {
-		str += fmt.Sprintf("%s%v\n", space, f.PrettySerialize(depth+1))
+		str += fmt.Sprintf("%s%v\n", space, f.Val.PrettySerialize(depth+1))
 	}
 	if len(o.Fields) == 0 {
 		str += space + "\t<no fields>" + "\n"

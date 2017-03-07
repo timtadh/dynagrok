@@ -88,49 +88,48 @@ func EnterFunc(name, pos string) {
 // deriveFields is a helper method which takes an object reference and ObjectType and
 // uses reflection to determine the fields of the object. It returns the results
 // in a slice.
-func deriveFields(t *ObjectType, obj *interface{}) []Value {
-	var v reflect.Value
-	if (*t).Pointer {
-		v = reflect.ValueOf(*obj).Elem()
-	} else {
-		v = reflect.ValueOf(*obj)
-	}
-
-	fields := make([]Value, 0)
+func deriveFields(v reflect.Value) []Field {
+	fields := make([]Field, 0)
 	typeOfObj := v.Type()
-	if typeOfObj.Kind() == reflect.Struct {
-		for i := 0; i < v.NumField(); i++ {
-			f := v.Field(i)
-			name := typeOfObj.Field(i).Name
-			fieldType := typeOfObj.Field(i).Type
-			if f.CanInterface() { // f.Interface() will fail otherwise
-				ft := *getType(f.Interface())
-				if f.Kind() == reflect.Slice {
-					if f.CanAddr() {
-						fields = append(fields, Value{Exported: true, Name: name, Type: ft, Slice: f.UnsafeAddr()})
-					} else {
-						fields = append(fields, Value{Exported: true, Name: name, Type: ft, Slice: 1})
-					}
-				} else if f.Kind() == reflect.Ptr {
-					if f.CanAddr() {
-						fields = append(fields, Value{Exported: true, Name: name, Type: ft, Pointer: f.UnsafeAddr()})
-					} else {
-						fields = append(fields, Value{Exported: true, Name: name, Type: ft, Pointer: 1})
 
-					}
-				} else if f.Kind() == reflect.Struct {
-					if f.CanAddr() {
-						fields = append(fields, Value{Exported: true, Name: name, Type: ft, Struct: newShallowInstance(ft, f.UnsafeAddr())})
-					} else {
-						fields = append(fields, Value{Exported: true, Name: name, Type: ft, Struct: newShallowInstance(ft, 1)})
-					}
+	for i := 0; i < v.NumField(); i++ {
+		f := v.Field(i)
+		name := typeOfObj.Field(i).Name
+		fieldType := typeOfObj.Field(i).Type
+		if f.CanInterface() { // f.Interface() will fail otherwise
+			ft := *getType(f.Interface())
+			switch f.Kind() {
+			case reflect.Slice:
+				if f.CanAddr() {
+					fields = append(fields, Field{Name: name, Exported: true,
+						Val: Value{Type: ft, Slice: f.UnsafeAddr()}})
 				} else {
-					fields = append(fields, Value{Exported: true, Name: name, Type: ft, Other: f.Interface()})
+					fields = append(fields, Field{Name: name, Exported: true,
+						Val: Value{Type: ft, Slice: 1}})
 				}
-			} else {
-				fields = append(fields, Value{Exported: false, Name: name, Type: ObjectType{fieldType.Name(), false}})
-				log.Printf("Could not access unexported %v field: %v", f.Kind(), name)
+			case reflect.Ptr:
+				if f.CanAddr() {
+					fields = append(fields, Field{Name: name, Exported: true,
+						Val: Value{Type: ft, Pointer: f.UnsafeAddr()}})
+				} else {
+					fields = append(fields, Field{Name: name, Exported: true,
+						Val: Value{Type: ft, Pointer: 1}})
+				}
+			case reflect.Struct:
+				if f.CanAddr() {
+					fields = append(fields, Field{Name: name, Exported: true, Val: Value{
+						Type: ft, Struct: newShallowStruct(ft, f.UnsafeAddr())}})
+				} else {
+					fields = append(fields, Field{Name: name, Exported: true,
+						Val: Value{Type: ft, Struct: newShallowStruct(ft, 1)}})
+				}
+			default:
+				fields = append(fields, Field{Name: name, Exported: true, Val: Value{Type: ft, Other: f.Interface()}})
 			}
+		} else {
+			fields = append(fields, Field{Name: name, Exported: true,
+				Val: Value{Type: ObjectType{fieldType.Name(), false}}})
+			log.Printf("Could not access unexported %v field: %v", f.Kind(), name)
 		}
 	}
 	return fields
@@ -156,36 +155,37 @@ func getType(obj interface{}) *ObjectType {
 	return &ObjectType{value.Type().String(), false}
 }
 
-//// Takes a snapshot of the object state
-//// TODO replace reference to exec.Profile with reference to Goroutine
-//func (o *Instance) recordInput(pos string, g Goroutine) {
-//	exec.Profile.Inputs[pos] = append(exec.Profile.Inputs[pos], *o)
-//	if len(exec.Profile.Inputs[pos]) > 50 {
-//		exec.Profile.Inputs[pos] = exec.Profile.Inputs[pos][1:]
-//	}
-//}
-//
-//// Takes a snapshot of the object state
-//// TODO replace reference to exec.Profile with reference to Goroutine
-//func (o *Instance) recordOutput(pos string, g Goroutine) {
-//	exec.Profile.Outputs[pos] = append(exec.Profile.Outputs[pos], *o)
-//	if len(exec.Profile.Outputs[pos]) > 50 {
-//		exec.Profile.Outputs[pos] = exec.Profile.Outputs[pos][1:]
-//	}
-//}
+func reflectValToValue(val reflect.Value, tp ObjectType) Value {
+	typeOfObj := val.Type()
+	switch typeOfObj.Kind() {
+	case reflect.Struct:
+		fields := deriveFields(val)
+		return Value{Type: tp, Struct: &StructT{Type: tp, Fields: fields}}
+	}
+	return Value{}
+}
+
+func deriveValue(obj interface{}) Value {
+	t := getType(obj)
+
+	var v reflect.Value
+	if (*t).Pointer {
+		v = reflect.ValueOf(obj).Elem()
+	} else {
+		v = reflect.ValueOf(obj)
+	}
+
+	value := reflectValToValue(v, *t)
+	return value
+}
 
 func MethodInput(fnName string, pos string, inputs ...interface{}) {
 	execCheck()
 	g := exec.Goroutine(runtime.GoID())
-	var inputProfile []StructT = make([]StructT, len(inputs))
+	var inputProfile []Value = make([]Value, len(inputs))
 	for i := range inputs {
-		o := *(*[2]uintptr)(unsafe.Pointer(&inputs[i]))
-		data_ptr := o[1]
-
-		t := getType(inputs[i])
-		fields := deriveFields(t, &inputs[i])
-		inst := StructT{*t, fields, data_ptr}
-		inputProfile[i] = inst
+		val := deriveValue(inputs[i])
+		inputProfile[i] = val
 	}
 	g.Inputs[fnName] = append(g.Inputs[fnName], inputProfile)
 }
@@ -193,15 +193,10 @@ func MethodInput(fnName string, pos string, inputs ...interface{}) {
 func MethodOutput(fnName string, pos string, outputs ...interface{}) {
 	execCheck()
 	g := exec.Goroutine(runtime.GoID())
-	var outputProfile []StructT = make([]StructT, len(outputs))
+	var outputProfile []Value = make([]Value, len(outputs))
 	for i := range outputs {
-		o := *(*[2]uintptr)(unsafe.Pointer(&outputs[i]))
-		data_ptr := o[1]
-
-		t := getType(outputs[i])
-		fields := deriveFields(t, &outputs[i])
-		inst := StructT{*t, fields, data_ptr}
-		outputProfile[i] = inst
+		val := deriveValue(outputs[i])
+		outputProfile[i] = val
 	}
 	g.Outputs[fnName] = append(g.Inputs[fnName], outputProfile)
 }
