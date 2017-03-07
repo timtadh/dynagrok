@@ -154,6 +154,7 @@ for ((MUTANT=1;MUTANT<=$COUNT;MUTANT++)); do
 			fi
 			t=$((t+1))
 		done
+		run rm -r $MUTANTS/m$MUTANT/tests
 		sleep .02
 		if ! [ "$(ls -A $OKS/tests)" ] || ! [ "$(ls -A $FAILS/tests)" ]; then
 			echo "mutant either always failed or always worked"

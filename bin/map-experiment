@@ -32,28 +32,29 @@ function run {
 TARGET=/tmp/avl-expr
 BUILD=$TARGET/build
 
-run mkdir -p $TARGET
-run rm -r  $TARGET/build/goroot/src/dgruntime $TARGET/build/gopath
-
-for ((i=10;i<=$MUTANTS;i++)); do
-    mutdir=$TARGET/m$i
+## run mkdir -p $TARGET
+## run rm -r  $TARGET/build/goroot/src/dgruntime $TARGET/build/gopath
+## 
+## for ((i=1;i<=$MUTANTS;i++)); do
+    #mutdir=$TARGET/m$i
+    mutdir=$TARGET/mt
     mut=$mutdir/avl
     tests=$mutdir/tests
     oks=$mutdir/oks
     fails=$mutdir/fails
-    run rm -r $mutdir
-    if ! run \
-         $DYNAGROK -r $goroot -d $dgpath -g $dgpath/examples \
-            mutate --keep-work -w $BUILD --instrument -r $RATE \
-                   --only dynagrok/examples/avl \
-                   --mutation=branch -o $mut dynagrok/examples/avl
-    then
-        echo "creating the $i avl mutant failed"
-        exit 1
-    fi
-    run cp $BUILD/mutations $mutdir/mutations
-    run rm -r $BUILD/mutations $BUILD/gopath
+    # run rm -r $mutdir
     run mkdir -p $mutdir
+    ## if ! run \
+    ##      $DYNAGROK -r $goroot -d $dgpath -g $dgpath/examples \
+    ##         mutate --keep-work -w $BUILD --instrument -r $RATE \
+    ##                --only dynagrok/examples/avl \
+    ##                --mutation=branch -o $mut dynagrok/examples/avl
+    ## then
+    ##     echo "creating the $i avl mutant failed"
+    ##     exit 1
+    ## fi
+    # run cp $BUILD/mutations $mutdir/mutations
+    # run rm -r $BUILD/mutations $BUILD/gopath
     run mkdir -p $oks/tests $oks/profiles
     run mkdir -p $fails/tests $fails/profiles $fails/failures
     for ((t=1;t<=$TESTS;t++)); do
@@ -71,10 +72,15 @@ for ((i=10;i<=$MUTANTS;i++)); do
             run cp $output/dgprofile/flow-graph.txt $oks/profiles/$t.txt
         fi
     done
+    run rm -r $tests
+    sleep .02
     if ! [ "$(ls -A $oks/tests)" ] || ! [ "$(ls -A $fails/tests)" ]; then
         echo "mutant either always failed or always worked"
         echo "removing it"
         run rm -rf $mutdir
+        i=$((i-1))
+        echo "retrying"
+        continue
     fi
-done
+# done
 

@@ -19,21 +19,29 @@ import (
 
 import (
 	"github.com/timtadh/dynagrok/localize/lattice"
-	"github.com/timtadh/dynagrok/localize/lattice/subgraph"
 )
 
+type Cluster struct {
+	Score  float64
+	Nodes  []*SearchNode
+}
+
+func (c *Cluster) String() string {
+	return fmt.Sprintf("cluster %v %v %v", c.Score, len(c.Nodes), c.Nodes[0])
+}
+
 type clusterNode struct {
-	pattern  *subgraph.SubGraph
+	n        *SearchNode
 	name     string
 	labels   types.Set
 }
 
-func newClusterNode(n *lattice.Node) (*clusterNode, error) {
-	labels, err := labelset(n)
+func newClusterNode(n *SearchNode) (*clusterNode, error) {
+	labels, err := labelset(n.Node)
 	if err != nil {
 		return nil, err
 	}
-	cn := &clusterNode{n.SubGraph, n.String(), labels}
+	cn := &clusterNode{n, n.String(), labels}
 	return cn, nil
 }
 
@@ -159,7 +167,7 @@ func NewDbScan(epsilon float64) (*DbScan) {
 	return r
 }
 
-func (r *DbScan) Add(n *lattice.Node) error {
+func (r *DbScan) Add(n *SearchNode) error {
 	cn, err := newClusterNode(n)
 	if err != nil {
 		return err
@@ -169,14 +177,21 @@ func (r *DbScan) Add(n *lattice.Node) error {
 	return nil
 }
 
-func (r *DbScan) Clusters() []map[string]*subgraph.SubGraph {
-	clstrs := make([]map[string]*subgraph.SubGraph, 0, len(r.clusters))
+func (r *DbScan) Clusters() []*Cluster {
+	clstrs := make([]*Cluster, 0, len(r.clusters))
 	for _, cluster := range r.clusters {
-		clstr := make(map[string]*subgraph.SubGraph, len(cluster))
+		clstr := make([]*SearchNode, 0, len(cluster))
+		sum := 0.0
 		for _, cn := range cluster {
-			clstr[string(cn.pattern.Label())] = cn.pattern
+			clstr = append(clstr, cn.n)
+			sum += cn.n.Score
 		}
-		clstrs = append(clstrs, clstr)
+		lc := float64(len(clstr))
+		score := (sum/lc) * math.Sqrt(lc/(lc + 1))
+		clstrs = append(clstrs, &Cluster{
+			Score: score,
+			Nodes: clstr,
+		})
 	}
 	return clstrs
 }
@@ -291,7 +306,7 @@ func add(clusters []cluster, cn *clusterNode, epsilon float64, sim func(a, b *cl
 		return append(clusters, cluster{cn})
 	}
 	if false {
-		errors.Logf("DBSCAN", "%v %v %v", min_sim, cn.pattern, min_item.pattern)
+		errors.Logf("DBSCAN", "%v %v %v", min_sim, cn.n, min_item.n)
 	}
 	clusters[min_near] = append(clusters[min_near], cn)
 	prev := -1

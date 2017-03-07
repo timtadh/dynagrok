@@ -32,29 +32,7 @@ func (s *SearchNode) String() string {
 
 type Location struct {
 	stat.Location
-	Graphs   []*SearchNode
-}
-
-func (l *Location) String() string {
-	graphLine := "--------------------- graph %-2v ----------------------------"
-	testLine  := "---------------------- test %-2v ----------------------------"
-	parts := make([]string, 0, len(l.Graphs))
-	for i, g := range l.Graphs {
-		parts = append(parts, fmt.Sprintf(graphLine, i))
-		parts = append(parts, g.String())
-		parts = append(parts, fmt.Sprintf(testLine, i))
-		parts = append(parts, fmt.Sprintf("%v", g.Test))
-	}
-	graphs := strings.Join(parts, "\n")
-	return fmt.Sprintf(
-`---------------------- location ---------------------------
-Position: %v
-Function: %v
-BasicBlock: %v
------------------------- score ----------------------------
-Score: %v
-%v
------------------------------------------------------------`, l.Position, l.FnName, l.BasicBlockId, l.Score, graphs)
+	Graphs   []*Cluster
 }
 
 func (l *Location) ShortString() string {
@@ -123,7 +101,7 @@ func Localize(walks int, tests []*test.Testcase, oracle test.Executor, score Sco
 	WALKS := walks
 	nodes := make([]*SearchNode, 0, WALKS)
 	seen := make(map[string]*SearchNode, WALKS)
-	db := NewDbScan(.25)
+	db := NewDbScan(.35)
 	// for i := 0; i < WALKS; i++ {
 	// 	n := Walk(score, lat)
 	total := min(len(lat.Labels.Labels()), max(250, len(lat.Labels.Labels())/16))
@@ -140,10 +118,10 @@ func Localize(walks int, tests []*test.Testcase, oracle test.Executor, score Sco
 			}
 			label := string(n.Node.SubGraph.Label())
 			if _, has := seen[label]; !has {
-				db.Add(n.Node)
+				db.Add(n)
 				nodes = append(nodes, n)
 				seen[label] = n
-				if true {
+				if false {
 					errors.Logf("DEBUG", "found %d/%d %d %v", i, total, len(nodes), n)
 				}
 			} else {
@@ -180,72 +158,102 @@ func Localize(walks int, tests []*test.Testcase, oracle test.Executor, score Sco
 	sort.Slice(nodes, func(i, j int) bool {
 		return nodes[i].Score > nodes[j].Score
 	})
+	clusters := db.Clusters()
+	sort.Slice(clusters, func(i, j int) bool {
+		return clusters[i].Score > clusters[j].Score
+	})
+	for _, c := range clusters {
+		sort.Slice(c.Nodes, func(i, j int) bool {
+			return c.Nodes[i].Score > c.Nodes[j].Score
+		})
+	}
+	// for i, c := range clusters {
+	// 	fmt.Println(i, c.Score, len(c.Nodes), c.Nodes[0])
+	// }
 	passing := make([]*SearchNode, 0, len(nodes))
-	filtered := make([]*SearchNode, 0, len(nodes))
+	filtered := make([]*Cluster, 0, len(nodes))
 	if len(tests) > 0 {
-		for i, n := range nodes {
-			if i > 5 {
+		for i, c := range clusters {
+			if len(filtered) >= 5 && i > 5 || len(filtered) >= 2 && i > 10 || len(filtered) >= 1 && i > 15 {
 				break
 			}
-			fmt.Println(n)
-			fmt.Printf("------------ ranks %d ----------------\n", i)
-			fmt.Println(RankNodes(score, lat, n.Node.SubGraph))
+			fmt.Printf("------------ cluster %d --------------\n", i)
+			fmt.Println(c)
 			fmt.Println("--------------------------------------")
-			for count := 0; count < len(tests) ; count++ {
-				j := rand.Intn(len(tests))
-				t := tests[j]
-				min, err := t.Minimize(lat, n.Node.SubGraph)
-				if err != nil {
-					return nil, err
-				}
-				if min == nil {
-					continue
-				}
-				n.Test = min
-				fmt.Printf("------------ min test %d %d ----------\n", i, j)
-				fmt.Println(min)
+			filterCount := 0
+			for j, n := range c.Nodes {
+				fmt.Println(n)
+				fmt.Printf("------------ node %d -----------------\n", j)
+				fmt.Println(RankNodes(score, lat, n.Node.SubGraph))
 				fmt.Println("--------------------------------------")
-				break
-			}
-			if n.Test == nil {
-				// skip this graph
-				errors.Logf("INFO", "filtered %d %v", i, n)
-			} else if oracle == nil {
-				filtered = append(filtered, n)
-			} else {
-				var profile []byte
-				var failures []byte
-				var ok bool
-				for len(profile) <= 0 {
-					var err error
-					_, _, profile, failures, ok, err = n.Test.ExecuteWith(oracle)
+				for count := 0; count < len(tests) ; count++ {
+					j := rand.Intn(len(tests))
+					t := tests[j]
+					min, err := t.Minimize(lat, n.Node.SubGraph)
 					if err != nil {
 						return nil, err
 					}
+					if min == nil {
+						continue
+					}
+					n.Test = min
+					fmt.Printf("------------ min test %d %d ----------\n", i, j)
+					fmt.Print(min)
+					if len(min.Case) <= 0 || min.Case[len(min.Case)-1] != '\n' {
+						fmt.Println()
+					}
+					fmt.Println("--------------------------------------")
+					break
 				}
-				if false {
-					errors.Logf("INFO", "ran failure oracle %v %v %v", len(n.Test.Case), len(failures), ok)
-				}
-				if len(failures) > 0 {
-					filtered = append(filtered, n)
-				} else {
+				if n.Test == nil {
+					// skip this graph
 					errors.Logf("INFO", "filtered %d %v", i, n)
-					passing = append(passing, n)
+				} else if oracle == nil {
+					filtered = append(filtered, c)
+					break
+				} else {
+					var profile []byte
+					var failures []byte
+					var ok bool
+					for len(profile) <= 0 {
+						var err error
+						_, _, profile, failures, ok, err = n.Test.ExecuteWith(oracle)
+						if err != nil {
+							return nil, err
+						}
+					}
+					if false {
+						errors.Logf("INFO", "ran failure oracle %v %v %v", len(n.Test.Case), len(failures), ok)
+					}
+					if len(failures) > 0 {
+						filtered = append(filtered, c)
+						break
+					} else {
+						errors.Logf("INFO", "filtered %d %v", j, n)
+						fmt.Println("--------------------------------------")
+						passing = append(passing, n)
+						filterCount++
+						if filterCount >= 2 {
+							break
+						}
+					}
 				}
 			}
 		}
 	} else {
-		filtered = nodes
+		filtered = clusters
 	}
-	colors := make(map[int][]*SearchNode)
+	colors := make(map[int][]*Cluster)
 	for i := 0; i < len(filtered); i++ {
-		n := filtered[i]
+		c := filtered[i]
 	// for _, n := range filtered {
-		if true {
-			errors.Logf("DEBUG", "%v", n)
+		if false {
+			errors.Logf("DEBUG", "%v", c)
 		}
-		for j := range n.Node.SubGraph.V {
-			colors[n.Node.SubGraph.V[j].Color] = append(colors[n.Node.SubGraph.V[j].Color], n)
+		for _, n := range c.Nodes {
+			for j := range n.Node.SubGraph.V {
+				colors[n.Node.SubGraph.V[j].Color] = append(colors[n.Node.SubGraph.V[j].Color], c)
+			}
 		}
 	}
 	result := RankColors(score, lat, colors)
@@ -276,10 +284,10 @@ func RankNodes(score Score, lat *lattice.Lattice, sg *subgraph.SubGraph) stat.Re
 	return result
 }
 
-func RankColors(score Score, lat *lattice.Lattice, colors map[int][]*SearchNode) Result {
+func RankColors(score Score, lat *lattice.Lattice, colors map[int][]*Cluster) Result {
 	epsilon := .025
 	result := make(Result, 0, len(colors))
-	for color, searchNodes := range colors {
+	for color, clusters := range colors {
 		vsg := subgraph.Build(1, 0).FromVertex(color).Build()
 		embIdxs := lat.Fail.ColorIndex[color]
 		embs := make([]*subgraph.Embedding, 0, len(embIdxs))
@@ -290,14 +298,14 @@ func RankColors(score Score, lat *lattice.Lattice, colors map[int][]*SearchNode)
 		colorScore := score(lat, colorNode)
 		var s float64
 		t := 0
-		for _, sn := range searchNodes {
+		for _, c := range clusters {
 			rm := s/float64(t)
-			if t < 1 || abs(sn.Score - rm) < epsilon {
-				s += sn.Score
+			if t < 1 || abs(c.Score - rm) < epsilon {
+				s += c.Score
 				t++
 			} else {
 				if false {
-					errors.Logf("DEBUG", "skipped %v %v %v", lat.Labels.Label(color), rm, sn.Score)
+					errors.Logf("DEBUG", "skipped %v %v %v", lat.Labels.Label(color), rm, c.Score)
 				}
 			}
 		}
@@ -310,7 +318,7 @@ func RankColors(score Score, lat *lattice.Lattice, colors map[int][]*SearchNode)
 				lat.BBIds[color],
 				s,
 			},
-			searchNodes,
+			clusters,
 		})
 	}
 	result.Sort()
@@ -443,7 +451,7 @@ func weightedSample(weights []float64) int {
 	}
 	i := 0
 	r := total * rand.Float64()
-	for ; i < len(weights) && r > weights[i]; i++ {
+	for ; i < len(weights) - 1 && r > weights[i]; i++ {
 		r -= weights[i]
 	}
 	return i
