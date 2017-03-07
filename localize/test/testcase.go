@@ -65,7 +65,7 @@ func (t *Testcase) Digraph(l *lattice.Lattice) (*digraph.Indices, error) {
 	if err != nil {
 		return nil, err
 	}
-	return digraph.LoadSimple(l.Positions, l.FnNames, l.BBIds, l.Labels, &buf)
+	return digraph.LoadSimple(l.Info, l.Labels, &buf)
 }
 
 func (t *Testcase) Hash() int {

@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 import (
@@ -13,23 +14,41 @@ import (
 
 import ()
 
+type Info struct {
+	lock      sync.Mutex
+	Positions map[int]string
+	FnNames   map[int]string
+	BBIds     map[int]int
+}
+
+func NewInfo() *Info {
+	return &Info{
+		Positions: make(map[int]string),
+		FnNames: make(map[int]string),
+		BBIds: make(map[int]int),
+	}
+}
+
+func (i *Info) Add(color, bbid int, fnName, pos string) {
+	i.lock.Lock()
+	i.Positions[color] = pos
+	i.FnNames[color] = fnName
+	i.BBIds[color] = bbid
+	i.lock.Unlock()
+}
 
 type SimpleLoader struct {
 	Builder   *Builder
 	Labels    *Labels
-	Positions map[int]string
-	FnNames   map[int]string
-	BBIds     map[int]int
+	Info      *Info
 	vidxs     map[int]int
 }
 
-func LoadSimple(positions, fnNames map[int]string, bbids map[int]int, labels *Labels, input io.Reader) (*Indices, error) {
+func LoadSimple(info *Info, labels *Labels, input io.Reader) (*Indices, error) {
 	l := &SimpleLoader{
 		Builder: Build(100, 1000),
 		Labels: labels,
-		Positions: positions,
-		FnNames: fnNames,
-		BBIds: bbids,
+		Info: info,
 		vidxs: make(map[int]int),
 	}
 	return l.load(input)
@@ -167,9 +186,7 @@ func (l *SimpleLoader) tokens(s string) ([]string, error) {
 func (l *SimpleLoader) addVertex(id, color, bbid int, fnName, pos string) {
 	vertex := l.Builder.AddVertex(color)
 	l.vidxs[id] = vertex.Idx
-	l.Positions[color] = pos
-	l.FnNames[color] = fnName
-	l.BBIds[color] = bbid
+	l.Info.Add(color, bbid, fnName, pos)
 }
 
 func (l *SimpleLoader) addEdge(sid, tid int) error {

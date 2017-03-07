@@ -75,9 +75,9 @@ func LocalizeNodes(score Score, lat *lattice.Lattice) stat.Result {
 		s := score(lat, n)
 		result = append(result, stat.Location{
 			color,
-			lat.Positions[color],
-			lat.FnNames[color],
-			lat.BBIds[color],
+			lat.Info.Positions[color],
+			lat.Info.FnNames[color],
+			lat.Info.BBIds[color],
 			s,
 		})
 	}
@@ -104,7 +104,7 @@ func Localize(walks int, tests []*test.Testcase, oracle test.Executor, score Sco
 	db := NewDbScan(.35)
 	// for i := 0; i < WALKS; i++ {
 	// 	n := Walk(score, lat)
-	total := min(len(lat.Labels.Labels()), max(250, len(lat.Labels.Labels())/16))
+	total := min(len(lat.Labels.Labels()), max(250, min(len(lat.Labels.Labels())/16, 500)))
 	for i, l := range LocalizeNodes(score, lat) {
 	// for color := range lat.Labels.Labels() {
 		color := l.Color
@@ -134,27 +134,6 @@ func Localize(walks int, tests []*test.Testcase, oracle test.Executor, score Sco
 	if len(nodes) == 0 {
 		fmt.Println("no graphs")
 	}
-	// clusters := db.Clusters()
-	// reps := make([]*SearchNode, 0, len(clusters))
-	// fmt.Printf("+ Clusters %v of %v graphs\n", len(clusters), len(nodes))
-	// for i, cluster := range clusters {
-	// 	j := 0
-	// 	var rep *SearchNode
-	// 	for _, item := range cluster {
-	// 		sn := seen[string(item.Label())]
-	// 		if j == 0 {
-	// 			fmt.Println("  ", "-", i, sn)
-	// 		} else {
-	// 			fmt.Println("      ", "o", j, sn)
-	// 		}
-	// 		if rep == nil || sn.Score > rep.Score {
-	// 			rep = sn
-	// 		}
-	// 		j++
-	// 	}
-	// 	reps = append(reps, rep)
-	// }
-	// nodes = reps
 	sort.Slice(nodes, func(i, j int) bool {
 		return nodes[i].Score > nodes[j].Score
 	})
@@ -167,9 +146,6 @@ func Localize(walks int, tests []*test.Testcase, oracle test.Executor, score Sco
 			return c.Nodes[i].Score > c.Nodes[j].Score
 		})
 	}
-	// for i, c := range clusters {
-	// 	fmt.Println(i, c.Score, len(c.Nodes), c.Nodes[0])
-	// }
 	passing := make([]*SearchNode, 0, len(nodes))
 	filtered := make([]*Cluster, 0, len(nodes))
 	if len(tests) > 0 {
@@ -274,9 +250,9 @@ func RankNodes(score Score, lat *lattice.Lattice, sg *subgraph.SubGraph) stat.Re
 		s := score(lat, n)
 		result = append(result, stat.Location{
 			color,
-			lat.Positions[color],
-			lat.FnNames[color],
-			lat.BBIds[color],
+			lat.Info.Positions[color],
+			lat.Info.FnNames[color],
+			lat.Info.BBIds[color],
 			s,
 		})
 	}
@@ -313,9 +289,9 @@ func RankColors(score Score, lat *lattice.Lattice, colors map[int][]*Cluster) Re
 		result = append(result, Location{
 			stat.Location{
 				color,
-				lat.Positions[color],
-				lat.FnNames[color],
-				lat.BBIds[color],
+				lat.Info.Positions[color],
+				lat.Info.FnNames[color],
+				lat.Info.BBIds[color],
 				s,
 			},
 			clusters,

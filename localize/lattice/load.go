@@ -30,11 +30,11 @@ func Load(failPath, okPath string) (l *Lattice, err error) {
 
 func LoadFrom(failFile, okFile io.Reader) (l *Lattice, err error) {
 	return NewLattice(func(l *Lattice) error {
-		fail, err := digraph.LoadSimple(l.Positions, l.FnNames, l.BBIds, l.Labels, failFile)
+		fail, err := digraph.LoadSimple(l.Info, l.Labels, failFile)
 		if err != nil {
 			return fmt.Errorf("Could not load profiles from failed executions\n%v", err)
 		}
-		ok, err := digraph.LoadSimple(l.Positions, l.FnNames, l.BBIds, l.Labels, okFile)
+		ok, err := digraph.LoadSimple(l.Info, l.Labels, okFile)
 		if err != nil {
 			return fmt.Errorf("Could not load profiles from successful executions\n%v", err)
 		}

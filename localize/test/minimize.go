@@ -1,7 +1,9 @@
 package test
 
 import (
+	"sync"
 	"math/rand"
+	"runtime"
 )
 
 import (
@@ -93,37 +95,81 @@ func (t *Testcase) Minimize(lat *lattice.Lattice, sg *subgraph.SubGraph) (*Testc
 }
 
 func (t *Testcase) minimizeWith(lat *lattice.Lattice, sg *subgraph.SubGraph, f func(*Testcase)[]*Mutant) (*Testcase, error) {
+	type testOrError struct {
+		test *Testcase
+		err  error
+	}
+	gen := func(muts []*Mutant, out chan<- *Mutant, done <-chan bool) {
+		for len(muts) > 0 {
+			var mut *Mutant
+			muts, mut = uniform(muts)
+			if mut == nil {
+				break
+			}
+			select {
+			case out<-mut:
+			case <-done:
+				break
+			}
+		}
+		close(out)
+	}
+	exec := func(wg *sync.WaitGroup, in <-chan *Mutant, out chan<- testOrError) {
+		for mut := range in {
+			test := mut.Testcase()
+			err := test.Execute()
+			if err != nil {
+				errors.Logf("ERROR", "could not execute: %v", err)
+				out<-testOrError{err:err}
+				break
+			}
+			if !test.Usable() {
+				// errors.Logf("DEBUG", "not usable")
+				continue
+			}
+			p, err := test.Digraph(lat)
+			if err != nil {
+				errors.Logf("ERROR", "could not load: %v", err)
+				out<-testOrError{err:err}
+				break
+			}
+			if !sg.EmbeddedIn(p) {
+				// errors.Logf("DEBUG", "didn't contain subgraph")
+				continue
+			}
+			out<-testOrError{test:test}
+			break
+		}
+		wg.Done()
+	}
+	workers := runtime.NumCPU()
 	cur := t
 	prev := cur
 	muts := f(cur)
 	errors.Logf("DEBUG", "cur %d %d %v", len(cur.Case), len(muts), cur.Failed())
 	for cur != nil {
-		var mut *Mutant
-		muts, mut = uniform(muts)
-		if mut == nil {
-			// errors.Logf("DEBUG", "no more muts")
+		var wg sync.WaitGroup
+		done := make(chan bool)
+		mutsCh := make(chan *Mutant)
+		tests := make(chan testOrError)
+		go gen(muts, mutsCh, done)
+		wg.Add(workers)
+		for w := 0; w < workers; w++ {
+			go exec(&wg, mutsCh, tests)
+		}
+		go func() {
+			wg.Wait()
+			close(tests)
+		}()
+		te, ok := <-tests
+		close(done)
+		if !ok {
 			break
 		}
-		test := mut.Testcase()
-
-		err := test.Execute()
-		if err != nil {
-			errors.Logf("ERROR", "could not execute: %v", err)
-			return nil, err
+		if te.err != nil {
+			return nil, te.err
 		}
-		if !test.Usable() {
-			// errors.Logf("DEBUG", "not usable")
-			continue
-		}
-		p, err := test.Digraph(lat)
-		if err != nil {
-			errors.Logf("ERROR", "could not load: %v", err)
-			return nil, err
-		}
-		if !sg.EmbeddedIn(p) {
-			// errors.Logf("DEBUG", "didn't contain subgraph")
-			continue
-		}
+		test := te.test
 		prev = cur
 		cur = test
 		muts = f(cur)

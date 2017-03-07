@@ -1,10 +1,12 @@
 package digraph
 
 import (
+	"sync"
 	"fmt"
 )
 
 type Labels struct {
+	lock   sync.Mutex
 	colors map[string]int
 	labels []string
 }
@@ -17,6 +19,8 @@ func NewLabels() *Labels {
 }
 
 func (c *Labels) Color(label string) int {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	if color, has := c.colors[label]; has {
 		return color
 	} else {
@@ -28,6 +32,8 @@ func (c *Labels) Color(label string) int {
 }
 
 func (c *Labels) Label(color int) string {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	if color < 0 || color >= len(c.labels) {
 		return fmt.Sprintf("color-[%d]", color)
 	}

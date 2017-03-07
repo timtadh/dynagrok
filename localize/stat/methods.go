@@ -80,9 +80,9 @@ func prFailGivenLine(lat *lattice.Lattice) Result {
 	for color := range lines {
 		l := Location{
 			color,
-			lat.Positions[color],
-			lat.FnNames[color],
-			lat.BBIds[color],
+			lat.Info.Positions[color],
+			lat.Info.FnNames[color],
+			lat.Info.BBIds[color],
 			float64(lineFails[color])/float64(lineTotal[color]),
 		}
 		if l.ValidProbability() {
@@ -103,9 +103,9 @@ func prLineGivenFail(lat *lattice.Lattice) Result {
 	for color := range lines {
 		l := Location{
 			color,
-			lat.Positions[color],
-			lat.FnNames[color],
-			lat.BBIds[color],
+			lat.Info.Positions[color],
+			lat.Info.FnNames[color],
+			lat.Info.BBIds[color],
 			float64(lineFails[color])/float64(lat.Fail.G.Graphs),
 		}
 		if l.ValidProbability() {
@@ -133,9 +133,9 @@ func relativePrecision(lat *lattice.Lattice) Result {
 	for color := range lines {
 		l := Location{
 			color,
-			lat.Positions[color],
-			lat.FnNames[color],
-			lat.BBIds[color],
+			lat.Info.Positions[color],
+			lat.Info.FnNames[color],
+			lat.Info.BBIds[color],
 			float64(lineFails[color])/float64(lineTotal[color]) - float64(lat.Fail.G.Graphs)/float64(totalTests),
 		}
 		if l.ValidRelativeMeasure() {
@@ -162,9 +162,9 @@ func relativeRecall(lat *lattice.Lattice) Result {
 	for color := range lines {
 		l := Location{
 			color,
-			lat.Positions[color],
-			lat.FnNames[color],
-			lat.BBIds[color],
+			lat.Info.Positions[color],
+			lat.Info.FnNames[color],
+			lat.Info.BBIds[color],
 			float64(lineFails[color])/float64(lat.Fail.G.Graphs) - float64(lineTotal[color])/float64(totalTests),
 		}
 		if l.ValidRelativeMeasure() {
@@ -191,9 +191,9 @@ func precisionGain(lat *lattice.Lattice) Result {
 	for color := range lines {
 		l := Location{
 			color,
-			lat.Positions[color],
-			lat.FnNames[color],
-			lat.BBIds[color],
+			lat.Info.Positions[color],
+			lat.Info.FnNames[color],
+			lat.Info.BBIds[color],
 			float64(lineTotal[color]) *
 				((float64(lineFails[color])/float64(lineTotal[color]) - float64(lat.Fail.G.Graphs)/float64(totalTests)) /
 					(float64(lat.Fail.G.Graphs))),
@@ -220,9 +220,9 @@ func jaccard(lat *lattice.Lattice) Result {
 	for color := range lines {
 		l := Location{
 			color,
-			lat.Positions[color],
-			lat.FnNames[color],
-			lat.BBIds[color],
+			lat.Info.Positions[color],
+			lat.Info.FnNames[color],
+			lat.Info.BBIds[color],
 			float64(lineFails[color])/float64(lat.Fail.G.Graphs + lineOks[color]),
 		}
 		if l.ValidProbability() {
@@ -248,9 +248,9 @@ func sorensenDice(lat *lattice.Lattice) Result {
 	for color := range lines {
 		l := Location{
 			color,
-			lat.Positions[color],
-			lat.FnNames[color],
-			lat.BBIds[color],
+			lat.Info.Positions[color],
+			lat.Info.FnNames[color],
+			lat.Info.BBIds[color],
 			2 * float64(lineFails[color])/float64(lat.Fail.G.Graphs + lineTotal[color]),
 		}
 		if l.ValidProbability() {
@@ -277,9 +277,9 @@ func relativeF1(lat *lattice.Lattice) Result {
 	for color := range lines {
 		l := Location{
 			color,
-			lat.Positions[color],
-			lat.FnNames[color],
-			lat.BBIds[color],
+			lat.Info.Positions[color],
+			lat.Info.FnNames[color],
+			lat.Info.BBIds[color],
 			2 *
 				float64(lineTotal[color])/float64(lat.Fail.G.Graphs + lineTotal[color]) *
 				(float64(lineFails[color])/float64(lineTotal[color]) - float64(lat.Fail.G.Graphs)/float64(totalTests)),
@@ -307,9 +307,9 @@ func ochiai(lat *lattice.Lattice) Result {
 	for color := range lines {
 		l := Location{
 			color,
-			lat.Positions[color],
-			lat.FnNames[color],
-			lat.BBIds[color],
+			lat.Info.Positions[color],
+			lat.Info.FnNames[color],
+			lat.Info.BBIds[color],
 			math.Sqrt(float64(lineTotal[color])/float64(lat.Fail.G.Graphs)) * float64(lineFails[color])/float64(lineTotal[color]),
 		}
 		if l.ValidProbability() {
@@ -336,9 +336,9 @@ func relativeOchiai(lat *lattice.Lattice) Result {
 	for color := range lines {
 		l := Location{
 			color,
-			lat.Positions[color],
-			lat.FnNames[color],
-			lat.BBIds[color],
+			lat.Info.Positions[color],
+			lat.Info.FnNames[color],
+			lat.Info.BBIds[color],
 			math.Sqrt(float64(lineTotal[color])/float64(lat.Fail.G.Graphs)) *
 				(float64(lineFails[color])/float64(lineTotal[color]) - float64(lat.Fail.G.Graphs)/float64(totalTests)),
 		}
@@ -372,9 +372,9 @@ func symmetricKlosgen(lat *lattice.Lattice) Result {
 	for color := range lines {
 		l := Location{
 			color,
-			lat.Positions[color],
-			lat.FnNames[color],
-			lat.BBIds[color],
+			lat.Info.Positions[color],
+			lat.Info.FnNames[color],
+			lat.Info.BBIds[color],
 			math.Sqrt(float64(lineFails[color])/float64(totalTests)) *
 				max(float64(lineFails[color])/float64(lineTotal[color]) - float64(lat.Fail.G.Graphs)/float64(totalTests),
 					float64(lineFails[color])/float64(lat.Fail.G.Graphs) - float64(lineTotal[color])/float64(totalTests)),
@@ -403,9 +403,9 @@ func enhancedTarantula(lat *lattice.Lattice) Result {
 	for color := range lines {
 		l := Location{
 			color,
-			lat.Positions[color],
-			lat.FnNames[color],
-			lat.BBIds[color],
+			lat.Info.Positions[color],
+			lat.Info.FnNames[color],
+			lat.Info.BBIds[color],
 			float64(lineFails[color])/float64(lat.Fail.G.Graphs) *
 				(float64(lineFails[color])/float64(lineTotal[color]) - float64(lat.Fail.G.Graphs)/float64(totalTests)),
 		}
