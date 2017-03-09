@@ -21,6 +21,7 @@ type Testcase struct {
 	executed bool
 	ok       bool
 	profile  []byte
+	lines    []int
 }
 
 func Test(from string, e Executor, stdin []byte) *Testcase {
