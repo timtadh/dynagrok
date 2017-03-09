@@ -31,21 +31,6 @@ func (m *Mutant) Testcase() *Testcase {
 	return Test(m.Test.From, m.Test.Exec, buf)
 }
 
-func (t *Testcase) EndTrimmingMuts() []*Mutant {
-	if len(t.Case) <= 0 {
-		return nil
-	}
-	muts := make([]*Mutant, 0, len(t.Case))
-	for i := 1; i < len(t.Case); i++ {
-		muts = append(muts, &Mutant{
-			Test: t,
-			I: i,
-			J: len(t.Case)-1,
-		})
-	}
-	return muts
-}
-
 func (t *Testcase) safe(i int) int {
 	if i >= len(t.Case) {
 		i = len(t.Case)-1

@@ -183,7 +183,8 @@ func Localize(walks int, tests []*test.Testcase, oracle test.Executor, score Sco
 				}
 				if n.Test == nil {
 					// skip this graph
-					errors.Logf("INFO", "filtered %d %v", i, n)
+					errors.Logf("INFO", "filtered (no test) %d %v", i, n)
+					fmt.Println("--------------------------------------")
 				} else if oracle == nil {
 					filtered = append(filtered, c)
 					break
@@ -205,7 +206,7 @@ func Localize(walks int, tests []*test.Testcase, oracle test.Executor, score Sco
 						filtered = append(filtered, c)
 						break
 					} else {
-						errors.Logf("INFO", "filtered %d %v", j, n)
+						errors.Logf("INFO", "filtered (passing test) %d %v", j, n)
 						fmt.Println("--------------------------------------")
 						passing = append(passing, n)
 						filterCount++

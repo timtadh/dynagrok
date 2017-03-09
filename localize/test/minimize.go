@@ -155,7 +155,6 @@ func (t *Testcase) minimizeWith(lat *lattice.Lattice, sg *subgraph.SubGraph, mkC
 		done := make(chan bool)
 		mutsCh := make(chan *Mutant)
 		tests := make(chan testOrError)
-		go gen(muts, mutsCh, done)
 		wg.Add(workers)
 		for w := 0; w < workers; w++ {
 			go exec(&wg, mutsCh, tests)
@@ -164,6 +163,7 @@ func (t *Testcase) minimizeWith(lat *lattice.Lattice, sg *subgraph.SubGraph, mkC
 			wg.Wait()
 			close(tests)
 		}()
+		go gen(muts, mutsCh, done)
 		te, ok := <-tests
 		close(done)
 		if !ok {
