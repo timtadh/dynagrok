@@ -181,6 +181,9 @@ func (b *binaryBuilder) goEnv() []string {
 	env := b.noEnv()
 	env = append(env, fmt.Sprintf("GOROOT=%v", b.root))
 	env = append(env, fmt.Sprintf("GOPATH=%v", b.path))
+	if os.Getenv("GOROOT_BOOTSTRAP") != "" {
+		env = append(env, fmt.Sprintf("GOROOT_BOOTSTRAP=%v", os.Getenv("GOROOT_BOOTSTRAP")))
+	}
 	return env
 }
 
