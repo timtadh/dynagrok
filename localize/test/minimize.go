@@ -47,22 +47,22 @@ func (t *Testcase) Minimize(lat *lattice.Lattice, sg *subgraph.SubGraph) (*Testc
 	// 	return nil, err
 	// }
 	errors.Logf("DEBUG", "trim blocks of lines")
-	t, err = t.minimizeWith(lat, sg, func(test *Testcase)[]*Mutant {
-		return atMost(50, test.LineBlockTrimmingMuts())
+	t, err = t.minimizeWith(lat, sg, atMost(50), func(test *Testcase)[]*Mutant {
+		return test.LineBlockTrimmingMuts()
 	})
 	if err != nil {
 		return nil, err
 	}
 	errors.Logf("DEBUG", "trim lines")
-	t, err = t.minimizeWith(lat, sg, func(test *Testcase)[]*Mutant {
-		return atMost(150, test.LineTrimmingMuts())
+	t, err = t.minimizeWith(lat, sg, atMost(150), func(test *Testcase)[]*Mutant {
+		return test.LineTrimmingMuts()
 	})
 	if err != nil {
 		return nil, err
 	}
 	errors.Logf("DEBUG", "trim blocks of lines")
-	t, err = t.minimizeWith(lat, sg, func(test *Testcase)[]*Mutant {
-		return atMost(50, test.LineBlockTrimmingMuts())
+	t, err = t.minimizeWith(lat, sg, atMost(50), func(test *Testcase)[]*Mutant {
+		return test.LineBlockTrimmingMuts()
 	})
 	if err != nil {
 		return nil, err
@@ -94,15 +94,18 @@ func (t *Testcase) Minimize(lat *lattice.Lattice, sg *subgraph.SubGraph) (*Testc
 	return t, nil
 }
 
-func (t *Testcase) minimizeWith(lat *lattice.Lattice, sg *subgraph.SubGraph, f func(*Testcase)[]*Mutant) (*Testcase, error) {
+type chooseMaker func() func([]*Mutant) ([]*Mutant, *Mutant)
+
+func (t *Testcase) minimizeWith(lat *lattice.Lattice, sg *subgraph.SubGraph, mkChoose chooseMaker, f func(*Testcase)[]*Mutant) (*Testcase, error) {
 	type testOrError struct {
 		test *Testcase
 		err  error
 	}
 	gen := func(muts []*Mutant, out chan<- *Mutant, done <-chan bool) {
+		choose := mkChoose()
 		for len(muts) > 0 {
 			var mut *Mutant
-			muts, mut = uniform(muts)
+			muts, mut = choose(muts)
 			if mut == nil {
 				break
 			}
@@ -181,24 +184,17 @@ func (t *Testcase) minimizeWith(lat *lattice.Lattice, sg *subgraph.SubGraph, f f
 	return prev, nil
 }
 
-func atMost(amt int, muts []*Mutant) []*Mutant {
-	for len(muts) > amt {
-		muts = percent(.9, muts)
-	}
-	return muts
-}
-
-func percent(p float64, slice []*Mutant) ([]*Mutant) {
-	amt := int(p * float64(len(slice)))
-	ten := make([]*Mutant, 0, amt)
-	for i := 0; i < amt; i++ {
-		var x *Mutant
-		slice, x = uniform(slice)
-		if x != nil {
-			ten = append(ten, x)
+func atMost(amt int) chooseMaker {
+	return func () func(muts []*Mutant) ([]*Mutant, *Mutant) {
+		chosen := 0
+		return func(muts []*Mutant) ([]*Mutant, *Mutant) {
+			if chosen >= amt {
+				return nil, nil
+			}
+			chosen++
+			return uniform(muts)
 		}
 	}
-	return ten
 }
 
 func uniform(slice []*Mutant) ([]*Mutant, *Mutant) {
