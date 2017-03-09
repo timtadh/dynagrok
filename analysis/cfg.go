@@ -10,6 +10,9 @@ import (
 	"unsafe"
 )
 
+import (
+	"github.com/timtadh/data-structures/errors"
+)
 
 func FmtNode(fset *token.FileSet, n ast.Node) string {
 	var buf bytes.Buffer
@@ -141,12 +144,27 @@ func (c *CFG) AddAllToBlk(blk *Block, node ast.Node) {
 func (c *CFG) build() {
 	blk := c.addBlock(c.Body, 0)
 	_ = c.visitStmts(c.Body, blk)
+	// fmt.Println(c)
+	c.filterEmpty()
 	for _, blk := range c.Blocks {
 		for _, s := range blk.Stmts {
 			c.AddToBlk(blk, *s)
 			blkExprs(*s, func(expr ast.Expr) {
 				c.AddToBlk(blk, expr)
 			})
+		}
+	}
+}
+
+func (c *CFG) filterEmpty() {
+	for i := len(c.Blocks) - 1; i >= 0; i-- {
+		blk := c.Blocks[i]
+		// there are no stmts AND one or more prev blks ===> a next blk exists
+		if len(blk.Stmts) == 0 && (len(blk.Prev) <= 0 || len(blk.Next) > 0) {
+			err := c.removeBlock(blk)
+			if err != nil {
+				panic(err)
+			}
 		}
 	}
 }
@@ -162,6 +180,14 @@ func (c *CFG) visitStmts(stmts *[]ast.Stmt, blk *Block) *Block {
 	return blk
 }
 
+// At some point I want to change this to:
+//   func (c *CFG) visitStmt(i int, body *[]ast.Stmt, s *ast.Stmt, preds []*Flow) []*Flow 
+//
+// This would ensure that there would never be a dangling empty block. However, this
+// requires large changes in every method. I don't want to do this re-write now. Side
+// note it would be easier to have `preds` be a []*Block but you can't make that work
+// with branch statements as their outgoing exits are not unconditional jumps.
+//
 func (c *CFG) visitStmt(i int, body *[]ast.Stmt, s *ast.Stmt, blk *Block) *Block {
 	switch stmt := (*s).(type) {
 	case *ast.BadStmt:
@@ -410,7 +436,12 @@ func (c *CFG) visitForStmt(idx int, stmts *[]ast.Stmt, s *ast.Stmt, entry *Block
 	bodyBlk = c.visitBlockStmt(idx, stmts, &body, bodyBlk)
 	c.popLoop()
 
-	if postBlk == nil && bodyBlk != nil {
+	if postBlk != nil && bodyBlk != nil {
+		bodyBlk.Link(&Flow{
+			Block: postBlk,
+			Type: Unconditional,
+		})
+	} else if postBlk == nil && bodyBlk != nil {
 		bodyBlk.Link(&Flow{
 			Block: header,
 			Type: Unconditional,
@@ -431,13 +462,14 @@ func (c *CFG) popLoop() {
 
 func (c *CFG) visitRangeStmt(idx int, stmts *[]ast.Stmt, s *ast.Stmt, entry *Block) *Block {
 	stmt := (*s).(*ast.RangeStmt)
-	header := c.addBlock(nil, -1)
 	if entry == nil {
-		entry.Link(&Flow{
-			Block: header,
-			Type: Unconditional,
-		})
+		entry = c.addBlock(stmts, idx)
 	}
+	header := c.addBlock(nil, -1)
+	entry.Link(&Flow{
+		Block: header,
+		Type: Unconditional,
+	})
 	header.Add(s)
 	body := ast.Stmt(stmt.Body)
 	bodyBlk := c.addBlock(nil, -1)
@@ -628,6 +660,72 @@ func (c *CFG) addBlock(body *[]ast.Stmt, idx int) *Block {
 	return blk
 }
 
+func (c *CFG) removeBlock(b *Block) error {
+	if len(b.Next) > 1 {
+		return errors.Errorf("Cannot remove block because it has more than 1 successor:\n%v", b)
+	}
+	if len(b.Next) == 0 && len(b.Prev) > 0 {
+		return errors.Errorf("Cannot remove block because it has 0 successors:\n%v", b)
+	}
+	var fn *Flow
+	remove := make([]int, 0, 10)
+	if len(b.Next) > 0 {
+		fn = b.Next[0] // must have 1 element from assertions above
+		for i, flowTo := range fn.Block.Prev {
+			if flowTo.Block.Id != b.Id {
+				continue
+			}
+			remove = append(remove, i)
+		}
+	}
+	// remove the flows from the next block in reverse order
+	// there should only be one to remove, this is defensive.
+	for x := len(remove) - 1; x >= 0; x-- {
+		i := remove[x]
+		dst := fn.Block.Prev[i : len(fn.Block.Prev)-1]
+		src := fn.Block.Prev[i+1 : len(fn.Block.Prev)]
+		copy(dst, src)
+		fn.Block.Prev = fn.Block.Prev[:len(fn.Block.Prev)-1]
+	}
+	// hook up the new flows
+	for _, fp := range b.Prev {
+		found := false
+		for _, flowFrom := range fp.Block.Next {
+			if flowFrom.Block.Id != b.Id {
+				continue
+			}
+			flowFrom.Block = fn.Block
+			fn.Block.Prev = append(fn.Block.Prev, &Flow{
+				FSet: flowFrom.FSet,
+				Block: fp.Block,
+				Type: flowFrom.Type,
+				Comm: flowFrom.Comm,
+				Cases: flowFrom.Cases,
+			})
+			found = true
+			break
+		}
+		if !found {
+			return errors.Errorf("Flow from blk-%d to blk-%d but could not find matching flows:\n%v\n\n%v",
+				fp.Block.Id, b.Id, fp.Block, b)
+		}
+	}
+	dst := c.Blocks[b.Id : len(c.Blocks)-1]
+	src := c.Blocks[b.Id+1 : len(c.Blocks)]
+	copy(dst, src)
+	c.Blocks = c.Blocks[:len(c.Blocks)-1]
+	for i, blk := range c.Blocks {
+		blk.Id = i
+		for _, f := range blk.Next {
+			if f.Block == b {
+				return errors.Errorf("Found flow from blk-%d to removed blk: \n%v\n\n%v",
+					f.Block.Id, f.Block, b)
+			}
+		}
+	}
+	return nil
+}
+
 func NewBlock(fset *token.FileSet, id int, body *[]ast.Stmt, startsAt int) *Block {
 	return &Block{
 		FSet: fset,
@@ -711,21 +809,26 @@ func (b *Block) String() string {
 			insts = append(insts, fmt.Sprintf("for %vrange %v", kv, x))
 		}
 	}
-	branches := make([]string, 0, len(b.Next))
+	nextFlows := make([]string, 0, len(b.Next))
 	for _, f := range b.Next {
-		branches = append(branches, f.String())
+		nextFlows = append(nextFlows, f.String())
 	}
-	next := strings.Join(branches, ", ")
+	next := strings.Join(nextFlows, ", ")
+	prevFlows := make([]string, 0, len(b.Prev))
+	for _, f := range b.Prev {
+		prevFlows = append(prevFlows, f.String())
+	}
+	prev := strings.Join(prevFlows, ", ")
 	stmts := strings.Join(insts, "\n\t")
 	name := ""
 	if b.Name != "" {
 		name = fmt.Sprintf(" label: %v ", b.Name)
 	}
-	body := ""
-	if b.Body != nil {
-		body = fmt.Sprintf("\n\tStarts at (%d) <%v> ", b.StartsAt, FmtNode(b.FSet, (*b.Body)[b.StartsAt]))
-	}
-	return fmt.Sprintf("Block %v%v%v\n\tNext: %v%v", b.Id, name, stmts, next, body)
+	// body := ""
+	// if b.Body != nil {
+	// 	body = fmt.Sprintf("\n\tStarts at (%d) <%v> ", b.StartsAt, FmtNode(b.FSet, (*b.Body)[b.StartsAt]))
+	// }
+	return fmt.Sprintf("Block %v%v%v\n\tNext: %v\n\tPrev: %v", b.Id, name, stmts, next, prev)
 }
 
 func (f *Flow) String() string {

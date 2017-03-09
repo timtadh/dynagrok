@@ -77,7 +77,6 @@ func typeSwitch(x interface{}) {
 	case int:
 		println("is int")
 	}
-	println("done")
 }
 
 func switchStmt(x int) {
@@ -96,6 +95,21 @@ func switchStmt(x int) {
 		fallthrough
 	case 3:
 		println(3)
+	}
+	println("done")
+}
+
+func ifElseIf(x int) {
+	if x == 0 {
+		println("== 0")
+	} else if x == 1 {
+		println("== 1")
+	} else if x == 2 {
+		println("== 2")
+	} else if x == 3 {
+		println("== 3")
+	} else {
+		println("bigger than 3 or less than 0")
 	}
 	println("done")
 }

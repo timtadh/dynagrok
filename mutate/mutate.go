@@ -20,8 +20,8 @@ import (
 )
 
 import (
-	"github.com/timtadh/dynagrok/dgruntime/excludes"
 	"github.com/timtadh/dynagrok/analysis"
+	"github.com/timtadh/dynagrok/dgruntime/excludes"
 	"github.com/timtadh/dynagrok/instrument"
 )
 
@@ -44,7 +44,7 @@ type mutator struct {
 	instrumenting bool
 }
 
-func Mutate(mutate float64, only map[string]bool, instrumenting bool, entryPkgName string, program *loader.Program) (mutants []string, err error) {
+func Mutate(mutate float64, only, allowedMuts map[string]bool, instrumenting bool, entryPkgName string, program *loader.Program) (mutants []*ExportedMut, err error) {
 	entry := program.Package(entryPkgName)
 	if entry == nil {
 		return nil, errors.Errorf("The entry package was not found in the loaded program")
@@ -62,6 +62,7 @@ func Mutate(mutate float64, only map[string]bool, instrumenting bool, entryPkgNa
 	if err != nil {
 		return nil, err
 	}
+	muts = muts.Filter(allowedMuts)
 	if len(muts) <= 0 {
 		return nil, errors.Errorf("Can't mutate this program, there are no mutation points")
 	}
@@ -75,7 +76,7 @@ func Mutate(mutate float64, only map[string]bool, instrumenting bool, entryPkgNa
 	mutations := muts.Sample(int(float64(len(muts)) * mutate))
 	errors.Logf("INFO", "mutating %v points out of %v potential points", len(mutations), len(muts))
 	for _, m := range mutations {
-		mutants = append(mutants, fmt.Sprintf("%v", m))
+		mutants = append(mutants, m.Export())
 	}
 	mutations.Mutate()
 	return mutants, nil
@@ -135,66 +136,73 @@ func (m *mutator) collect() (muts Mutations, err error) {
 func (m *mutator) fnBodyCollect(pkg *loader.PackageInfo, file *ast.File, fnName string, fnAst ast.Node, fnBody *[]ast.Stmt) (Mutations, error) {
 	cfg := analysis.BuildCFG(m.program.Fset, fnName, fnAst, fnBody)
 	muts := make(Mutations, 0, 10)
-	err := analysis.Blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
-		for j := 0; j < len(*blk); j++ {
-			p := m.program.Fset.Position((*blk)[j].Pos())
-			switch stmt := (*blk)[j].(type) {
+	for _, blk := range cfg.Blocks {
+		for _, s := range blk.Stmts {
+			switch stmt := (*s).(type) {
 			case *ast.ForStmt:
 				if stmt.Cond != nil {
-					muts = append(muts, &BranchMutation{mutator: m, cond: &stmt.Cond, p: p, fileAst: file})
+					p := m.program.Fset.Position(stmt.Cond.Pos())
+					muts = append(muts, &BranchMutation{
+						mutator: m,
+						cond:    &stmt.Cond,
+						p:       p,
+						fileAst: file,
+						fnName:  fnName,
+						bbid:    blk.Id,
+					})
 				}
 			case *ast.IfStmt:
 				if stmt.Cond != nil {
-					muts = append(muts, &BranchMutation{mutator: m, cond: &stmt.Cond, p: p, fileAst: file})
+					p := m.program.Fset.Position(stmt.Cond.Pos())
+					muts = append(muts, &BranchMutation{
+						mutator: m,
+						cond:    &stmt.Cond,
+						p:       p,
+						fileAst: file,
+						fnName:  fnName,
+						bbid:    blk.Id,
+					})
 				}
 			case *ast.SendStmt:
-				muts = m.exprCollect(muts, pkg, file, &stmt.Value)
+				muts = m.exprCollect(muts, pkg, file, fnName, blk, &stmt.Value)
 			case *ast.ReturnStmt:
 				for i := range stmt.Results {
-					muts = m.exprCollect(muts, pkg, file, &stmt.Results[i])
+					muts = m.exprCollect(muts, pkg, file, fnName, blk, &stmt.Results[i])
 				}
 			case *ast.AssignStmt:
 				for i := range stmt.Rhs {
-					muts = m.exprCollect(muts, pkg, file, &stmt.Rhs[i])
+					muts = m.exprCollect(muts, pkg, file, fnName, blk, &stmt.Rhs[i])
 				}
 			}
 			exprs := make([]ast.Expr, 0, 10)
-			err := Exprs((*blk)[j], func(e ast.Expr) error {
+			Exprs(*s, func(e ast.Expr) {
 				exprs = append(exprs, e)
-				return nil
 			})
-			if err != nil {
-				return err
-			}
 			for _, e := range exprs {
 				switch expr := e.(type) {
 				case *ast.BinaryExpr:
-					muts = m.exprCollect(muts, pkg, file, &expr.X)
-					muts = m.exprCollect(muts, pkg, file, &expr.Y)
+					muts = m.exprCollect(muts, pkg, file, fnName, blk, &expr.X)
+					muts = m.exprCollect(muts, pkg, file, fnName, blk, &expr.Y)
 				case *ast.UnaryExpr:
 					// cannot mutate things which are having their addresses
 					// taken
 					if expr.Op != token.AND {
-						muts = m.exprCollect(muts, pkg, file, &expr.X)
+						muts = m.exprCollect(muts, pkg, file, fnName, blk, &expr.X)
 					}
 				case *ast.ParenExpr:
-					muts = m.exprCollect(muts, pkg, file, &expr.X)
+					muts = m.exprCollect(muts, pkg, file, fnName, blk, &expr.X)
 				case *ast.CallExpr:
 					for idx := range expr.Args {
-						muts = m.exprCollect(muts, pkg, file, &expr.Args[idx])
+						muts = m.exprCollect(muts, pkg, file, fnName, blk, &expr.Args[idx])
 					}
 				case *ast.IndexExpr:
 					// Cannot mutate the index clause in the case of a fixed
 					// size array with out extra checking.
 				case *ast.KeyValueExpr:
-					muts = m.exprCollect(muts, pkg, file, &expr.Value)
+					muts = m.exprCollect(muts, pkg, file, fnName, blk, &expr.Value)
 				}
 			}
 		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
 	}
 	if !m.instrumenting && pkg.Pkg.Path() == m.entry && fnName == fmt.Sprintf("%v.main", pkg.Pkg.Path()) {
 		astutil.AddImport(m.program.Fset, file, "dgruntime")
@@ -203,7 +211,7 @@ func (m *mutator) fnBodyCollect(pkg *loader.PackageInfo, file *ast.File, fnName 
 	return muts, nil
 }
 
-func (m *mutator) exprCollect(muts Mutations, pkg *loader.PackageInfo, file *ast.File, expr *ast.Expr) Mutations {
+func (m *mutator) exprCollect(muts Mutations, pkg *loader.PackageInfo, file *ast.File, fnName string, blk *analysis.Block, expr *ast.Expr) Mutations {
 	p := m.program.Fset.Position((*expr).Pos())
 	exprType := pkg.Info.TypeOf(*expr)
 	switch eT := exprType.(type) {
@@ -217,6 +225,8 @@ func (m *mutator) exprCollect(muts Mutations, pkg *loader.PackageInfo, file *ast
 				p:       p,
 				kind:    eT.Kind(),
 				fileAst: file,
+				fnName:  fnName,
+				bbid:    blk.Id,
 			})
 		} else if (i & types.IsFloat) != 0 {
 			muts = append(muts, &IncrementMutation{
@@ -226,6 +236,8 @@ func (m *mutator) exprCollect(muts Mutations, pkg *loader.PackageInfo, file *ast
 				p:       p,
 				kind:    eT.Kind(),
 				fileAst: file,
+				fnName:  fnName,
+				bbid:    blk.Id,
 			})
 		}
 	}

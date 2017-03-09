@@ -34,4 +34,7 @@
 	url = https://github.com/timtadh/goiso
 [submodule "src/github.com/timtadh/matrix"]
 	path = src/github.com/timtadh/matrix
-	url = https://github.com/timtadh/go.matrix
+	url = git@github.com:timtadh/go.matrix
+[submodule "src/github.com/google/shlex"]
+	path = src/github.com/google/shlex
+	url = git@github.com:google/shlex

@@ -21,8 +21,6 @@ type Runnable interface {
 
 type Action func(r Runnable, argv []string, optargs []getopt.OptArg) ([]string, *Error)
 
-type Joiner func(xtra []interface{}) (interface{}, *Error)
-
 type Command struct {
 	Action Action
 	shortOpts string
@@ -34,7 +32,6 @@ type Command struct {
 
 type Sequence struct {
 	runners []Runnable
-	join Joiner
 }
 
 type Alternatives struct {
@@ -61,6 +58,13 @@ func Concat(runners ...Runnable) Runnable {
 func Commands(runners map[string]Runnable) Runnable {
 	return &Alternatives{
 		runners: runners,
+	}
+}
+
+func BareCmd(act Action) Runnable {
+	return &Command{
+		Action: act,
+		name: "<unnamed-action>",
 	}
 }
 
@@ -198,7 +202,7 @@ func (a *Alternatives) Usage() string {
 	names := make([]string, 0, len(a.runners))
 	longs := make([]string, 0, len(a.runners))
 	for _, r := range a.runners {
-		names = append(names, fmt.Sprintf("    %-15v %v", r.Name(), r.ShortUsage()))
+		names = append(names, fmt.Sprintf("    %-15v", r.ShortUsage()))
 		longs = append(longs, fmt.Sprintf("%v\n%v", r.ShortUsage(), indent(r.Usage(), 4)))
 	}
 	return fmt.Sprintf("Commands\n%v\n\n%v",

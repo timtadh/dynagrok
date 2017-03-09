@@ -21,12 +21,24 @@ func NewCommand(c *cmd.Config) cmd.Runnable {
 	"grok",
 	`[options] <pkg>`,
 	`
+Print CFGs for the functions in the program.
+
 Option Flags
     -h,--help                         Show this message
+    -f,--fn=<name>                    Only show the CFG for func <name>
 `,
-	"",
-	[]string{},
+	"f:",
+	[]string{
+		"fn=",
+	},
 	func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
+		onlyFn := ""
+		for _, oa := range optargs {
+			switch oa.Opt() {
+			case "-f", "--fn":
+				onlyFn = oa.Arg()
+			}
+		}
 		if len(args) != 1 {
 			return nil, cmd.Usage(r, 5, "Expected one package name got %v", args)
 		}
@@ -42,6 +54,9 @@ Option Flags
 			}
 			for _, fileAst := range pkg.Files {
 				err = analysis.Functions(pkg, fileAst, func(fn ast.Node, fnName string) error {
+					if onlyFn != "" && onlyFn != fnName {
+						return nil
+					}
 					var body *[]ast.Stmt
 					switch x := fn.(type) {
 					case *ast.FuncDecl:

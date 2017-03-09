@@ -44,12 +44,6 @@ func Instrument(entryPkgName string, program *loader.Program) (err error) {
 	return i.instrument()
 }
 
-// methodCallLoc is a global map which allows blocks to be instrumented
-// in two passes
-var (
-	methodCallLoc = make(map[token.Pos]ast.Stmt)
-)
-
 func (i *instrumenter) instrument() (err error) {
 	for _, pkg := range i.program.AllPackages {
 		//if len(pkg.BuildPackage.CgoFiles) > 0 {
@@ -98,12 +92,21 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.
 		// The IPs are basic blocks from the CFG
 		instr := make(map[*[]ast.Stmt][]*analysis.Block)
 		for _, b := range cfg.Blocks {
-			// if the block doesn't have a body don't instrument it
-			if b.Body == nil {
-				continue
+			if b.Id == 0 {
+				// skip the entry block as it is covered by the EnterFunc call.
+			} else if len(b.Stmts) <= 0 {
+				// if there are no statements skip this block
+			} else if b.Body != nil {
+				// we can insert a statement
+				// associate the basic block with the lexical block
+				instr[b.Body] = append(instr[b.Body], b)
+			} else {
+				// try expression level instrumentation
+				err := i.exprInstrument(b)
+				if err != nil {
+					return err
+				}
 			}
-			// associate the basic block with the lexical block
-			instr[b.Body] = append(instr[b.Body], b)
 		}
 		// Now instrument each lexical block
 		for body, blks := range instr {
@@ -116,10 +119,6 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.
 			})
 			// instrument the entry to each block
 			for _, b := range blks {
-				// skip the entry block as it is covered by the EnterFunc call.
-				if b.Id == 0 {
-					continue
-				}
 				// get a position
 				var pos token.Pos
 				if len(b.Stmts) > 0 {
@@ -182,10 +181,57 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.
 			return nil
 		}
 	}
-	*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 0, i.mkEnterFunc(fnAst.Pos(), fnName))
-	*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 1, i.mkExitFunc(fnAst.Pos(), fnName))
-	if pkg.Pkg.Path() == i.entry && fnName == fmt.Sprintf("%v.main", pkg.Pkg.Path()) {
-		*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 0, i.mkShutdown(fnAst.Pos()))
+	if len(cfg.Blocks) > 0 {
+		*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 0, i.mkEnterFunc(fnAst.Pos(), fnName))
+		*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 1, i.mkExitFunc(fnAst.Pos(), fnName))
+		if pkg.Pkg.Path() == i.entry && fnName == fmt.Sprintf("%v.main", pkg.Pkg.Path()) {
+			*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 0, i.mkShutdown(fnAst.Pos()))
+		}
+	} else {
+		*fnBody = Insert(cfg, nil, *fnBody, 0, i.mkEnterFunc(fnAst.Pos(), fnName))
+		*fnBody = Insert(cfg, nil, *fnBody, 1, i.mkExitFunc(fnAst.Pos(), fnName))
+		if pkg.Pkg.Path() == i.entry && fnName == fmt.Sprintf("%v.main", pkg.Pkg.Path()) {
+			*fnBody = Insert(cfg, nil, *fnBody, 0, i.mkShutdown(fnAst.Pos()))
+		}
+	}
+	return nil
+}
+
+func (i *instrumenter) exprInstrument(b *analysis.Block) error {
+	if len(b.Stmts) <= 0 {
+		return nil
+	}
+	s := b.Stmts[0]
+	// This is a list of all statement types.
+	// More may be instrumentable in this fashion than are shown
+	switch stmt := (*s).(type) {
+	case *ast.BadStmt:
+	case *ast.DeclStmt:
+	case *ast.EmptyStmt:
+	case *ast.ExprStmt:
+	case *ast.SendStmt:
+	case *ast.IncDecStmt:
+	case *ast.AssignStmt:
+	case *ast.GoStmt:
+	case *ast.DeferStmt:
+	case *ast.ReturnStmt:
+	case *ast.LabeledStmt:
+	case *ast.BranchStmt:
+	case *ast.BlockStmt:
+	case *ast.IfStmt:
+		stmt.Cond = i.mkEnterBlkCond(stmt, stmt.Cond, b.Id)
+	case *ast.ForStmt:
+		stmt.Cond = i.mkEnterBlkCond(stmt, stmt.Cond, b.Id)
+	case *ast.RangeStmt:
+	case *ast.SelectStmt:
+	case *ast.TypeSwitchStmt:
+	case *ast.SwitchStmt:
+	case *ast.CaseClause:
+		panic(fmt.Errorf("Unexpected case clause %T %v", stmt, stmt))
+	case *ast.CommClause:
+		panic(fmt.Errorf("Unexpected comm clause %T %v", stmt, stmt))
+	default:
+		panic(fmt.Errorf("unexpected node %T", stmt))
 	}
 	return nil
 }
@@ -306,4 +352,29 @@ func (i *instrumenter) mkEnterBlk(pos token.Pos, bbid int) ast.Stmt {
 		panic(fmt.Errorf("mkEnterBlk (%v) error: %v", s, err))
 	}
 	return &ast.ExprStmt{e}
+}
+
+func (i *instrumenter) mkEnterBlkCond(stmt ast.Stmt, expr ast.Expr, bbid int) ast.Expr {
+	var pos token.Pos
+	if expr != nil {
+		pos = expr.Pos()
+	} else {
+		pos = stmt.Pos()
+	}
+	p := i.program.Fset.Position(pos)
+	enterStr := fmt.Sprintf("dgruntime.EnterBlkFromCond(%d, %v)", bbid, strconv.Quote(p.String()))
+	enter, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), enterStr, parser.Mode(0))
+	if err != nil {
+		panic(err)
+	}
+	if expr == nil {
+		return enter
+	} else {
+		return &ast.BinaryExpr{
+			X:     enter,
+			Y:     expr,
+			Op:    token.LAND,
+			OpPos: pos,
+		}
+	}
 }

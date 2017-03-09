@@ -1,6 +1,7 @@
 package dgruntime
 
 import (
+	"dgruntime/dgtypes"
 	"sync"
 )
 
@@ -8,33 +9,28 @@ type Goroutine struct {
 	m         sync.Mutex
 	GoID      int64
 	Closed    bool
-	Stack     []*FuncCall
-	Calls     map[Call]int
-	Flows     map[FlowEdge]int
-	Funcs     map[uintptr]*Function
-	Inputs    map[string][]ObjectProfile
-	Outputs   map[string][]ObjectProfile
-	Positions map[BlkEntrance]string
+	Inputs    map[string][]dgtypes.ObjectProfile
+	Outputs   map[string][]dgtypes.ObjectProfile
+	Stack     []*dgtypes.FuncCall
+	Calls     map[dgtypes.Call]int
+	Flows     map[dgtypes.FlowEdge]int
+	Funcs     map[uintptr]*dgtypes.Function
+	Positions map[dgtypes.BlkEntrance]string
 	CallCount int
-}
-
-type Call struct {
-	Caller uintptr
-	Callee uintptr
 }
 
 func newGoroutine(id int64) *Goroutine {
 	g := &Goroutine{
+		Inputs:    make(map[string][]dgtypes.ObjectProfile),
+		Outputs:   make(map[string][]dgtypes.ObjectProfile),
 		GoID:      id,
-		Stack:     make([]*FuncCall, 0, 10),
-		Calls:     make(map[Call]int),
-		Funcs:     make(map[uintptr]*Function),
-		Flows:     make(map[FlowEdge]int),
-		Inputs:    make(map[string][]ObjectProfile),
-		Outputs:   make(map[string][]ObjectProfile),
-		Positions: make(map[BlkEntrance]string),
+		Stack:     make([]*dgtypes.FuncCall, 0, 10),
+		Calls:     make(map[dgtypes.Call]int),
+		Funcs:     make(map[uintptr]*dgtypes.Function),
+		Flows:     make(map[dgtypes.FlowEdge]int),
+		Positions: make(map[dgtypes.BlkEntrance]string),
 	}
-	g.Stack = append(g.Stack, &FuncCall{
+	g.Stack = append(g.Stack, &dgtypes.FuncCall{
 		Name: "<entry>",
 	})
 	return g

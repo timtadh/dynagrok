@@ -3,6 +3,7 @@
 package dgruntime
 
 import (
+	"dgruntime/dgtypes"
 	"fmt"
 	"log"
 	"os"
@@ -30,34 +31,38 @@ func Shutdown() {
 	shutdown(exec)
 }
 
-func ReportFailBool(pos string) bool {
+func ReportFailBool(fnName string, bbid int, pos string) bool {
 	execCheck()
-	exec.Fail(pos)
+	exec.Fail(fnName, bbid, pos)
 	return true
 }
 
-func ReportFailInt(pos string) int {
+func ReportFailInt(fnName string, bbid int, pos string) int {
 	execCheck()
-	exec.Fail(pos)
+	exec.Fail(fnName, bbid, pos)
 	return 0
 }
 
-func ReportFailFloat(pos string) float64 {
+func ReportFailFloat(fnName string, bbid int, pos string) float64 {
 	execCheck()
-	exec.Fail(pos)
+	exec.Fail(fnName, bbid, pos)
 	return 0
 }
 
-// EnterBlk denotes an entry to a syntactic block (that's { ... })
-func EnterBlk(bid int, pos string) {
+func EnterBlkFromCond(bbid int, pos string) bool {
+	EnterBlk(bbid, pos)
+	return true
+}
+
+func EnterBlk(bbid int, pos string) {
 	execCheck()
 	g := exec.Goroutine(runtime.GoID())
 	g.m.Lock()
 	defer g.m.Unlock()
 	fc := g.Stack[len(g.Stack)-1]
 	last := fc.Last
-	cur := BlkEntrance{In: fc.FuncPc, BasicBlockId: bid}
-	g.Flows[FlowEdge{Src: last, Targ: cur}]++
+	cur := dgtypes.BlkEntrance{In: fc.FuncPc, BasicBlockId: bbid}
+	g.Flows[dgtypes.FlowEdge{Src: last, Targ: cur}]++
 	fc.Last = cur
 	g.Positions[cur] = pos
 }
@@ -73,14 +78,14 @@ func EnterFunc(name, pos string) {
 	pc := runtime.GetCallerPC(unsafe.Pointer(&name))
 	f := runtime.FuncForPC(pc)
 	fpc := f.Entry()
-	cur := BlkEntrance{In: fpc, BasicBlockId: 0}
-	g.Stack = append(g.Stack, &FuncCall{
+	cur := dgtypes.BlkEntrance{In: fpc, BasicBlockId: 0}
+	g.Stack = append(g.Stack, &dgtypes.FuncCall{
 		Name:   name,
 		FuncPc: fpc,
 		Last:   cur,
 	})
-	g.Flows[FlowEdge{Src: g.Stack[len(g.Stack)-2].Last, Targ: cur}]++
-	g.Calls[Call{Caller: g.Stack[len(g.Stack)-2].FuncPc, Callee: fpc}]++
+	g.Flows[dgtypes.FlowEdge{Src: g.Stack[len(g.Stack)-2].Last, Targ: cur}]++
+	g.Calls[dgtypes.Call{Caller: g.Stack[len(g.Stack)-2].FuncPc, Callee: fpc}]++
 	g.Positions[cur] = pos
 	// g.m.Unlock()
 }
@@ -88,8 +93,8 @@ func EnterFunc(name, pos string) {
 // deriveFields is a helper method which takes an object reference and ObjectType and
 // uses reflection to determine the fields of the object. It returns the results
 // in a slice.
-func deriveFields(v reflect.Value) []Field {
-	fields := make([]Field, 0)
+func deriveFields(v reflect.Value) []dgtypes.Field {
+	fields := make([]dgtypes.Field, 0)
 	typeOfObj := v.Type()
 
 	for i := 0; i < v.NumField(); i++ {
@@ -101,34 +106,34 @@ func deriveFields(v reflect.Value) []Field {
 			switch f.Kind() {
 			case reflect.Slice:
 				if f.CanAddr() {
-					fields = append(fields, Field{Name: name, Exported: true,
-						Val: Value{Type: ft, Slice: f.UnsafeAddr()}})
+					fields = append(fields, dgtypes.Field{Name: name, Exported: true,
+						Val: dgtypes.Value{Type: ft, Slice: f.UnsafeAddr()}})
 				} else {
-					fields = append(fields, Field{Name: name, Exported: true,
-						Val: Value{Type: ft, Slice: 1}})
+					fields = append(fields, dgtypes.Field{Name: name, Exported: true,
+						Val: dgtypes.Value{Type: ft, Slice: 1}})
 				}
 			case reflect.Ptr:
 				if f.CanAddr() {
-					fields = append(fields, Field{Name: name, Exported: true,
-						Val: Value{Type: ft, Pointer: f.UnsafeAddr()}})
+					fields = append(fields, dgtypes.Field{Name: name, Exported: true,
+						Val: dgtypes.Value{Type: ft, Pointer: f.UnsafeAddr()}})
 				} else {
-					fields = append(fields, Field{Name: name, Exported: true,
-						Val: Value{Type: ft, Pointer: 1}})
+					fields = append(fields, dgtypes.Field{Name: name, Exported: true,
+						Val: dgtypes.Value{Type: ft, Pointer: 1}})
 				}
 			case reflect.Struct:
 				if f.CanAddr() {
-					fields = append(fields, Field{Name: name, Exported: true, Val: Value{
-						Type: ft, Struct: newShallowStruct(ft, f.UnsafeAddr())}})
+					fields = append(fields, dgtypes.Field{Name: name, Exported: true, Val: dgtypes.Value{
+						Type: ft, Struct: dgtypes.NewShallowStruct(ft, f.UnsafeAddr())}})
 				} else {
-					fields = append(fields, Field{Name: name, Exported: true,
-						Val: Value{Type: ft, Struct: newShallowStruct(ft, 1)}})
+					fields = append(fields, dgtypes.Field{Name: name, Exported: true,
+						Val: dgtypes.Value{Type: ft, Struct: dgtypes.NewShallowStruct(ft, 1)}})
 				}
 			default:
-				fields = append(fields, Field{Name: name, Exported: true, Val: Value{Type: ft, Other: f.Interface()}})
+				fields = append(fields, dgtypes.Field{Name: name, Exported: true, Val: dgtypes.Value{Type: ft, Other: f.Interface()}})
 			}
 		} else {
-			fields = append(fields, Field{Name: name, Exported: true,
-				Val: Value{Type: ObjectType{fieldType.Name(), false}}})
+			fields = append(fields, dgtypes.Field{Name: name, Exported: true,
+				Val: dgtypes.Value{Type: dgtypes.ObjectType{fieldType.Name(), false}}})
 			log.Printf("Could not access unexported %v field: %v", f.Kind(), name)
 		}
 	}
@@ -136,36 +141,36 @@ func deriveFields(v reflect.Value) []Field {
 }
 
 // getType uses reflection to find the type of the object at 'obj'.
-func getType(obj interface{}) *ObjectType {
+func getType(obj interface{}) *dgtypes.ObjectType {
 	// uses reflection to determine the typename
 	value := reflect.ValueOf(obj)
 	zero := reflect.Value{}
 	if value == zero {
-		return &ObjectType{}
+		return &dgtypes.ObjectType{}
 	}
 	tipe := value.Type()
 	if tipe.Kind() == reflect.Ptr {
 		if value.Elem() == zero {
-			return &ObjectType{}
+			return &dgtypes.ObjectType{}
 		}
-		return &ObjectType{value.Elem().Type().Name(), true}
+		return &dgtypes.ObjectType{value.Elem().Type().Name(), true}
 	} else if tipe.Kind() == reflect.Struct {
-		return &ObjectType{reflect.TypeOf(obj).Name(), false}
+		return &dgtypes.ObjectType{reflect.TypeOf(obj).Name(), false}
 	}
-	return &ObjectType{value.Type().String(), false}
+	return &dgtypes.ObjectType{value.Type().String(), false}
 }
 
-func reflectValToValue(val reflect.Value, tp ObjectType) Value {
+func reflectValToValue(val reflect.Value, tp dgtypes.ObjectType) dgtypes.Value {
 	typeOfObj := val.Type()
 	switch typeOfObj.Kind() {
 	case reflect.Struct:
 		fields := deriveFields(val)
-		return Value{Type: tp, Struct: &StructT{Type: tp, Fields: fields}}
+		return dgtypes.Value{Type: tp, Struct: &dgtypes.StructT{Type: tp, Fields: fields}}
 	}
-	return Value{}
+	return dgtypes.Value{}
 }
 
-func deriveValue(obj interface{}) Value {
+func deriveValue(obj interface{}) dgtypes.Value {
 	t := getType(obj)
 
 	var v reflect.Value
@@ -182,18 +187,18 @@ func deriveValue(obj interface{}) Value {
 func MethodInput(fnName string, pos string, inputs ...interface{}) {
 	execCheck()
 	g := exec.Goroutine(runtime.GoID())
-	var inputProfile []Value = make([]Value, len(inputs))
+	var inputProfile []dgtypes.Value = make([]dgtypes.Value, len(inputs))
 	for i := range inputs {
 		val := deriveValue(inputs[i])
 		inputProfile[i] = val
 	}
-	g.Inputs[fnName] = append(g.Inputs[fnName], inputProfile)
+	g.Inputs[fnName] = append(g.Inputs[fnName], dgtypes.ObjectProfile(inputProfile))
 }
 
 func MethodOutput(fnName string, pos string, outputs ...interface{}) {
 	execCheck()
 	g := exec.Goroutine(runtime.GoID())
-	var outputProfile []Value = make([]Value, len(outputs))
+	var outputProfile []dgtypes.Value = make([]dgtypes.Value, len(outputs))
 	for i := range outputs {
 		val := deriveValue(outputs[i])
 		outputProfile[i] = val
@@ -214,12 +219,12 @@ func ExitFunc(name string) {
 	g.Stack = g.Stack[:len(g.Stack)-1]
 	// Println(fmt.Sprintf("exit %v %v", fc.Name, fc.Flow))
 	if len(g.Stack) >= 1 {
-		g.Flows[FlowEdge{Src: fc.Last, Targ: g.Stack[len(g.Stack)-1].Last}]++
+		g.Flows[dgtypes.FlowEdge{Src: fc.Last, Targ: g.Stack[len(g.Stack)-1].Last}]++
 	}
 	if f, has := g.Funcs[fc.FuncPc]; has {
 		f.Update(fc)
 	} else {
-		g.Funcs[fc.FuncPc] = newFunction(fc)
+		g.Funcs[fc.FuncPc] = dgtypes.NewFunction(fc)
 	}
 	if len(g.Stack) == 1 {
 		// g.m.Unlock()

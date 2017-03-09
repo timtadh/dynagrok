@@ -10,6 +10,10 @@ type Error struct {
 	ExitCode int
 }
 
+func Err(code int, err error) *Error {
+	return &Error{Err: err, ExitCode: code}
+}
+
 func Errorf(code int, format string, args ...interface{}) *Error {
 	return &Error{Err: fmt.Errorf(format, args...), ExitCode: code}
 }

@@ -1,10 +1,12 @@
 package dgruntime
 
 import (
+	"dgruntime/dgtypes"
 	"fmt"
 	"io"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -12,12 +14,23 @@ import (
 type Execution struct {
 	m          sync.Mutex
 	Goroutines []*Goroutine
-	Profile    *Profile
+	Profile    *dgtypes.Profile
 	OutputDir  string
 	mergeCh    chan *Goroutine
 	async      sync.WaitGroup
-	fails      []string
+	fails      []*Failure
 	failed     map[string]bool
+}
+
+type Failure struct {
+	Position     string
+	FnName       string
+	BasicBlockId int
+}
+
+func (f *Failure) String() string {
+	return fmt.Sprintf(`{"Position":%v, "FnName":%v, "BasicBlockId":%d}`,
+		strconv.Quote(f.Position), strconv.Quote(f.FnName), f.BasicBlockId)
 }
 
 var execMu sync.Mutex
@@ -47,14 +60,7 @@ func newExecution() *Execution {
 		panic(fmt.Errorf("dynagrok's dgruntime could not make directory %v", outputDir))
 	}
 	e := &Execution{
-		Profile: &Profile{
-			Calls:     make(map[Call]int),
-			Funcs:     make(map[uintptr]*Function),
-			Flows:     make(map[FlowEdge]int),
-			Positions: make(map[BlkEntrance]string),
-			Inputs:    make(map[string][]ObjectProfile),
-			Outputs:   make(map[string][]ObjectProfile),
-		},
+		Profile:   dgtypes.NewProfile(),
 		OutputDir: outputDir,
 		mergeCh:   make(chan *Goroutine, 15),
 		failed:    make(map[string]bool),
@@ -89,11 +95,15 @@ func (e *Execution) Goroutine(id int64) *Goroutine {
 	return e.Goroutines[id]
 }
 
-func (e *Execution) Fail(pos string) {
+func (e *Execution) Fail(fnName string, bbid int, pos string) {
 	e.m.Lock()
 	if !e.failed[pos] {
 		e.failed[pos] = true
-		e.fails = append(e.fails, pos)
+		e.fails = append(e.fails, &Failure{
+			FnName:       fnName,
+			BasicBlockId: bbid,
+			Position:     pos,
+		})
 	}
 	e.m.Unlock()
 }
@@ -162,11 +172,26 @@ func shutdown(e *Execution) {
 	defer e.m.Unlock()
 
 	if !e.Profile.Empty() {
-		files := []string{"dynagrok-profile.dot", "input-profiles.json", "output-profiles.jspm"}
-		writeOut(e, files[0], e.Profile.Serialize)
-		writeOut(e, files[1], e.Profile.SerializeInProfs)
-		writeOut(e, files[2], e.Profile.SerializeOutProfs)
-		fmt.Println("done shutting down")
+		files := []string{"object-profiles.json"}
+		writeOut(e, files[0], e.Profile.SerializeProfs)
+
+		dotPath := pjoin(e.OutputDir, "flow-graph.dot")
+		fmt.Println("writing flow-graph to:", dotPath)
+		dot, err := os.Create(dotPath)
+		if err != nil {
+			panic(err)
+		}
+		defer dot.Close()
+		e.Profile.WriteDotty(dot)
+
+		txtPath := pjoin(e.OutputDir, "flow-graph.txt")
+		fmt.Println("writing flow-graph to:", txtPath)
+		txt, err := os.Create(txtPath)
+		if err != nil {
+			panic(err)
+		}
+		defer txt.Close()
+		e.Profile.WriteSimple(txt)
 	}
 	if len(e.fails) > 0 {
 		failPath := pjoin(e.OutputDir, "failures")

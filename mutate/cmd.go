@@ -27,19 +27,24 @@ Option Flags
     -o,--output=<path>                Output file to create (defaults to pkg-name.instr)
     -w,--work=<path>                  Work directory to use (defaults to tempdir)
     --keep-work                       Keep the work directory
-    -m,--mutate-percent=<float>       Percentage of statements to mutate (defaults to .01)
+    -r,--mutation-rate=<float>        Percentage of statements to mutate (defaults to .01)
     --instrument                      Also instrument the resulting program
     --only=<pkg>                      Only mutate the specified pkg (may be specified multiple
                                       times or with a comma separated list)
+    -m,--mutation=<mut>               Only use the specified mutations (may be specified
+                                      multiple times or with a comma separated list).
+    --mutations                       List the available mutations
 `,
-	"o:w:m:",
+	"o:w:r:m:",
 	[]string{
 		"output=",
 		"work=",
 		"keep-work",
-		"mutate=",
+		"mutation-rate=",
 		"instrument",
 		"only=",
+		"mutation=",
+		"mutations",
 	},
 	func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
 		output := ""
@@ -48,6 +53,7 @@ Option Flags
 		mutate := .01
 		addInstrumentation := false
 		only := make(map[string]bool)
+		allowedMuts := make(map[string]bool)
 		for _, oa := range optargs {
 			switch oa.Opt() {
 			case "-o", "--output":
@@ -56,7 +62,7 @@ Option Flags
 				work = oa.Arg()
 			case "-k", "--keep-work":
 				keepWork = true
-			case "-m", "--mutate":
+			case "-r", "--mutation-rate":
 				f, err := strconv.ParseFloat(oa.Arg(), 64)
 				if err != nil {
 					return nil, cmd.Usage(r, 1, fmt.Sprintf(
@@ -73,6 +79,23 @@ Option Flags
 				for _, pkg := range strings.Split(oa.Arg(), ",") {
 					only[strings.TrimSpace(pkg)] = true
 				}
+			case "-m", "--mutation":
+				for _, typ := range strings.Split(oa.Arg(), ",") {
+					typ = strings.TrimSpace(typ)
+					if _, has := MutationTypes[typ]; has {
+						allowedMuts[typ] = true
+					} else {
+						return nil, cmd.Errorf(1, fmt.Sprintf(
+							"mutation %v, given in `%v %v`, is not supported by dynagrok. (use --mutations for list)",
+							typ, oa.Opt(), oa.Arg()))
+					}
+				}
+			case "--mutations":
+				fmt.Println("Available mutations:")
+				for mut := range MutationTypes {
+					fmt.Println("  -", mut)
+				}
+				return nil, nil
 			}
 		}
 		if len(args) != 1 {
@@ -87,7 +110,7 @@ Option Flags
 		if err != nil {
 			return nil, cmd.Usage(r, 6, err.Error())
 		}
-		mutations, err := Mutate(mutate, only, addInstrumentation, pkgName, program)
+		mutations, err := Mutate(mutate, only, allowedMuts, addInstrumentation, pkgName, program)
 		if err != nil {
 			return nil, cmd.Errorf(7, err.Error())
 		}
@@ -109,7 +132,14 @@ Option Flags
 			}
 			defer f.Close()
 			for _, m := range mutations {
-				fmt.Fprintln(f, m)
+				_, err := f.Write(m.AsJson())
+				if err != nil {
+					return nil, cmd.Errorf(10, "error trying to serialize exported mutation: %v", err)
+				}
+				_, err = fmt.Fprintln(f)
+				if err != nil {
+					return nil, cmd.Errorf(10, "error trying to print a new line: %v", err)
+				}
 			}
 		}
 		return nil, nil

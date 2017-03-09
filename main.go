@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 )
 
@@ -13,31 +14,36 @@ import (
 	"github.com/timtadh/dynagrok/grok"
 	"github.com/timtadh/dynagrok/instrument"
 	"github.com/timtadh/dynagrok/localize"
+	"github.com/timtadh/dynagrok/locavore"
 	"github.com/timtadh/dynagrok/mutate"
 	"github.com/timtadh/dynagrok/objectstate"
 )
 
 func main() {
+	fmt.Println(os.Args)
 	var config cmd.Config
-	main := NewMain(&config)
+	var cleanup func()
+	main := NewMain(&config, &cleanup)
 	grk := grok.NewCommand(&config)
 	inst := instrument.NewCommand(&config)
 	mut := mutate.NewCommand(&config)
 	loc := localize.NewCommand(&config)
 	obj := objectstate.NewCommand(&config)
+	locav := locavore.NewCommand(&config)
 	cmd.Main(cmd.Concat(
 		main,
 		cmd.Commands(map[string]cmd.Runnable{
-			grk.Name():  grk,
-			inst.Name(): inst,
-			mut.Name():  mut,
-			loc.Name():  loc,
-			obj.Name():  obj,
+			grk.Name():   grk,
+			inst.Name():  inst,
+			mut.Name():   mut,
+			loc.Name():   loc,
+			obj.Name():   obj,
+			locav.Name(): locav,
 		}),
-	))
+	), &cleanup)
 }
 
-func NewMain(c *cmd.Config) cmd.Runnable {
+func NewMain(c *cmd.Config, cleanup *func()) cmd.Runnable {
 	return cmd.Cmd(os.Args[0],
 		`[options] <pkg>`,
 		`
@@ -78,6 +84,13 @@ Option Flags
 					return nil, err
 				}
 				defer cleanup()
+			}
+			if cpuProfile != "" {
+				clean, err := cmd.CPUProfile(cpuProfile)
+				if err != nil {
+					return nil, err
+				}
+				*cleanup = clean
 			}
 			*c = cmd.Config{
 				GOROOT: GOROOT,

@@ -81,7 +81,8 @@ if ! dynagrok -d $dgpath \
 			--keep-work -w $TARGET \
 			-o $TARGET/goroot/pkg/tool/linux_amd64/compile \
 			--instrument \
-			-m $MUTATE \
+			-r $MUTATE \
+			-m branch \
 			--only cmd/compile,cmd/compile/internal/gc \
 			--only cmd/compile/internal/ssa \
 			--only cmd/compile/internal/amd64 \

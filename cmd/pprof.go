@@ -8,6 +8,10 @@ import (
 	"syscall"
 )
 
+import (
+	"github.com/timtadh/data-structures/errors"
+)
+
 func CPUProfile(output string) (func(), *Error) {
 	f, err := os.Create(output)
 	if err != nil {
@@ -17,18 +21,20 @@ func CPUProfile(output string) (func(), *Error) {
 	if err != nil {
 		return nil, &Error{err, -2}
 	}
+	errors.Logf("DEBUG", "started cpu profile:  %v", output)
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	cleanup := func() {
+		errors.Logf("DEBUG", "closing cpu profile")
+		pprof.StopCPUProfile()
+		err := f.Close()
+		errors.Logf("DEBUG", "closed cpu profile, err: %v", err)
+	}
 	go func() {
 		sig:=<-sigs
-		pprof.StopCPUProfile()
-		f.Close()
+		cleanup()
 		panic(fmt.Errorf("caught signal: %v", sig))
 	}()
-	cleanup := func() {
-		pprof.StopCPUProfile()
-		f.Close()
-	}
 	return cleanup, nil
 }
 

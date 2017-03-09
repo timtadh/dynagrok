@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+
+if ! go install github.com/timtadh/dynagrok; then
+    echo "failed to compile dynagrok"
+    exit 1
+fi
+
+dgpath=$1
+if [[ -z "$dgpath" ]]; then
+    echo "must supply the path to dynagrok's source tree as the first arg"
+    exit 1
+fi
+
+goroot=$2
+if [[ -z "$goroot" ]]; then
+    echo "must supply a GOROOT (which is a git checkout) as the second arg"
+    exit 1
+fi
+
+DYNAGROK=$dgpath/bin/dynagrok
+MAPTEST=$dgpath/examples/src/dynagrok/examples/avl/testcases/map_tester.py
+
+MUTANTS=20
+RATE=.01
+TESTS=250
+
+function run {
+  >&2 echo $ "${@}"
+  "${@}"
+}
+
+TARGET=/tmp/avl-expr
+BUILD=$TARGET/build
+
+## run mkdir -p $TARGET
+## run rm -r  $TARGET/build/goroot/src/dgruntime $TARGET/build/gopath
+## 
+## for ((i=1;i<=$MUTANTS;i++)); do
+    #mutdir=$TARGET/m$i
+    mutdir=$TARGET/mt
+    mut=$mutdir/avl
+    tests=$mutdir/tests
+    oks=$mutdir/oks
+    fails=$mutdir/fails
+    # run rm -r $mutdir
+    run mkdir -p $mutdir
+    ## if ! run \
+    ##      $DYNAGROK -r $goroot -d $dgpath -g $dgpath/examples \
+    ##         mutate --keep-work -w $BUILD --instrument -r $RATE \
+    ##                --only dynagrok/examples/avl \
+    ##                --mutation=branch -o $mut dynagrok/examples/avl
+    ## then
+    ##     echo "creating the $i avl mutant failed"
+    ##     exit 1
+    ## fi
+    # run cp $BUILD/mutations $mutdir/mutations
+    # run rm -r $BUILD/mutations $BUILD/gopath
+    run mkdir -p $oks/tests $oks/profiles
+    run mkdir -p $fails/tests $fails/profiles $fails/failures
+    for ((t=1;t<=$TESTS;t++)); do
+        output=$tests/$t
+        run mkdir -p $output
+        run python $MAPTEST -o $output $mut
+        if [[ -e $output/dgprofile/failures ]]; then
+            ## the program failed
+            run cp $output/dgprofile/failures $fails/failures/$t
+            run cp $output/input $fails/tests/$t
+            run cp $output/dgprofile/flow-graph.txt $fails/profiles/$t.txt
+        else
+            ## the program succeeded
+            run cp $output/input $oks/tests/$t
+            run cp $output/dgprofile/flow-graph.txt $oks/profiles/$t.txt
+        fi
+    done
+    run rm -r $tests
+    sleep .02
+    if ! [ "$(ls -A $oks/tests)" ] || ! [ "$(ls -A $fails/tests)" ]; then
+        echo "mutant either always failed or always worked"
+        echo "removing it"
+        run rm -rf $mutdir
+        i=$((i-1))
+        echo "retrying"
+        continue
+    fi
+# done
+

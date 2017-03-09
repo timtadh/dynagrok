@@ -25,6 +25,7 @@ var excludedPackages = map[string]bool{
 	"bytes":           true,
 	"path/filepath":   true,
 	"encoding/base64": true,
+	"dgruntime":       true,
 }
 
 func ExcludedPkg(pkg string) bool {
