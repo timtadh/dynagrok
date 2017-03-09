@@ -42,9 +42,9 @@ func Instrument(entryPkgName string, program *loader.Program) (err error) {
 
 func (i *instrumenter) instrument() (err error) {
 	for _, pkg := range i.program.AllPackages {
-		if len(pkg.BuildPackage.CgoFiles) > 0 {
-			continue
-		}
+		// if pkg.Cgo {
+		// 	continue
+		// }
 		if excludes.ExcludedPkg(pkg.Pkg.Path()) {
 			continue
 		}

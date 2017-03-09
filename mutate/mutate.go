@@ -84,9 +84,9 @@ func Mutate(mutate float64, only, allowedMuts map[string]bool, instrumenting boo
 }
 
 func (m *mutator) pkgAllowed(pkg *loader.PackageInfo) bool {
-	if len(pkg.BuildPackage.CgoFiles) > 0 {
-		return false
-	}
+	// if pkg.Cgo {
+	// 	return false
+	// }
 	if excludes.ExcludedPkg(pkg.Pkg.Path()) {
 		return false
 	}

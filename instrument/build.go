@@ -138,9 +138,9 @@ func (b *binaryBuilder) Build() error {
 	basePaths := b.basePaths()
 	anyStdlib := false
 	for pkgType, pkgInfo := range b.program.AllPackages {
-		if len(pkgInfo.BuildPackage.CgoFiles) > 0 {
-			continue
-		}
+		// if pkgInfo.Cgo {
+		// 	continue
+		// }
 		if excludes.ExcludedPkg(pkgInfo.Pkg.Path()) {
 			continue
 		}
