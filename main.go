@@ -14,7 +14,6 @@ import (
 	"github.com/timtadh/dynagrok/grok"
 	"github.com/timtadh/dynagrok/instrument"
 	"github.com/timtadh/dynagrok/localize"
-	"github.com/timtadh/dynagrok/locavore"
 	"github.com/timtadh/dynagrok/mutate"
 	"github.com/timtadh/dynagrok/objectstate"
 )
@@ -29,16 +28,14 @@ func main() {
 	mut := mutate.NewCommand(&config)
 	loc := localize.NewCommand(&config)
 	obj := objectstate.NewCommand(&config)
-	locav := locavore.NewCommand(&config)
 	cmd.Main(cmd.Concat(
 		main,
 		cmd.Commands(map[string]cmd.Runnable{
-			grk.Name():   grk,
-			inst.Name():  inst,
-			mut.Name():   mut,
-			loc.Name():   loc,
-			obj.Name():   obj,
-			locav.Name(): locav,
+			grk.Name():  grk,
+			inst.Name(): inst,
+			mut.Name():  mut,
+			loc.Name():  loc,
+			obj.Name():  obj,
 		}),
 	), &cleanup)
 }

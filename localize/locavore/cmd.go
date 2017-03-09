@@ -16,15 +16,15 @@ import (
 
 func NewCommand(c *cmd.Config) cmd.Runnable {
 	return cmd.Cmd(
-		"localize",
+		"locavore",
 		`[options] <failing-profiles> <succeeding-profiles>`,
 		`
 
-<failing-profiles> should be a directory (or file) containing flow-graphs from
+<failing-profiles> should be a file containing object profiles from
                    failed executions of an instrumented copy of the program
                    under test (PUT).
 
-<succeeding-profiles> should be a directory (or file) containing flow-graphs from
+<succeeding-profiles> should be a file containing object profiles from
                       successful executions of an instrumented copy of the
                       program under test (PUT).
 
