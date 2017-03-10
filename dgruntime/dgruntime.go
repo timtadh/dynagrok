@@ -160,17 +160,17 @@ func getType(obj interface{}) *dgtypes.ObjectType {
 	return &dgtypes.ObjectType{value.Type().String(), false}
 }
 
-func reflectValToValue(val reflect.Value, tp dgtypes.ObjectType) dgtypes.Value {
+func reflectValToValue(val reflect.Value, tp dgtypes.ObjectType) *dgtypes.Value {
 	typeOfObj := val.Type()
 	switch typeOfObj.Kind() {
 	case reflect.Struct:
 		fields := deriveFields(val)
-		return dgtypes.Value{Type: tp, Struct: &dgtypes.StructT{Type: tp, Fields: fields}}
+		return &dgtypes.Value{Type: tp, Struct: &dgtypes.StructT{Type: tp, Fields: fields}}
 	}
-	return dgtypes.Value{}
+	return nil
 }
 
-func deriveValue(obj interface{}) dgtypes.Value {
+func deriveValue(obj interface{}) *dgtypes.Value {
 	t := getType(obj)
 
 	var v reflect.Value
@@ -180,30 +180,29 @@ func deriveValue(obj interface{}) dgtypes.Value {
 		v = reflect.ValueOf(obj)
 	}
 
-	value := reflectValToValue(v, *t)
-	return value
+	return reflectValToValue(v, *t)
+}
+
+func deriveProfile(items ...interface{}) dgtypes.ObjectProfile {
+	values := make(dgtypes.ObjectProfile, 0, len(items))
+	for _, item := range items {
+		if v := deriveValue(item); v != nil {
+			values = append(values, v)
+		}
+	}
+	return values
 }
 
 func MethodInput(fnName string, pos string, inputs ...interface{}) {
 	execCheck()
 	g := exec.Goroutine(runtime.GoID())
-	var inputProfile []dgtypes.Value = make([]dgtypes.Value, len(inputs))
-	for i := range inputs {
-		val := deriveValue(inputs[i])
-		inputProfile[i] = val
-	}
-	g.Inputs[fnName] = append(g.Inputs[fnName], dgtypes.ObjectProfile(inputProfile))
+	g.Inputs[fnName] = append(g.Inputs[fnName], deriveProfile(inputs))
 }
 
 func MethodOutput(fnName string, pos string, outputs ...interface{}) {
 	execCheck()
 	g := exec.Goroutine(runtime.GoID())
-	var outputProfile []dgtypes.Value = make([]dgtypes.Value, len(outputs))
-	for i := range outputs {
-		val := deriveValue(outputs[i])
-		outputProfile[i] = val
-	}
-	g.Outputs[fnName] = append(g.Inputs[fnName], outputProfile)
+	g.Outputs[fnName] = append(g.Outputs[fnName], deriveProfile(outputs))
 }
 
 func ExitFunc(name string) {

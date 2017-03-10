@@ -30,7 +30,7 @@ const (
 	Zero // nil value
 )
 
-type ObjectProfile []Value
+type ObjectProfile []*Value
 
 type FuncProfile struct {
 	FuncName string

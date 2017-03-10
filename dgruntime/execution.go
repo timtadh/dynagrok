@@ -147,6 +147,9 @@ func (e *Execution) merge(g *Goroutine) {
 	for funcName, instances := range g.Inputs {
 		e.Profile.Inputs[funcName] = append(e.Profile.Inputs[funcName], instances...)
 	}
+	for funcName, instances := range g.Outputs {
+		e.Profile.Outputs[funcName] = append(e.Profile.Outputs[funcName], instances...)
+	}
 }
 
 func shutdown(e *Execution) {
@@ -172,9 +175,6 @@ func shutdown(e *Execution) {
 	defer e.m.Unlock()
 
 	if !e.Profile.Empty() {
-		files := []string{"object-profiles.json"}
-		writeOut(e, files[0], e.Profile.SerializeProfs)
-
 		dotPath := pjoin(e.OutputDir, "flow-graph.dot")
 		fmt.Println("writing flow-graph to:", dotPath)
 		dot, err := os.Create(dotPath)
@@ -193,6 +193,12 @@ func shutdown(e *Execution) {
 		defer txt.Close()
 		e.Profile.WriteSimple(txt)
 	}
+
+	if len(e.Profile.Inputs) > 0 {
+		files := []string{"object-profiles.json"}
+		writeOut(e, files[0], e.Profile.SerializeProfs)
+	}
+
 	if len(e.fails) > 0 {
 		failPath := pjoin(e.OutputDir, "failures")
 		fmt.Printf("The program registered %v failures\n", len(e.fails))
