@@ -82,6 +82,93 @@ type Field struct {
 	Exported bool
 }
 
+// TODO(KOBY): refactor this value into an interface.
+//
+// type Value interface {
+// 	Kind() Kind
+// 	LevelHash(hash.Hash, int)
+// 	Value() interface{}
+// 	String() string
+// }
+//
+// type IntValue struct {
+// 	kind Kind
+// 	val uint64
+// }
+// 
+// func IntValue(i interface{}) *IntValue {
+// 	switch x := i.(type) {
+// 	case int8:
+// 		return &IntValue{kind: Int8, val: uint64(x)}
+// 	case uint8:
+// 		return &IntValue{kind: UInt8, val: uint64(x)}
+// 	case int16:
+// 		return &IntValue{kind: Int16, val: uint64(x)}
+// 	case uint16:
+// 		return &IntValue{kind: UInt16, val: uint64(x)}
+// 	case int32:
+// 		return &IntValue{kind: Int32, val: uint64(x)}
+// 	case uint32:
+// 		return &IntValue{kind: UInt32, val: uint64(x)}
+// 	case int64:
+// 		return &IntValue{kind: Int64, val: uint64(x)}
+// 	case uint64:
+// 		return &IntValue{kind: UInt64, val: uint64(x)}
+// 	case int:
+// 		return &IntValue{kind: Int, val: uint64(x)}
+// 	case uint:
+// 		return &IntValue{kind: UInt, val: uint64(x)}
+// 	case uintptr:
+// 		return &IntValue{kind: UIntptr, val: uint64(x)}
+// 	default:
+// 		panic(fmt.Errorf("i %v should have been an int got %T", i, i)
+// 	}
+// }
+// 
+// func (i *IntValue) Kind() Kind {
+// 	return i.kind
+// }
+// 
+// func (i *IntValue) LeveledHash(h hash.Hash, n int) {
+// 	if n <= 0 {
+// 		return
+// 	}
+// 	binary.Write(h, binary.BigEndian, i.val)
+// }
+// 
+// func (i *IntValue) Value() interface{} {
+// 	switch i.kind {
+// 	case Unt8:
+// 		return int8(i.val)
+// 	case Uint8:
+// 		return uint8(i.val)
+// 	case Int16:
+// 		return int16(i.val)
+// 	case Uint16:
+// 		return uint16(i.val)
+// 	case Int32:
+// 		return int32(i.val)
+// 	case Uint32:
+// 		return uint32(i.val)
+// 	case Int64:
+// 		return int64(i.val)
+// 	case Uint64:
+// 		return uint64(i.val)
+// 	case Int:
+// 		return int(i.val)
+// 	case Uint:
+// 		return uint(i.val)
+// 	case Uintptr:
+// 		return uintptr(i.val)
+// 	default:
+// 		panic(fmt.Errorf("i %v should have been an int got %T", i, i)
+// 	}
+// }
+// 
+// func (i *IntValue) String() string {
+// 	return fmt.Sprintf("%v", i.Value())
+// }
+
 type Value struct {
 	Type    ObjectType
 	Name    string
