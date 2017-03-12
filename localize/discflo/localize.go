@@ -16,6 +16,7 @@ import (
 	"github.com/timtadh/dynagrok/localize/lattice/subgraph"
 	"github.com/timtadh/dynagrok/localize/test"
 	"github.com/timtadh/dynagrok/localize/stat"
+	"github.com/timtadh/dynagrok/localize/discflo/scores"
 )
 
 
@@ -63,7 +64,7 @@ func (r Result) Sort() {
 	})
 }
 
-func LocalizeNodes(score Score, lat *lattice.Lattice) stat.Result {
+func LocalizeNodes(score scores.Score, lat *lattice.Lattice) stat.Result {
 	result := make(stat.Result, 0, len(lat.Fail.ColorIndex))
 	for color, embIdxs := range lat.Fail.ColorIndex {
 		vsg := subgraph.Build(1, 0).FromVertex(color).Build()
@@ -85,7 +86,7 @@ func LocalizeNodes(score Score, lat *lattice.Lattice) stat.Result {
 	return result
 }
 
-func Localize(walks int, tests []*test.Testcase, oracle test.Executor, score Score, lat *lattice.Lattice) (Result, error) {
+func Localize(walks int, tests []*test.Testcase, oracle test.Executor, score scores.Score, lat *lattice.Lattice) (Result, error) {
 	min := func(a, b int) int {
 		if a < b {
 			return a
@@ -105,6 +106,7 @@ func Localize(walks int, tests []*test.Testcase, oracle test.Executor, score Sco
 	// for i := 0; i < WALKS; i++ {
 	// 	n := Walk(score, lat)
 	total := min(len(lat.Labels.Labels()), max(250, min(len(lat.Labels.Labels())/16, 500)))
+	total = len(lat.Labels.Labels())
 	for i, l := range LocalizeNodes(score, lat) {
 	// for color := range lat.Labels.Labels() {
 		color := l.Color
@@ -121,7 +123,7 @@ func Localize(walks int, tests []*test.Testcase, oracle test.Executor, score Sco
 				db.Add(n)
 				nodes = append(nodes, n)
 				seen[label] = n
-				if false {
+				if true {
 					errors.Logf("DEBUG", "found %d/%d %d %v", i, total, len(nodes), n)
 				}
 			} else {
@@ -224,7 +226,7 @@ func Localize(walks int, tests []*test.Testcase, oracle test.Executor, score Sco
 	for i := 0; i < len(filtered); i++ {
 		c := filtered[i]
 	// for _, n := range filtered {
-		if false {
+		if true {
 			errors.Logf("DEBUG", "%v", c)
 		}
 		for _, n := range c.Nodes {
@@ -237,7 +239,7 @@ func Localize(walks int, tests []*test.Testcase, oracle test.Executor, score Sco
 	return result, nil
 }
 
-func RankNodes(score Score, lat *lattice.Lattice, sg *subgraph.SubGraph) stat.Result {
+func RankNodes(score scores.Score, lat *lattice.Lattice, sg *subgraph.SubGraph) stat.Result {
 	result := make(stat.Result, 0, len(sg.V))
 	for i := range sg.V {
 		color := sg.V[i].Color
@@ -261,7 +263,7 @@ func RankNodes(score Score, lat *lattice.Lattice, sg *subgraph.SubGraph) stat.Re
 	return result
 }
 
-func RankColors(score Score, lat *lattice.Lattice, colors map[int][]*Cluster) Result {
+func RankColors(score scores.Score, lat *lattice.Lattice, colors map[int][]*Cluster) Result {
 	epsilon := .025
 	result := make(Result, 0, len(colors))
 	for color, clusters := range colors {
@@ -302,7 +304,7 @@ func RankColors(score Score, lat *lattice.Lattice, colors map[int][]*Cluster) Re
 	return result
 }
 
-func Walk(score Score, lat *lattice.Lattice) (*SearchNode) {
+func Walk(score scores.Score, lat *lattice.Lattice) (*SearchNode) {
 	// color := lat.Labels.Color("(*dynagrok/examples/avl.Avl).Verify blk 3")
 	// vsg := subgraph.Build(1, 0).FromVertex(color).Build()
 	// embIdxs := lat.Fail.ColorIndex[color]
@@ -322,7 +324,7 @@ func Walk(score Score, lat *lattice.Lattice) (*SearchNode) {
 	return WalkFrom(cur, score, lat)
 }
 
-func WalkFromColor(color int, score Score, lat *lattice.Lattice) (*SearchNode) {
+func WalkFromColor(color int, score scores.Score, lat *lattice.Lattice) (*SearchNode) {
 	// color := lat.Labels.Color("(*dynagrok/examples/avl.Avl).Verify blk 3")
 	vsg := subgraph.Build(1, 0).FromVertex(color).Build()
 	embIdxs := lat.Fail.ColorIndex[color]
@@ -338,7 +340,7 @@ func WalkFromColor(color int, score Score, lat *lattice.Lattice) (*SearchNode) {
 	return WalkFrom(cur, score, lat)
 }
 
-func WalkFrom(cur *SearchNode, score Score, lat *lattice.Lattice) (*SearchNode) {
+func WalkFrom(cur *SearchNode, score scores.Score, lat *lattice.Lattice) (*SearchNode) {
 	i := 0
 	prev := cur
 	for cur != nil {
@@ -366,7 +368,7 @@ func abs(a float64) float64 {
 	return a
 }
 
-func filterKids(score Score, parentScore float64, lat *lattice.Lattice, kids []*lattice.Node) (float64, []*SearchNode) {
+func filterKids(score scores.Score, parentScore float64, lat *lattice.Lattice, kids []*lattice.Node) (float64, []*SearchNode) {
 	var epsilon float64 = 0
 	entries := make([]*SearchNode, 0, len(kids))
 	for _, kid := range kids {
@@ -374,7 +376,7 @@ func filterKids(score Score, parentScore float64, lat *lattice.Lattice, kids []*
 			continue
 		}
 		kidScore := score(lat, kid)
-		_, _, prf, pro := Prs(lat, kid)
+		_, _, prf, pro := scores.Prs(lat, kid)
 		if (abs(parentScore - kidScore) <= epsilon && abs(1 - prf/(pro + prf)) <= epsilon) || kidScore > parentScore {
 			entries = append(entries, &SearchNode{kid, kidScore, nil})
 		}

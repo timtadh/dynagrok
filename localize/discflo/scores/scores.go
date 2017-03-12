@@ -1,4 +1,4 @@
-package discflo
+package scores
 
 import (
 	"math"
@@ -15,11 +15,11 @@ import (
 
 var DEBUG = false
 
-var scoreAbbrvs map[string]string
-var scoreNames map[string][]string
+var ScoreAbbrvs map[string]string
+var ScoreNames map[string][]string
 
 func init() {
-	scoreAbbrvs = map[string]string{
+	ScoreAbbrvs = map[string]string{
 		// "swrp": "SizeWeightedRelativePrecision",
 		// "swrf1": "SizeWeightedRelativeF1",
 		// "swrj": "SizeWeightedRelativeJaccard",
@@ -40,9 +40,9 @@ func init() {
 		"c": "Contrast",
 		"ar": "AssociationalRisk",
 	}
-	scoreNames = make(map[string][]string)
-	for abbrv, name := range scoreAbbrvs {
-		scoreNames[name] = append(scoreNames[name], abbrv)
+	ScoreNames = make(map[string][]string)
+	for abbrv, name := range ScoreAbbrvs {
+		ScoreNames[name] = append(ScoreNames[name], abbrv)
 	}
 }
 

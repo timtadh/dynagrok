@@ -6,6 +6,7 @@ import (
 
 var excludedPackages = map[string]bool{
 	"fmt":             true,
+	"log":             true,
 	"runtime":         true,
 	"strings":         true,
 	"sync":            true,
@@ -21,8 +22,13 @@ var excludedPackages = map[string]bool{
 	"reflect":         true,
 	"unicode":         true,
 	"sort":            true,
+	"hash":            true,
+	"hash/fnv":        true,
 	"encoding/json":   true,
+	"encoding/binary": true,
+	"bufio":           true,
 	"bytes":           true,
+	"path":            true,
 	"path/filepath":   true,
 	"encoding/base64": true,
 	"dgruntime":       true,

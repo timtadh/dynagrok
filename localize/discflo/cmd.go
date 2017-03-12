@@ -18,28 +18,23 @@ import (
 	"github.com/timtadh/dynagrok/cmd"
 	"github.com/timtadh/dynagrok/localize/lattice"
 	"github.com/timtadh/dynagrok/localize/test"
+	"github.com/timtadh/dynagrok/localize/discflo/web"
+	"github.com/timtadh/dynagrok/localize/discflo/opts"
+	"github.com/timtadh/dynagrok/localize/discflo/scores"
 )
 
-type Options struct {
-	Lattice   *lattice.Lattice
-	Remote    *test.Remote
-	Oracle    test.Executor
-	Tests     []*test.Testcase
-	Score     Score
-	ScoreName string
-	Walks     int
-	Minimize  bool
-}
-
 func NewCommand(c *cmd.Config) cmd.Runnable {
-	var o Options
+	var o opts.Options
 	return cmd.Concat(
 		NewOptionParser(c, &o),
-		NewRunner(c, &o),
+		cmd.Commands(map[string]cmd.Runnable {
+			"": NewRunner(c, &o),
+			"web": web.NewCommand(c, &o),
+		}),
 	)
 }
 
-func NewOptionParser(c *cmd.Config, o *Options) cmd.Runnable {
+func NewOptionParser(c *cmd.Config, o *opts.Options) cmd.Runnable {
 	return cmd.Cmd(
 	"disc-flo",
 	`[options]`,
@@ -95,7 +90,7 @@ Option Flags
 		for _, oa := range optargs {
 			switch oa.Opt() {
 			case "-b", "--binary":
-				r, err := test.NewRemote(oa.Arg(), test.Timeout(10 * time.Second))
+				r, err := test.NewRemote(oa.Arg(), test.Timeout(10 * time.Second), test.Config(c))
 				if err != nil {
 					return nil, cmd.Err(1, err)
 				}
@@ -107,7 +102,7 @@ Option Flags
 					return nil, cmd.Errorf(1, "Could not parse the arguments to %v, err: %v", oa.Opt(), err)
 				}
 			case "--failure-oracle":
-				r, err := test.NewRemote(oa.Arg(), test.Timeout(10 * time.Second))
+				r, err := test.NewRemote(oa.Arg(), test.Timeout(10 * time.Second), test.Config(c))
 				if err != nil {
 					return nil, cmd.Err(1, err)
 				}
@@ -118,10 +113,10 @@ Option Flags
 				}
 			case "-s", "--score":
 				name := oa.Arg()
-				if n, has := scoreAbbrvs[oa.Arg()]; has {
+				if n, has := scores.ScoreAbbrvs[oa.Arg()]; has {
 					name = n
 				}
-				if m, has := Scores[name]; has {
+				if m, has := scores.Scores[name]; has {
 					fmt.Println("using method", name)
 					o.Score = m
 					o.ScoreName = name
@@ -130,7 +125,7 @@ Option Flags
 				}
 			case "--scores":
 				fmt.Println("\nNames of Suspicousness Scores (and Abbrevations):")
-				for name, abbrvs := range scoreNames {
+				for name, abbrvs := range scores.ScoreNames {
 					fmt.Printf("  - %v : [%v]\n", name, strings.Join(abbrvs, ", "))
 				}
 				return nil, cmd.Errorf(0, "")
@@ -214,13 +209,13 @@ Option Flags
 	})
 }
 
-func NewRunner(c *cmd.Config, o *Options) cmd.Runnable {
+func NewRunner(c *cmd.Config, o *opts.Options) cmd.Runnable {
 	return cmd.BareCmd(
 	func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
 		if o.Score == nil {
 			return nil, cmd.Usage(r, 2, "You must supply a score (see -s or --scores)")
 		}
-		result, err := o.Localize()
+		result, err := RunLocalize(o)
 		if err != nil {
 			return nil, cmd.Err(3, err)
 		}
@@ -230,11 +225,11 @@ func NewRunner(c *cmd.Config, o *Options) cmd.Runnable {
 	})
 }
 
-func (o *Options) Localize() (Result, error) {
-	return o.LocalizeWithScore(o.Score)
+func RunLocalize(o *opts.Options) (Result, error) {
+	return RunLocalizeWithScore(o, o.Score)
 }
 
-func (o *Options) LocalizeWithScore(s Score) (Result, error) {
+func RunLocalizeWithScore(o *opts.Options, s scores.Score) (Result, error) {
 	var tests []*test.Testcase
 	if o.Minimize {
 		tests = o.Tests

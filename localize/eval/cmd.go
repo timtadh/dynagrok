@@ -15,12 +15,14 @@ import (
 	"github.com/timtadh/dynagrok/cmd"
 	"github.com/timtadh/dynagrok/mutate"
 	"github.com/timtadh/dynagrok/localize/discflo"
+	"github.com/timtadh/dynagrok/localize/discflo/opts"
+	"github.com/timtadh/dynagrok/localize/discflo/scores"
 	"github.com/timtadh/dynagrok/localize/stat"
 	"github.com/timtadh/dynagrok/localize/lattice"
 )
 
 type Options struct {
-	discflo.Options
+	opts.Options
 	FaultsPath string
 }
 
@@ -99,9 +101,9 @@ Option Flags
 				}
 			}
 		}
-		dflo := func(s discflo.Score) stat.Method {
+		dflo := func(s scores.Score) stat.Method {
 			return func(lat *lattice.Lattice) stat.Result {
-				r, err := o.LocalizeWithScore(s)
+				r, err := discflo.RunLocalizeWithScore(&o.Options, s)
 				if err != nil {
 					panic(err)
 				}
@@ -109,9 +111,9 @@ Option Flags
 			}
 		}
 		if o.Score == nil {
-			for name, score := range discflo.Scores {
+			for name, score := range scores.Scores {
 				eval("Discflo + "+name, dflo(score))
-				eval(name, func(s discflo.Score) stat.Method {
+				eval(name, func(s scores.Score) stat.Method {
 					return func(lat *lattice.Lattice) stat.Result {
 						return discflo.LocalizeNodes(s, lat)
 					}
@@ -119,7 +121,7 @@ Option Flags
 			}
 		} else {
 			eval("Discflo + "+o.ScoreName, dflo(o.Score))
-			eval(o.ScoreName, func(s discflo.Score) stat.Method {
+			eval(o.ScoreName, func(s scores.Score) stat.Method {
 				return func(lat *lattice.Lattice) stat.Result {
 					return discflo.LocalizeNodes(s, lat)
 				}

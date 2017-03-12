@@ -38,3 +38,6 @@
 [submodule "src/github.com/google/shlex"]
 	path = src/github.com/google/shlex
 	url = git@github.com:google/shlex
+[submodule "src/github.com/julienschmidt/httprouter"]
+	path = src/github.com/julienschmidt/httprouter
+	url = git@github.com:julienschmidt/httprouter

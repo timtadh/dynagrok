@@ -168,6 +168,11 @@ func (s *Sequence) Usage() string {
 }
 
 func (a *Alternatives) Run(argv []string) ([]string, *Error) {
+	if len(argv) == 0 {
+		if r, has := a.runners[""]; has {
+			return r.Run(argv)
+		}
+	}
 	if len(argv) <= 0 {
 		return nil, Usage(a, -1, "Expected one of %v got end of arguments", a.Name())
 	}

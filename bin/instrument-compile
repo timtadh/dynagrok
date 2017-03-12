@@ -23,6 +23,12 @@ if [[ -z "$VERSION" ]]; then
 	exit 1
 fi
 
+OUTPUT=$4
+if [[ -z "$OUTPUT" ]]; then
+	echo "must supply a output location for the compiler"
+	exit 1
+fi
+
 HEAD=$(git -C $goroot rev-parse HEAD)
 COMMIT=$(git -C $goroot show-ref $VERSION)
 if [[ $? -eq 0 ]]; then
@@ -68,7 +74,7 @@ echo "dyangrok instrument"
 dynagrok -d $dgpath \
 	instrument \
 		--keep-work -w $TARGET \
-		-o $TARGET/goroot/pkg/tool/linux_amd64/compile \
+		-o $OUTPUT \
 		cmd/compile
 
 if [[ $HEAD != $COMMIT ]]; then

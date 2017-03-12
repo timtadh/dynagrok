@@ -128,7 +128,7 @@ func (r *Remote) Execute(args []string, stdin []byte) (stdout, stderr, profile, 
 	}
 	var timeKilled bool
 	var memKilled bool
-	// r.watch(ctx, cancel, c, &timeKilled, &memKilled)
+	r.watch(ctx, cancel, c, &timeKilled, &memKilled)
 
 	err = c.Wait()
 	cerr := ctx.Err()

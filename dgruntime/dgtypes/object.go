@@ -4,9 +4,9 @@
 package dgtypes
 
 import (
+	"fmt"
 	"encoding/binary"
 	"hash"
-	"log"
 )
 
 const Depth = 7
@@ -221,7 +221,7 @@ func (f Value) Hash(h hash.Hash) {
 
 func (f Value) LeveledHash(h hash.Hash, n int) {
 	if n == 0 {
-		log.Printf("Depth level reached while hashing")
+		fmt.Printf("Depth level reached while hashing")
 		return
 	}
 	h.Write([]byte(f.Name))

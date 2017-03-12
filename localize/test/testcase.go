@@ -79,9 +79,13 @@ func (t *Testcase) Execute() error {
 	if t.executed {
 		return nil
 	}
-	_, _, profile, fails, ok, err := t.Exec.Execute(t.Case)
+	stdout, stderr, profile, fails, ok, err := t.Exec.Execute(t.Case)
 	if err != nil {
 		return err
+	}
+	if false {
+		errors.Logf("DEBUG", "stdout\n%v\n-------------\n", string(stdout))
+		errors.Logf("DEBUG", "stderr\n%v\n-------------\n", string(stderr))
 	}
 	t.executed = true
 	t.ok = ok && len(fails) <= 0
