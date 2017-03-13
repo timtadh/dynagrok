@@ -32,7 +32,7 @@ func (s *SearchNode) String() string {
 
 type Location struct {
 	stat.Location
-	Graphs   []*Cluster
+	Clusters   []*Cluster
 }
 
 func (l *Location) ShortString() string {
@@ -85,7 +85,8 @@ func LocalizeNodes(score Score, lat *lattice.Lattice) stat.Result {
 	return result
 }
 
-func Localize(walks int, tests []*test.Testcase, oracle test.Executor, score Score, lat *lattice.Lattice) (Result, error) {
+
+func Localize(walks int, tests []*test.Testcase, oracle test.Executor, score Score, lat *lattice.Lattice) (Clusters, error) {
 	min := func(a, b int) int {
 		if a < b {
 			return a
@@ -104,7 +105,7 @@ func Localize(walks int, tests []*test.Testcase, oracle test.Executor, score Sco
 	db := NewDbScan(.35)
 	// for i := 0; i < WALKS; i++ {
 	// 	n := Walk(score, lat)
-	total := min(len(lat.Labels.Labels()), max(250, min(len(lat.Labels.Labels())/16, 500)))
+	total := min(len(lat.Labels.Labels()), max(50, min(len(lat.Labels.Labels())/64, 500)))
 	// total = len(lat.Labels.Labels())
 	for i, l := range LocalizeNodes(score, lat) {
 	// for color := range lat.Labels.Labels() {
@@ -221,9 +222,13 @@ func Localize(walks int, tests []*test.Testcase, oracle test.Executor, score Sco
 	} else {
 		filtered = clusters
 	}
+	return filtered, nil
+}
+
+func (clusters Clusters) RankColors(score Score, lat *lattice.Lattice) Result {
 	colors := make(map[int][]*Cluster)
-	for i := 0; i < len(filtered); i++ {
-		c := filtered[i]
+	for i := 0; i < len(clusters); i++ {
+		c := clusters[i]
 	// for _, n := range filtered {
 		if true {
 			errors.Logf("DEBUG", "%v", c)
@@ -234,8 +239,7 @@ func Localize(walks int, tests []*test.Testcase, oracle test.Executor, score Sco
 			}
 		}
 	}
-	result := RankColors(score, lat, colors)
-	return result, nil
+	return RankColors(score, lat, colors)
 }
 
 func RankNodes(score Score, lat *lattice.Lattice, sg *subgraph.SubGraph) stat.Result {

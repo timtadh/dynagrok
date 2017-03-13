@@ -21,6 +21,8 @@ import (
 	"github.com/timtadh/dynagrok/localize/lattice"
 )
 
+type Clusters []*Cluster
+
 type Cluster struct {
 	Score  float64
 	Nodes  []*SearchNode

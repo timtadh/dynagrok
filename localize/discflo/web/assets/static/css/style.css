@@ -1,0 +1,14 @@
+.block {
+	display: list-item;
+	margin-left: 1em;
+	margin-top: .1em;
+	margin-bottom: .1em;
+}
+
+.block .score,
+.block .position,
+.block .basic-block {
+	display: inline;
+}
+
+

@@ -1,0 +1,33 @@
+{{template "header" "discflo"}}
+<div class="center_box">
+	<h1 class="title">
+		Block {{.Loc.FnName}} ({{.Loc.BasicBlockId}})
+	</h1>
+	<hr/>
+	<ul>
+	{{$lid := .Id}}
+	{{range $cid, $cluster := .Loc.Clusters}}
+		<li>
+			{{$cluster.Score}}
+			<a href="/block/{{$lid}}/exclude/{{$cid}}">Exclude Cluster</a>
+			{{range $nid, $node := $cluster.Nodes}}
+				{{if $node.Test}}
+				<pre>{{$node.Test}}</pre>
+				{{end}}
+			{{end}}
+			<ul>
+			{{range $nid, $node := $cluster.Nodes}}
+				<li>
+					{{if not $node.Test}}
+					<a href="/block/{{$lid}}/test/{{$cid}}/{{$nid}}">Generate Test</a>
+					{{end}}
+					{{$node.Node}}
+				</li>
+			{{end}}
+			</ul>
+		</li>
+	{{end}}
+	</ul>
+</div>
+{{template "footer"}}
+

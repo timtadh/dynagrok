@@ -1,0 +1,14 @@
+{{template "header" "discflo"}}
+<div class="center_box">
+	<h1 class="title">
+		Test
+	</h1>
+	<hr/>
+	{{if .Test}}
+		<pre>{{.Test}}</pre>
+	{{else}}
+		<b>No Test!</b>
+	{{end}}
+</div>
+{{template "footer"}}
+

@@ -1,0 +1,25 @@
+{{template "header" "discflo"}}
+<div class="center_box">
+	<h1 class="title">Suspicous Blocks</h1>
+	<hr/>
+	<div class="blocks">
+		{{$cid := .cid}}
+		{{range $idx, $loc := .result}}
+		<div class="block">
+			<div class="score">
+				{{$loc.Score}}
+			</div>
+			<div class="position">
+				{{$loc.Position}}
+			</div>
+			<div class="basic-block">
+				<a href="/block/{{$idx}}">
+					{{$loc.FnName}} ({{$loc.BasicBlockId}})
+				</a>
+			</div>
+		</div>
+		{{end}}
+	</div>
+</div>
+{{template "footer"}}
+

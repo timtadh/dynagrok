@@ -102,11 +102,11 @@ Option Flags
 		}
 		dflo := func(s discflo.Score) stat.Method {
 			return func(lat *lattice.Lattice) stat.Result {
-				r, err := discflo.RunLocalizeWithScore(&o.Options, s)
+				c, err := discflo.RunLocalizeWithScore(&o.Options, s)
 				if err != nil {
 					panic(err)
 				}
-				return r.StatResult()
+				return c.RankColors(o.Score, o.Lattice).StatResult()
 			}
 		}
 		if o.Score == nil {

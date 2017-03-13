@@ -23,11 +23,12 @@ import (
 )
 
 type Views struct {
-	config *cmd.Config
-	opts   *discflo.Options
-	assets string
-	result discflo.Result
-	tmpl *template.Template
+	config   *cmd.Config
+	opts     *discflo.Options
+	assets   string
+	clusters discflo.Clusters
+	result   discflo.Result
+	tmpl     *template.Template
 	sessions models.SessionStore
 }
 
@@ -40,6 +41,10 @@ func Routes(c *cmd.Config, o *discflo.Options, assetPath string) (http.Handler, 
 		sessions: mem.NewSessionMapStore("session"),
 	}
 	mux.GET("/", v.Context(v.Index))
+	mux.GET("/blocks", v.Context(v.Blocks))
+	mux.GET("/block/:rid", v.Context(v.Block))
+	mux.GET("/block/:rid/test/:cid/:nid", v.Context(v.GenerateTest))
+	mux.GET("/block/:rid/exclude/:cid", v.Context(v.ExcludeCluster))
 	mux.ServeFiles("/static/*filepath", http.Dir(filepath.Join(assetPath, "static")))
 	err := v.Init()
 	if err != nil {
@@ -53,11 +58,12 @@ func (v *Views) Init() error {
 	if err != nil {
 		return err
 	}
-	result, err := discflo.RunLocalize(v.opts)
+	clusters, err := discflo.RunLocalize(v.opts)
 	if err != nil {
 		return err
 	}
-	v.result = result
+	v.clusters = clusters
+	v.result = clusters.RankColors(v.opts.Score, v.opts.Lattice)
 	return nil
 }
 

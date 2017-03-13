@@ -16,11 +16,11 @@ type Options struct {
 	Minimize  bool
 }
 
-func RunLocalize(o *Options) (Result, error) {
+func RunLocalize(o *Options) (Clusters, error) {
 	return RunLocalizeWithScore(o, o.Score)
 }
 
-func RunLocalizeWithScore(o *Options, s Score) (Result, error) {
+func RunLocalizeWithScore(o *Options, s Score) (Clusters, error) {
 	var tests []*test.Testcase
 	if o.Minimize {
 		tests = o.Tests

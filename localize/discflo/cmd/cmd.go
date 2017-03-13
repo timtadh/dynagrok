@@ -214,10 +214,11 @@ func NewRunner(c *cmd.Config, o *discflo.Options) cmd.Runnable {
 		if o.Score == nil {
 			return nil, cmd.Usage(r, 2, "You must supply a score (see -s or --scores)")
 		}
-		result, err := discflo.RunLocalize(o)
+		clusters, err := discflo.RunLocalize(o)
 		if err != nil {
 			return nil, cmd.Err(3, err)
 		}
+		result := clusters.RankColors(o.Score, o.Lattice)
 		fmt.Println(result)
 		fmt.Println(result.StatResult())
 		return nil, nil
