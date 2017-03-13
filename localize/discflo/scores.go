@@ -1,4 +1,4 @@
-package scores
+package discflo
 
 import (
 	"math"

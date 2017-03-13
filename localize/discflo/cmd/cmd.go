@@ -1,4 +1,4 @@
-package discflo
+package cmd
 
 import (
 	"bytes"
@@ -18,13 +18,12 @@ import (
 	"github.com/timtadh/dynagrok/cmd"
 	"github.com/timtadh/dynagrok/localize/lattice"
 	"github.com/timtadh/dynagrok/localize/test"
+	"github.com/timtadh/dynagrok/localize/discflo"
 	"github.com/timtadh/dynagrok/localize/discflo/web"
-	"github.com/timtadh/dynagrok/localize/discflo/opts"
-	"github.com/timtadh/dynagrok/localize/discflo/scores"
 )
 
 func NewCommand(c *cmd.Config) cmd.Runnable {
-	var o opts.Options
+	var o discflo.Options
 	return cmd.Concat(
 		NewOptionParser(c, &o),
 		cmd.Commands(map[string]cmd.Runnable {
@@ -34,7 +33,7 @@ func NewCommand(c *cmd.Config) cmd.Runnable {
 	)
 }
 
-func NewOptionParser(c *cmd.Config, o *opts.Options) cmd.Runnable {
+func NewOptionParser(c *cmd.Config, o *discflo.Options) cmd.Runnable {
 	return cmd.Cmd(
 	"disc-flo",
 	`[options]`,
@@ -113,10 +112,10 @@ Option Flags
 				}
 			case "-s", "--score":
 				name := oa.Arg()
-				if n, has := scores.ScoreAbbrvs[oa.Arg()]; has {
+				if n, has := discflo.ScoreAbbrvs[oa.Arg()]; has {
 					name = n
 				}
-				if m, has := scores.Scores[name]; has {
+				if m, has := discflo.Scores[name]; has {
 					fmt.Println("using method", name)
 					o.Score = m
 					o.ScoreName = name
@@ -125,7 +124,7 @@ Option Flags
 				}
 			case "--scores":
 				fmt.Println("\nNames of Suspicousness Scores (and Abbrevations):")
-				for name, abbrvs := range scores.ScoreNames {
+				for name, abbrvs := range discflo.ScoreNames {
 					fmt.Printf("  - %v : [%v]\n", name, strings.Join(abbrvs, ", "))
 				}
 				return nil, cmd.Errorf(0, "")
@@ -209,13 +208,13 @@ Option Flags
 	})
 }
 
-func NewRunner(c *cmd.Config, o *opts.Options) cmd.Runnable {
+func NewRunner(c *cmd.Config, o *discflo.Options) cmd.Runnable {
 	return cmd.BareCmd(
 	func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
 		if o.Score == nil {
 			return nil, cmd.Usage(r, 2, "You must supply a score (see -s or --scores)")
 		}
-		result, err := RunLocalize(o)
+		result, err := discflo.RunLocalize(o)
 		if err != nil {
 			return nil, cmd.Err(3, err)
 		}
@@ -223,16 +222,4 @@ func NewRunner(c *cmd.Config, o *opts.Options) cmd.Runnable {
 		fmt.Println(result.StatResult())
 		return nil, nil
 	})
-}
-
-func RunLocalize(o *opts.Options) (Result, error) {
-	return RunLocalizeWithScore(o, o.Score)
-}
-
-func RunLocalizeWithScore(o *opts.Options, s scores.Score) (Result, error) {
-	var tests []*test.Testcase
-	if o.Minimize {
-		tests = o.Tests
-	}
-	return Localize(o.Walks, tests, o.Oracle, s, o.Lattice)
 }

@@ -15,11 +15,11 @@ import (
 
 import (
 	"github.com/timtadh/dynagrok/cmd"
-	"github.com/timtadh/dynagrok/localize/discflo/opts"
+	"github.com/timtadh/dynagrok/localize/discflo"
 	"github.com/timtadh/dynagrok/localize/discflo/web/views"
 )
 
-func NewCommand(c *cmd.Config, o *opts.Options) cmd.Runnable {
+func NewCommand(c *cmd.Config, o *discflo.Options) cmd.Runnable {
 	return cmd.Cmd(
 	"web",
 	`[options]`,
@@ -90,7 +90,7 @@ Options
 			return nil, cmd.Errorf(1, "To use ssl you must supply key and cert")
 		}
 
-		handler, err := views.Routes(assets)
+		handler, err := views.Routes(c, o, assets)
 		if err != nil {
 			return nil, cmd.Err(1, err)
 		}

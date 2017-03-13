@@ -16,19 +16,26 @@ import (
 )
 
 import (
+	"github.com/timtadh/dynagrok/cmd"
+	"github.com/timtadh/dynagrok/localize/discflo"
 	"github.com/timtadh/dynagrok/localize/discflo/web/models"
 	"github.com/timtadh/dynagrok/localize/discflo/web/models/mem"
 )
 
 type Views struct {
+	config *cmd.Config
+	opts   *discflo.Options
 	assets string
+	result discflo.Result
 	tmpl *template.Template
 	sessions models.SessionStore
 }
 
-func Routes(assetPath string) (http.Handler, error) {
+func Routes(c *cmd.Config, o *discflo.Options, assetPath string) (http.Handler, error) {
 	mux := httprouter.New()
 	v := &Views{
+		config: c,
+		opts: o,
 		assets: filepath.Clean(assetPath),
 		sessions: mem.NewSessionMapStore("session"),
 	}
@@ -40,8 +47,18 @@ func Routes(assetPath string) (http.Handler, error) {
 	}
 	return mux, nil
 }
+
 func (v *Views) Init() error {
-	return v.loadTemplates()
+	err := v.loadTemplates()
+	if err != nil {
+		return err
+	}
+	result, err := discflo.RunLocalize(v.opts)
+	if err != nil {
+		return err
+	}
+	v.result = result
+	return nil
 }
 
 func (v *Views) loadTemplates() error {

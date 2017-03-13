@@ -29,15 +29,16 @@ func (l *loggingRW) WriteHeader(code int) {
 }
 
 func (v *Views) Log(f View) View {
-	return func(c *Context) {
+	return func(c *Context) error {
 		rw := c.rw
 		lrw := &loggingRW{rw: rw}
 		c.rw = lrw
 		s := time.Now()
-		f(c)
+		err := f(c)
 		e := time.Now()
 		log.Printf("%v %-4v %v (%v) %v (%d) %v",
 			c.r.RemoteAddr, c.r.Method, c.r.URL, c.r.ContentLength, c.s.Key, lrw.total, e.Sub(s))
+		return err
 	}
 }
 

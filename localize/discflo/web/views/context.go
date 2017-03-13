@@ -14,7 +14,7 @@ import (
 	"github.com/timtadh/dynagrok/localize/discflo/web/models"
 )
 
-type View func(*Context)
+type View func(*Context) error
 
 type Context struct {
 	views *Views
@@ -31,7 +31,10 @@ func (v *Views) Context(f View) httprouter.Handle {
 				log.Println(e)
 				log.Println(string(debug.Stack()))
 				rw.WriteHeader(500)
-				rw.Write([]byte("Internal Error"))
+				n, err := rw.Write([]byte("Internal Error"))
+				if err != nil {
+					log.Println("err:", n, err)
+				}
 			}
 			return
 		}()
@@ -39,20 +42,22 @@ func (v *Views) Context(f View) httprouter.Handle {
 			views: v,
 			rw: rw, r: r, p: p,
 		}
-		c.Session(v.Log(f))
+		err := c.Session(v.Log(f))
+		if err != nil {
+			log.Println(err)
+			rw.WriteHeader(500)
+			n, err := rw.Write([]byte("Internal Error"))
+			if err != nil {
+				log.Println("err:", n, err)
+			}
+		}
 	}
 }
 
-func (c *Context) Session(f View) {
-	doErr := func(c *Context, err error) {
-		log.Println(err)
-		c.rw.WriteHeader(500)
-		c.rw.Write([]byte("error processing request"))
-	}
+func (c *Context) Session(f View) error {
 	s, err := models.GetSession(c.views.sessions, c.rw, c.r)
 	if err != nil {
-		doErr(c, err)
-		return
+		return err
 	}
 	c.s = s
 	// if s.User != "" {
@@ -63,13 +68,6 @@ func (c *Context) Session(f View) {
 	// 	}
 	// 	c.u = u
 	// }
-	f(c)
-}
-
-func (v *Views) Index(c *Context) {
-	err := v.tmpl.ExecuteTemplate(c.rw, "index", nil)
-	if err != nil {
-		log.Panic(err)
-	}
+	return f(c)
 }
 

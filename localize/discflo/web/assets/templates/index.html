@@ -2,5 +2,33 @@
 <div class="center_box">
 	<h1 class="title">discflo</h1>
 	<hr/>
+	<div class="blocks">
+		<h1 class="title">{{(printf "Survey Question %v" .cid)}}</h1>
+		{{if .form_error}}
+		<div class="error">
+			There was a validation error when you submitted the form. Please
+			correct it and re-submit.
+		</div>
+		{{end}}
+		<hr/>
+		{{$cid := .cid}}
+		{{range $idx, $inst := .clone.Instances}}
+		<div class="instance">
+			<div class="img">
+				<img src="/clones/{{$cid}}/instances/{{$idx}}/embedding.png" title="image of the embedding"/>
+			</div>
+			<div class="code">
+				<div class="label">
+					class: <code>{{$inst.Class}}</code>
+				</div>
+				<div class="label">
+					source file: <code>{{$inst.PathToJava}}</code>
+				</div>
+				<pre class="java">{{$inst.Java}}</pre>
+				<!-- <pre class="jimple">{{$inst.Java}}</pre> -->
+			</div>
+		</div>
+		{{end}}
+	</div>
 </div>
 {{template "footer"}}
