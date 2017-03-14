@@ -3,18 +3,17 @@
 	<h1 class="title">Suspicous Blocks</h1>
 	<hr/>
 	<div class="blocks">
-		{{$cid := .cid}}
-		{{range $idx, $loc := .result}}
+		{{range $_, $block := .Blocks}}
 		<div class="block">
 			<div class="score">
-				{{$loc.Score}}
+				{{$block.Score}}
 			</div>
 			<div class="position">
-				{{$loc.Position}}
+				{{$block.Position}}
 			</div>
 			<div class="basic-block">
-				<a href="/block/{{$idx}}">
-					{{$loc.FnName}} ({{$loc.BasicBlockId}})
+				<a href="/block/{{$block.Color}}">
+					{{$block.FnName}} ({{$block.BasicBlockId}})
 				</a>
 			</div>
 		</div>

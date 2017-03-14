@@ -37,6 +37,12 @@ func (i *Info) Add(color, bbid int, fnName, pos string) {
 	i.lock.Unlock()
 }
 
+func (i Info) Get(color int) (bbid int, fnName, pos string) {
+	i.lock.Lock()
+	defer i.lock.Unlock()
+	return i.BBIds[color], i.FnNames[color], i.Positions[color]
+}
+
 type SimpleLoader struct {
 	Builder   *Builder
 	Labels    *Labels

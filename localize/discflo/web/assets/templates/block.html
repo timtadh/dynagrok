@@ -1,15 +1,15 @@
 {{template "header" "discflo"}}
 <div class="center_box">
 	<h1 class="title">
-		Block {{.Loc.FnName}} ({{.Loc.BasicBlockId}})
+		Block {{.FnName}} ({{.BasicBlockId}})
 	</h1>
 	<hr/>
 	<ul>
-	{{$lid := .Id}}
-	{{range $cid, $cluster := .Loc.Clusters}}
+	{{$color := .Color}}
+	{{range $_, $cluster := .Clusters}}
 		<li>
 			{{$cluster.Score}}
-			<a href="/block/{{$lid}}/exclude/{{$cid}}">Exclude Cluster</a>
+			<a href="/exclude/{{$cluster.Id}}">Exclude Cluster</a>
 			{{range $nid, $node := $cluster.Nodes}}
 				{{if $node.Test}}
 				<pre>{{$node.Test}}</pre>
@@ -19,7 +19,7 @@
 			{{range $nid, $node := $cluster.Nodes}}
 				<li>
 					{{if not $node.Test}}
-					<a href="/block/{{$lid}}/test/{{$cid}}/{{$nid}}">Generate Test</a>
+					<a href="/test/{{$cluster.Id}}/{{$nid}}">Generate Test</a>
 					{{end}}
 					{{$node.Node}}
 				</li>

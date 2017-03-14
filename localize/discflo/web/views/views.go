@@ -23,13 +23,12 @@ import (
 )
 
 type Views struct {
-	config   *cmd.Config
-	opts     *discflo.Options
-	assets   string
-	clusters discflo.Clusters
-	result   discflo.Result
-	tmpl     *template.Template
-	sessions models.SessionStore
+	config       *cmd.Config
+	opts         *discflo.Options
+	assets       string
+	tmpl         *template.Template
+	sessions     models.SessionStore
+	localization *models.Localization
 }
 
 func Routes(c *cmd.Config, o *discflo.Options, assetPath string) (http.Handler, error) {
@@ -42,9 +41,9 @@ func Routes(c *cmd.Config, o *discflo.Options, assetPath string) (http.Handler, 
 	}
 	mux.GET("/", v.Context(v.Index))
 	mux.GET("/blocks", v.Context(v.Blocks))
-	mux.GET("/block/:rid", v.Context(v.Block))
-	mux.GET("/block/:rid/test/:cid/:nid", v.Context(v.GenerateTest))
-	mux.GET("/block/:rid/exclude/:cid", v.Context(v.ExcludeCluster))
+	mux.GET("/block/:color", v.Context(v.Block))
+	mux.GET("/test/:cid/:nid", v.Context(v.GenerateTest))
+	mux.GET("/exclude/:cid", v.Context(v.ExcludeCluster))
 	mux.ServeFiles("/static/*filepath", http.Dir(filepath.Join(assetPath, "static")))
 	err := v.Init()
 	if err != nil {
@@ -58,12 +57,7 @@ func (v *Views) Init() error {
 	if err != nil {
 		return err
 	}
-	clusters, err := discflo.RunLocalize(v.opts)
-	if err != nil {
-		return err
-	}
-	v.clusters = clusters
-	v.result = clusters.RankColors(v.opts.Score, v.opts.Lattice)
+	v.localization = models.Localize(v.opts)
 	return nil
 }
 

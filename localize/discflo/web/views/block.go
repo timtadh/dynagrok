@@ -1,21 +1,38 @@
 package views
 
 import (
-	"github.com/timtadh/dynagrok/localize/discflo"
+	"fmt"
+)
+
+import (
+	"github.com/timtadh/dynagrok/localize/discflo/web/models"
 )
 
 func (v *Views) Block(c *Context) error {
 	type data struct {
-		Id  int
-		Loc *discflo.Location
+		Color        int
+		FnName       string
+		BasicBlockId int
+		Clusters     []*models.Cluster
 	}
-	id, err := c.indexIn("rid", len(v.result))
+	clusters, err := v.localization.Clusters()
 	if err != nil {
 		return err
 	}
+	colors := clusters.AllColors()
+	color, err := c.indexIn("color", inSlice(len(colors)))
+	if err != nil {
+		return err
+	}
+	if colors[color] == nil {
+		return fmt.Errorf("no clusters for color %v (%v)", color, v.opts.Lattice.Labels.Label(color))
+	}
+	bbid, fnName, _ := v.opts.Lattice.Info.Get(color)
 	return v.tmpl.ExecuteTemplate(c.rw, "block", &data{
-		id,
-		&v.result[id],
+		Color: color,
+		FnName: fnName,
+		BasicBlockId: bbid,
+		Clusters: colors[color],
 	})
 }
 

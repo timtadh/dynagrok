@@ -225,7 +225,8 @@ func Localize(walks int, tests []*test.Testcase, oracle test.Executor, score Sco
 	return filtered, nil
 }
 
-func (clusters Clusters) RankColors(score Score, lat *lattice.Lattice) Result {
+
+func (clusters Clusters) Colors() map[int][]*Cluster {
 	colors := make(map[int][]*Cluster)
 	for i := 0; i < len(clusters); i++ {
 		c := clusters[i]
@@ -239,7 +240,11 @@ func (clusters Clusters) RankColors(score Score, lat *lattice.Lattice) Result {
 			}
 		}
 	}
-	return RankColors(score, lat, colors)
+	return colors
+}
+
+func (clusters Clusters) RankColors(score Score, lat *lattice.Lattice) Result {
+	return RankColors(score, lat, clusters.Colors())
 }
 
 func RankNodes(score Score, lat *lattice.Lattice, sg *subgraph.SubGraph) stat.Result {
@@ -266,39 +271,42 @@ func RankNodes(score Score, lat *lattice.Lattice, sg *subgraph.SubGraph) stat.Re
 	return result
 }
 
-func RankColors(score Score, lat *lattice.Lattice, colors map[int][]*Cluster) Result {
+func ScoreColor(score Score, lat *lattice.Lattice, color int, in []*Cluster) float64 {
 	epsilon := .025
-	result := make(Result, 0, len(colors))
-	for color, clusters := range colors {
-		vsg := subgraph.Build(1, 0).FromVertex(color).Build()
-		embIdxs := lat.Fail.ColorIndex[color]
-		embs := make([]*subgraph.Embedding, 0, len(embIdxs))
-		for _, embIdx := range embIdxs {
-			embs = append(embs, subgraph.StartEmbedding(subgraph.VertexEmbedding{SgIdx: 0, EmbIdx: embIdx}))
-		}
-		colorNode := lattice.NewNode(lat, vsg, embs)
-		colorScore := score(lat, colorNode)
-		var s float64
-		t := 0
-		for _, c := range clusters {
-			rm := s/float64(t)
-			if t < 1 || abs(c.Score - rm) < epsilon {
-				s += c.Score
-				t++
-			} else {
-				if false {
-					errors.Logf("DEBUG", "skipped %v %v %v", lat.Labels.Label(color), rm, c.Score)
-				}
+	vsg := subgraph.Build(1, 0).FromVertex(color).Build()
+	embIdxs := lat.Fail.ColorIndex[color]
+	embs := make([]*subgraph.Embedding, 0, len(embIdxs))
+	for _, embIdx := range embIdxs {
+		embs = append(embs, subgraph.StartEmbedding(subgraph.VertexEmbedding{SgIdx: 0, EmbIdx: embIdx}))
+	}
+	colorNode := lattice.NewNode(lat, vsg, embs)
+	colorScore := score(lat, colorNode)
+	var s float64
+	t := 0
+	for _, c := range in {
+		rm := s/float64(t)
+		if t < 1 || abs(c.Score - rm) < epsilon {
+			s += c.Score
+			t++
+		} else {
+			if false {
+				errors.Logf("DEBUG", "skipped %v %v %v", lat.Labels.Label(color), rm, c.Score)
 			}
 		}
-		s = (colorScore * s) / float64(t)
+	}
+	return colorScore * (s / float64(t))
+}
+
+func RankColors(score Score, lat *lattice.Lattice, colors map[int][]*Cluster) Result {
+	result := make(Result, 0, len(colors))
+	for color, clusters := range colors {
 		result = append(result, Location{
 			stat.Location{
 				color,
 				lat.Info.Positions[color],
 				lat.Info.FnNames[color],
 				lat.Info.BBIds[color],
-				s,
+				ScoreColor(score, lat, color, clusters),
 			},
 			clusters,
 		})
