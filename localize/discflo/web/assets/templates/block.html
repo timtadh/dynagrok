@@ -7,6 +7,7 @@
 	<ul>
 	{{$color := .Color}}
 	{{range $_, $cluster := .Clusters}}
+		{{if $cluster.Included}}
 		<li>
 			{{$cluster.Score}}
 			<a href="/exclude/{{$cluster.Id}}">Exclude Cluster</a>
@@ -26,6 +27,7 @@
 			{{end}}
 			</ul>
 		</li>
+		{{end}}
 	{{end}}
 	</ul>
 </div>

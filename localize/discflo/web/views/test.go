@@ -30,6 +30,8 @@ func (v *Views) GenerateTest(c *Context) error {
 		ClusterId  int
 		NodeId  int
 		Test string
+		Stdout string
+		Stderr string
 	}
 	clusters, err := v.localization.Clusters()
 	if err != nil {
@@ -47,18 +49,26 @@ func (v *Views) GenerateTest(c *Context) error {
 	if err != nil {
 		return err
 	}
-	testBytes, err := clusters.Test(cid, nid)
+	tc, err := clusters.Test(cid, nid)
 	if err != nil {
 		return err
 	}
-	test := ""
-	if testBytes != nil {
-		test = string(testBytes)
+	var test, out, errout string
+	if tc != nil {
+		test = string(tc.Case)
+		stdout, stderr, _, _, _, err := tc.Exec.Execute(tc.Case)
+		if err != nil {
+			return err
+		}
+		out = string(stdout)
+		errout = string(stderr)
 	}
 	return v.tmpl.ExecuteTemplate(c.rw, "test", &data{
 		ClusterId: cid,
 		NodeId: nid,
 		Test: test,
+		Stdout: out,
+		Stderr: errout,
 	})
 }
 

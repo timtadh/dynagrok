@@ -11,4 +11,13 @@
 	display: inline;
 }
 
+pre, img, figure, table {
+	margin: 1em auto;
+	padding: .5em;
+	overflow-x: auto;
+	border: 3px solid silver;
+}
 
+img {
+	width: 100%;
+}

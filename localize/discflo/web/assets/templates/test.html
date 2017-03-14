@@ -5,7 +5,15 @@
 	</h1>
 	<hr/>
 	{{if .Test}}
+		<h3>Input</h3>
 		<pre>{{.Test}}</pre>
+
+		<h3>Standard Out</h3>
+		<pre>{{.Stdout}}</pre>
+
+		<h3>Standard Err</h3>
+		<pre>{{.Stderr}}</pre>
+
 	{{else}}
 		<b>No Test!</b>
 	{{end}}

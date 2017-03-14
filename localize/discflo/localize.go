@@ -228,15 +228,18 @@ func Localize(walks int, tests []*test.Testcase, oracle test.Executor, score Sco
 
 func (clusters Clusters) Colors() map[int][]*Cluster {
 	colors := make(map[int][]*Cluster)
-	for i := 0; i < len(clusters); i++ {
-		c := clusters[i]
-	// for _, n := range filtered {
+	for _, clstr := range clusters {
+		added := make(map[int]bool)
 		if true {
-			errors.Logf("DEBUG", "%v", c)
+			errors.Logf("DEBUG", "%v", clstr)
 		}
-		for _, n := range c.Nodes {
+		for _, n := range clstr.Nodes {
 			for j := range n.Node.SubGraph.V {
-				colors[n.Node.SubGraph.V[j].Color] = append(colors[n.Node.SubGraph.V[j].Color], c)
+				if added[n.Node.SubGraph.V[j].Color] {
+					continue
+				}
+				colors[n.Node.SubGraph.V[j].Color] = append(colors[n.Node.SubGraph.V[j].Color], clstr)
+				added[n.Node.SubGraph.V[j].Color] = true
 			}
 		}
 	}

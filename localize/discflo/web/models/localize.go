@@ -135,9 +135,14 @@ func (c *Clusters) Colors() map[int][]*Cluster {
 
 	colors := make(map[int][]*Cluster)
 	for _, clstr := range c.included {
+		added := make(map[int]bool)
 		for _, n := range clstr.Nodes {
 			for j := range n.Node.SubGraph.V {
+				if added[n.Node.SubGraph.V[j].Color] {
+					continue
+				}
 				colors[n.Node.SubGraph.V[j].Color] = append(colors[n.Node.SubGraph.V[j].Color], clstr)
+				added[n.Node.SubGraph.V[j].Color] = true
 			}
 		}
 	}
@@ -224,7 +229,7 @@ func (c *Clusters) Exclude(id int) error {
 	return nil
 }
 
-func (c *Clusters) Test(id, nid int) ([]byte, error) {
+func (c *Clusters) Test(id, nid int) (*test.Testcase, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -249,9 +254,9 @@ func (c *Clusters) Test(id, nid int) ([]byte, error) {
 			break
 		}
 	}
-	if node.Test != nil {
-		return node.Test.Case, nil
-	}
-	return nil, nil
+	return node.Test, nil
 }
 
+func (c *Cluster) Included() bool {
+	return c.IncludedIdx >= 0
+}
