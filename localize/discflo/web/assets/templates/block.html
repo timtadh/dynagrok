@@ -11,18 +11,22 @@
 		<li>
 			{{$cluster.Score}}
 			<a href="/exclude/{{$cluster.Id}}">Exclude Cluster</a>
-			{{range $nid, $node := $cluster.Nodes}}
-				{{if $node.Test}}
-				<pre>{{$node.Test}}</pre>
-				{{end}}
-			{{end}}
 			<ul>
 			{{range $nid, $node := $cluster.Nodes}}
 				<li>
+					{{$node.Score}}
 					{{if not $node.Test}}
-					<a href="/test/{{$cluster.Id}}/{{$nid}}">Generate Test</a>
+						<a href="/test/{{$cluster.Id}}/{{$nid}}">Generate Test</a>
 					{{end}}
-					{{$node.Node}}
+					<div>
+						{{if $node.Test}}
+							<h4>Test Input</h4>
+							<pre>{{$node.Test}}</pre>
+						{{end}}
+						<a href="/graph/{{$cluster.Id}}/{{$nid}}">
+							<img src="/graph/{{$cluster.Id}}/{{$nid}}"/>
+						</a>
+					</div>
 				</li>
 			{{end}}
 			</ul>

@@ -355,32 +355,22 @@ func (sg *SubGraph) Pretty(labels *digraph.Labels) string {
 	return fmt.Sprintf("{%v:%v}%v%v", len(sg.E), len(sg.V), strings.Join(V, ""), strings.Join(E, ""))
 }
 
-func (sg *SubGraph) Dotty(labels *digraph.Labels, highlightVertices, highlightEdges map[int]bool) string {
+func (sg *SubGraph) Dotty(labels *digraph.Labels) string {
 	V := make([]string, 0, len(sg.V))
 	E := make([]string, 0, len(sg.E))
 	for vidx, v := range sg.V {
-		highlight := ""
-		if highlightVertices[vidx] {
-			highlight = " color=red"
-		}
 		V = append(V, fmt.Sprintf(
-			"n%v [label=\"%v\"%v];",
+			"n%v [label=\"%v\"];",
 			vidx,
 			labels.Label(v.Color),
-			highlight,
 		))
 	}
-	for eidx, e := range sg.E {
-		highlight := ""
-		if highlightEdges[eidx] {
-			highlight = " color=red"
-		}
+	for _, e := range sg.E {
 		E = append(E, fmt.Sprintf(
-			"n%v->n%v [label=\"%v\"%v]",
+			"n%v->n%v [label=\"%v\"]",
 			e.Src,
 			e.Targ,
 			labels.Label(e.Color),
-			highlight,
 		))
 	}
 	return fmt.Sprintf("digraph{\n%v\n%v\n}", strings.Join(V, "\n"), strings.Join(E, "\n"))

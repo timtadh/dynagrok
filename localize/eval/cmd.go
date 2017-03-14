@@ -106,7 +106,7 @@ Option Flags
 				if err != nil {
 					panic(err)
 				}
-				return c.RankColors(o.Score, o.Lattice).StatResult()
+				return c.RankColors(s, o.Lattice).StatResult()
 			}
 		}
 		if o.Score == nil {

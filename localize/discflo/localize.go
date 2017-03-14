@@ -105,12 +105,14 @@ func Localize(walks int, tests []*test.Testcase, oracle test.Executor, score Sco
 	db := NewDbScan(.35)
 	// for i := 0; i < WALKS; i++ {
 	// 	n := Walk(score, lat)
-	total := min(len(lat.Labels.Labels()), max(50, min(len(lat.Labels.Labels())/64, 500)))
+	total := min(len(lat.Labels.Labels()), max(50, min(len(lat.Labels.Labels())/32, 500)))
 	// total = len(lat.Labels.Labels())
+	prevScore := 0.0
+	groups := 0
 	for i, l := range LocalizeNodes(score, lat) {
 	// for color := range lat.Labels.Labels() {
 		color := l.Color
-		if i >= total {
+		if i >= total && groups > 1 {
 			break
 		}
 		for w := 0; w < walks; w++ {
@@ -123,8 +125,8 @@ func Localize(walks int, tests []*test.Testcase, oracle test.Executor, score Sco
 				db.Add(n)
 				nodes = append(nodes, n)
 				seen[label] = n
-				if true {
-					errors.Logf("DEBUG", "found %d/%d %d %v", i, total, len(nodes), n)
+				if false {
+					errors.Logf("DEBUG", "found %d %d/%d %d %v", groups, i, total, len(nodes), n)
 				}
 			} else {
 				if false {
@@ -132,7 +134,12 @@ func Localize(walks int, tests []*test.Testcase, oracle test.Executor, score Sco
 				}
 			}
 		}
+		if prevScore - l.Score  > .0001 {
+			groups++
+		}
+		prevScore = l.Score
 	}
+	errors.Logf("DEBUG", "groups %v", groups)
 	if len(nodes) == 0 {
 		fmt.Println("no graphs")
 	}
@@ -230,7 +237,7 @@ func (clusters Clusters) Colors() map[int][]*Cluster {
 	colors := make(map[int][]*Cluster)
 	for _, clstr := range clusters {
 		added := make(map[int]bool)
-		if true {
+		if false {
 			errors.Logf("DEBUG", "%v", clstr)
 		}
 		for _, n := range clstr.Nodes {
@@ -301,6 +308,9 @@ func ScoreColor(score Score, lat *lattice.Lattice, color int, in []*Cluster) flo
 }
 
 func RankColors(score Score, lat *lattice.Lattice, colors map[int][]*Cluster) Result {
+	if score == nil {
+		panic("nil score")
+	}
 	result := make(Result, 0, len(colors))
 	for color, clusters := range colors {
 		result = append(result, Location{

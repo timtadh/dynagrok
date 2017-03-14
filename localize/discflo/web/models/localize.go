@@ -4,6 +4,10 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+	"time"
+	"context"
+	"bytes"
+	"os/exec"
 )
 
 import (
@@ -29,7 +33,12 @@ type Clusters struct {
 	clusters   map[int]*Cluster
 	allColors  [][]*Cluster
 	colors     map[int][]*Cluster
+	imgs       map[sgid][]byte
 	blocks     Blocks
+}
+
+type sgid struct {
+	ClusterId, NodeId int
 }
 
 type Cluster struct {
@@ -89,6 +98,7 @@ func (l *Localization) newClusters(clusters discflo.Clusters) *Clusters {
 		included: make([]*Cluster, 0, len(clusters)),
 		excluded: make([]*Cluster, 0, len(clusters)),
 		clusters: make(map[int]*Cluster, len(clusters)),
+		imgs: make(map[sgid][]byte),
 	}
 	for i, x := range clusters {
 		cluster := &Cluster{
@@ -255,6 +265,41 @@ func (c *Clusters) Test(id, nid int) (*test.Testcase, error) {
 		}
 	}
 	return node.Test, nil
+}
+
+func (c *Clusters) Img(id, nid int) ([]byte, error) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	if img, has := c.imgs[sgid{id,nid}]; has {
+		return img, nil
+	}
+
+	cluster, has := c.clusters[id]
+	if !has {
+		return nil, fmt.Errorf("Could not find cluster %v in the clusters map.", id)
+	}
+	if nid < 0 || nid >= len(cluster.Nodes) {
+		return nil, fmt.Errorf("Could not find node %v in the for cluster %v.", nid, id)
+	}
+	node := cluster.Nodes[nid]
+
+	dotty := node.Node.SubGraph.Dotty(c.lat.Labels)
+	var outbuf, errbuf bytes.Buffer
+	inbuf := bytes.NewBuffer([]byte(dotty))
+	ctx, cancel := context.WithTimeout(context.Background(), 2 * time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "dot", "-Tpng")
+	cmd.Stdin = inbuf
+	cmd.Stdout = &outbuf
+	cmd.Stderr = &errbuf
+	err := cmd.Run()
+	if err != nil {
+		return nil, err
+	}
+	img := outbuf.Bytes()
+	c.imgs[sgid{id,nid}] = img
+	return img, nil
 }
 
 func (c *Cluster) Included() bool {
