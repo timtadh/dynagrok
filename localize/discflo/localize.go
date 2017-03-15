@@ -9,6 +9,7 @@ import (
 
 import (
 	"github.com/timtadh/data-structures/errors"
+	"github.com/timtadh/data-structures/heap"
 )
 
 import (
@@ -87,6 +88,23 @@ func LocalizeNodes(score Score, lat *lattice.Lattice) stat.Result {
 
 
 func Localize(walks int, tests []*test.Testcase, oracle test.Executor, score Score, lat *lattice.Lattice) (Clusters, error) {
+	maxE := 5
+	return LocalizeFromLEAP(maxE, walks, tests, oracle, lat)
+	// return LocalizeFromWalks(maxE, walks, tests, oracle, score, lat)
+}
+
+func LocalizeFromLEAP(maxE, k int, tests []*test.Testcase, oracle test.Executor, lat *lattice.Lattice) (Clusters, error) {
+	db := NewDbScan(.05)
+	for i, n := range Leap(maxE, k, lat) {
+		db.Add(n)
+		if true {
+			errors.Logf("DEBUG", "found %d %v", i, n)
+		}
+	}
+	return clusters(tests, oracle, Scores["InformationGain"], lat, db)
+}
+
+func LocalizeFromWalks(maxE, walks int, tests []*test.Testcase, oracle test.Executor, score Score, lat *lattice.Lattice) (Clusters, error) {
 	min := func(a, b int) int {
 		if a < b {
 			return a
@@ -102,10 +120,10 @@ func Localize(walks int, tests []*test.Testcase, oracle test.Executor, score Sco
 	WALKS := walks
 	nodes := make([]*SearchNode, 0, WALKS)
 	seen := make(map[string]*SearchNode, WALKS)
-	db := NewDbScan(.35)
+	db := NewDbScan(.05)
 	// for i := 0; i < WALKS; i++ {
 	// 	n := Walk(score, lat)
-	total := min(len(lat.Labels.Labels()), max(50, min(len(lat.Labels.Labels())/32, 500)))
+	total := min(len(lat.Labels.Labels()), max(200, min(len(lat.Labels.Labels())/32, 500)))
 	// total = len(lat.Labels.Labels())
 	prevScore := 0.0
 	groups := 0
@@ -116,7 +134,7 @@ func Localize(walks int, tests []*test.Testcase, oracle test.Executor, score Sco
 			break
 		}
 		for w := 0; w < walks; w++ {
-			n := WalkFromColor(color, score, lat)
+			n := WalkFromColor(maxE, color, score, lat)
 			if n.Node.SubGraph == nil { // || len(n.Node.SubGraph.E) < 1 {
 				continue
 			}
@@ -145,9 +163,10 @@ func Localize(walks int, tests []*test.Testcase, oracle test.Executor, score Sco
 	if len(nodes) == 0 {
 		fmt.Println("no graphs")
 	}
-	sort.Slice(nodes, func(i, j int) bool {
-		return nodes[i].Score > nodes[j].Score
-	})
+	return clusters(tests, oracle, score, lat, db)
+}
+
+func clusters(tests []*test.Testcase, oracle test.Executor, score Score, lat *lattice.Lattice, db *DbScan) (Clusters, error) {
 	clusters := db.Clusters()
 	sort.Slice(clusters, func(i, j int) bool {
 		return clusters[i].Score > clusters[j].Score
@@ -157,8 +176,8 @@ func Localize(walks int, tests []*test.Testcase, oracle test.Executor, score Sco
 			return c.Nodes[i].Score > c.Nodes[j].Score
 		})
 	}
-	passing := make([]*SearchNode, 0, len(nodes))
-	filtered := make([]*Cluster, 0, len(nodes))
+	passing := make([]*SearchNode, 0, 10)
+	filtered := make([]*Cluster, 0, 10)
 	if len(tests) > 0 {
 		for i, c := range clusters {
 			if len(filtered) >= 5 && i > 5 || len(filtered) >= 2 && i > 10 || len(filtered) >= 1 && i > 15 {
@@ -330,27 +349,15 @@ func RankColors(score Score, lat *lattice.Lattice, colors map[int][]*Cluster) Re
 	return result
 }
 
-func Walk(score Score, lat *lattice.Lattice) (*SearchNode) {
-	// color := lat.Labels.Color("(*dynagrok/examples/avl.Avl).Verify blk 3")
-	// vsg := subgraph.Build(1, 0).FromVertex(color).Build()
-	// embIdxs := lat.Fail.ColorIndex[color]
-	// embs := make([]*subgraph.Embedding, 0, len(embIdxs))
-	// for _, embIdx := range embIdxs {
-	// 	embs = append(embs, subgraph.StartEmbedding(subgraph.VertexEmbedding{SgIdx: 0, EmbIdx: embIdx}))
-	// }
-	// colorNode := lattice.NewNode(lat, vsg, embs)
-	// cur := &SearchNode{
-	// 	Node: colorNode,
-	// 	Score: score(lat, colorNode),
-	// }
+func Walk(maxE int, score Score, lat *lattice.Lattice) (*SearchNode) {
 	cur := &SearchNode{
 		Node: lat.Root(),
 		Score: 0,
 	}
-	return WalkFrom(cur, score, lat)
+	return WalkFrom(maxE, cur, score, lat)
 }
 
-func WalkFromColor(color int, score Score, lat *lattice.Lattice) (*SearchNode) {
+func WalkFromColor(maxE, color int, score Score, lat *lattice.Lattice) (*SearchNode) {
 	// color := lat.Labels.Color("(*dynagrok/examples/avl.Avl).Verify blk 3")
 	vsg := subgraph.Build(1, 0).FromVertex(color).Build()
 	embIdxs := lat.Fail.ColorIndex[color]
@@ -363,10 +370,10 @@ func WalkFromColor(color int, score Score, lat *lattice.Lattice) (*SearchNode) {
 		Node: colorNode,
 		Score: score(lat, colorNode),
 	}
-	return WalkFrom(cur, score, lat)
+	return WalkFrom(maxE, cur, score, lat)
 }
 
-func WalkFrom(cur *SearchNode, score Score, lat *lattice.Lattice) (*SearchNode) {
+func WalkFrom(maxE int, cur *SearchNode, score Score, lat *lattice.Lattice) (*SearchNode) {
 	i := 0
 	prev := cur
 	for cur != nil {
@@ -379,12 +386,99 @@ func WalkFrom(cur *SearchNode, score Score, lat *lattice.Lattice) (*SearchNode) 
 		}
 		prev = cur
 		cur = weighted(filterKids(score, cur.Score, lat, kids))
-		if i == 25 {
+		if i >= maxE {
 			break
 		}
 		i++
 	}
 	return prev
+}
+
+func Leap(maxE, k int, lat *lattice.Lattice) ([]*SearchNode) {
+	cur := &SearchNode{
+		Node: lat.Root(),
+		Score: 0,
+	}
+	return LeapFrom(maxE, k, cur, lat)
+}
+
+func LeapFrom(maxE, k int, start *SearchNode, lat *lattice.Lattice) ([]*SearchNode) {
+	score := Scores["InformationGain"]
+	pop := func(stack []*SearchNode) ([]*SearchNode, *SearchNode) {
+		return stack[:len(stack)-1], stack[len(stack)-1]
+	}
+	insert := func(sorted []*SearchNode, item *SearchNode) []*SearchNode {
+		i := 0
+		for ; i < len(sorted); i++ {
+			if item.Score > sorted[i].Score {
+				break
+			}
+		}
+		sorted = sorted[:len(sorted)+1]
+		for j := len(sorted) - 1; j > 0; j-- {
+			if j == i {
+				sorted[i] = item
+				break
+			}
+			sorted[j] = sorted[j-1]
+		}
+		if i == 0 {
+			sorted[i] = item
+		}
+		return sorted
+	}
+	priority := func(n *SearchNode) (int, *SearchNode) {
+		return int(100000 * n.Score), n
+	}
+	max := make([]*SearchNode, 0, k)
+	queue := heap.NewMaxHeap(maxE*2)
+	queue.Push(priority(start))
+	seen := make(map[string]bool)
+	for queue.Size() > 0 {
+		var cur *SearchNode
+		cur = queue.Pop().(*SearchNode)
+		var label string
+		if cur.Node.SubGraph != nil {
+			label = string(cur.Node.SubGraph.Label())
+		}
+		if seen[label] {
+			continue
+		}
+		seen[label] = true
+		if true && len(max) > 0 {
+			errors.Logf("DEBUG", "cur %v %v %v %v %v", queue.Size(), len(max), max[len(max)-1].Score, maxInfoGain(float64(maxE), lat, cur.Node), cur)
+			// for i, x := range max {
+			// 	errors.Logf("DEBUG", "max %d %v", i, x)
+			// }
+		}
+		if cur.Node.SubGraph != nil && len(cur.Node.SubGraph.E) > 0 {
+			if len(max) < k {
+				max = insert(max, cur)
+			} else if cur.Score > max[len(max)-1].Score {
+				max, _ = pop(max)
+				max = insert(max, cur)
+			} else if cur.Score == max[len(max)-1].Score && rand.Float64() > .5 {
+				max, _ = pop(max)
+				max = insert(max, cur)
+			}
+		}
+		if cur.Node.SubGraph != nil && len(cur.Node.SubGraph.E) >= maxE {
+			continue
+		}
+		kids, err := cur.Node.Children()
+		if err != nil {
+			panic(err)
+		}
+		for _, kid := range filterKids(score, cur.Score, lat, kids) {
+			klabel := string(kid.Node.SubGraph.Label())
+			if len(max) < k {
+				queue.Push(priority(kid))
+			} else if !seen[klabel] && maxInfoGain(float64(maxE), lat, kid.Node) >= max[len(max)-1].Score {
+				queue.Push(priority(kid))
+			}
+		}
+	}
+	return max
 }
 
 func abs(a float64) float64 {
@@ -394,7 +488,7 @@ func abs(a float64) float64 {
 	return a
 }
 
-func filterKids(score Score, parentScore float64, lat *lattice.Lattice, kids []*lattice.Node) (float64, []*SearchNode) {
+func filterKids(score Score, parentScore float64, lat *lattice.Lattice, kids []*lattice.Node) ([]*SearchNode) {
 	var epsilon float64 = 0
 	entries := make([]*SearchNode, 0, len(kids))
 	for _, kid := range kids {
@@ -407,42 +501,30 @@ func filterKids(score Score, parentScore float64, lat *lattice.Lattice, kids []*
 			entries = append(entries, &SearchNode{kid, kidScore, nil})
 		}
 	}
-	return parentScore, entries
+	return entries
 }
 
-func uniform(parentScore float64, slice []*SearchNode) (*SearchNode) {
+func uniform(slice []*SearchNode) (*SearchNode) {
 	if len(slice) > 0 {
 		return slice[rand.Intn(len(slice))]
 	}
 	return nil
 }
 
-func weighted(parentScore float64, slice []*SearchNode) (*SearchNode) {
+func weighted(slice []*SearchNode) (*SearchNode) {
 	if len(slice) <= 0 {
 		return nil
 	}
 	if len(slice) == 1 {
 		return slice[0]
 	}
-	i := weightedSample(weights(parentScore, slice))
+	i := weightedSample(weights(slice))
 	return slice[i]
 }
 
-func weights(parentScore float64, slice []*SearchNode) []float64 {
+func weights(slice []*SearchNode) []float64 {
 	weights := make([]float64, 0, len(slice))
-	// var total float64 = 0
-	// for _, v := range slice {
-	// 	total += v.Score
-	// }
-	// mean := total/float64(len(slice))
-	// var vari float64
-	// for _, v := range slice {
-	// 	vari += math.Pow(v.Score - mean, 2)
-	// }
-	// stdev := math.Sqrt(vari)
 	for _, v := range slice {
-		// w := math.Pow(v.Score - parentScore, 2)
-		// w := (v.Score + stdev)/mean
 		w := v.Score
 		weights = append(weights, w)
 	}

@@ -88,6 +88,27 @@ func Prs(lat *lattice.Lattice, n *lattice.Node) (prF, prO, prf, pro float64) {
 	return F/T, O/T, f/T, pro
 }
 
+func minPro(E float64, lat *lattice.Lattice, n *lattice.Node) (float64) {
+	F := float64(lat.Fail.G.Graphs)
+	O := float64(lat.Ok.G.Graphs)
+	T := F + O
+	V := E + 1
+	if len(n.SubGraph.E) > 0 || len(n.SubGraph.V) >= 1 {
+		var o float64
+		for i := range n.SubGraph.E {
+			count := lat.Ok.EdgeCounts[n.SubGraph.Colors(i)]
+			o += float64(count)/T
+		}
+		for i := range n.SubGraph.V {
+			count := float64(len(lat.Ok.ColorIndex[n.SubGraph.V[i].Color]))
+			o += float64(count)/T
+		}
+		return o/float64(E + V)
+	} else {
+		return 0.0
+	}
+}
+
 var Scores = map[string]Score {
 	// "SizeWeightedRelativePrecision": func(lat *lattice.Lattice, n *lattice.Node) float64 {
 	// 	prF, prO, prf, pro := Prs(lat, n)
@@ -226,4 +247,30 @@ var Scores = map[string]Score {
 		HFn := (prf/prt) * lg(prf/prt) + (pro/prt) * lg(pro/prt)
 		return HFn - HF
 	},
+}
+
+func maxInfoGain(E float64, lat *lattice.Lattice, n *lattice.Node) float64 {
+	lg := func(x float64) float64 {
+		if x == 0 {
+			return 0
+		}
+		return math.Log2(x)
+	}
+	max := func(x, y float64) float64 {
+		if x > y {
+			return x
+		}
+		return y
+	}
+	var x, y float64
+	prF, prO, f, o := Prs(lat, n)
+	HF := prF * lg(prF) + prO * lg(prO)
+
+	HFn := func(prf, pro float64) float64 {
+		prt := prf + pro
+		return (prf/prt) * lg(prf/prt) + (pro/prt) * lg(pro/prt)
+	}
+	x = HFn(f, minPro(E, lat, n)) - HF
+	y = HFn(0, o) - HF
+	return max(x, y)
 }
