@@ -125,7 +125,7 @@ func Localize(walks int, tests []*test.Testcase, oracle test.Executor, score Sco
 				db.Add(n)
 				nodes = append(nodes, n)
 				seen[label] = n
-				if false {
+				if true {
 					errors.Logf("DEBUG", "found %d %d/%d %d %v", groups, i, total, len(nodes), n)
 				}
 			} else {
@@ -139,7 +139,9 @@ func Localize(walks int, tests []*test.Testcase, oracle test.Executor, score Sco
 		}
 		prevScore = l.Score
 	}
-	errors.Logf("DEBUG", "groups %v", groups)
+	if false {
+		errors.Logf("DEBUG", "groups %v", groups)
+	}
 	if len(nodes) == 0 {
 		fmt.Println("no graphs")
 	}

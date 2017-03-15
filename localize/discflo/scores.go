@@ -39,6 +39,7 @@ func init() {
 		"ochiai": "Ochiai",
 		"c": "Contrast",
 		"ar": "AssociationalRisk",
+		"ig": "InformationGain",
 	}
 	ScoreNames = make(map[string][]string)
 	for abbrv, name := range ScoreAbbrvs {
@@ -211,5 +212,18 @@ var Scores = map[string]Score {
 		top := x - c*x - c*y
 		bot := (x+y+.00001) - ((x+y)*(x+y))
 		return top/bot
+	},
+	"InformationGain": func(lat *lattice.Lattice, n *lattice.Node) float64 {
+		lg := func(x float64) float64 {
+			if x == 0 {
+				return 0
+			}
+			return math.Log2(x)
+		}
+		prF, prO, prf, pro := Prs(lat, n)
+		prt := prf + pro
+		HF := prF * lg(prF) + prO * lg(prO)
+		HFn := (prf/prt) * lg(prf/prt) + (pro/prt) * lg(pro/prt)
+		return HFn - HF
 	},
 }
