@@ -271,6 +271,6 @@ func maxInfoGain(E float64, lat *lattice.Lattice, n *lattice.Node) float64 {
 		return (prf/prt) * lg(prf/prt) + (pro/prt) * lg(pro/prt)
 	}
 	x = HFn(f, minPro(E, lat, n)) - HF
-	y = HFn(0, o) - HF
+	y = HFn(MIN_FAILS_SUP, o) - HF
 	return max(x, y)
 }

@@ -20,6 +20,7 @@ import (
 )
 
 
+const MIN_FAILS_SUP = 2
 
 type SearchNode struct {
 	Node  *lattice.Node
@@ -88,9 +89,9 @@ func LocalizeNodes(score Score, lat *lattice.Lattice) stat.Result {
 
 
 func Localize(walks int, tests []*test.Testcase, oracle test.Executor, score Score, lat *lattice.Lattice) (Clusters, error) {
-	maxE := 5
-	return LocalizeFromLEAP(maxE, walks, tests, oracle, lat)
-	// return LocalizeFromWalks(maxE, walks, tests, oracle, score, lat)
+	maxE := 10
+	// return LocalizeFromLEAP(maxE, walks, tests, oracle, lat)
+	return LocalizeFromWalks(maxE, walks, tests, oracle, score, lat)
 }
 
 func LocalizeFromLEAP(maxE, k int, tests []*test.Testcase, oracle test.Executor, lat *lattice.Lattice) (Clusters, error) {
@@ -118,38 +119,31 @@ func LocalizeFromWalks(maxE, walks int, tests []*test.Testcase, oracle test.Exec
 		return b
 	}
 	WALKS := walks
-	nodes := make([]*SearchNode, 0, WALKS)
-	seen := make(map[string]*SearchNode, WALKS)
+	seen := make(map[string]bool, WALKS)
+	added := make(map[string]bool, WALKS)
 	db := NewDbScan(.05)
-	// for i := 0; i < WALKS; i++ {
-	// 	n := Walk(score, lat)
 	total := min(len(lat.Labels.Labels()), max(200, min(len(lat.Labels.Labels())/32, 500)))
 	// total = len(lat.Labels.Labels())
 	prevScore := 0.0
 	groups := 0
 	for i, l := range LocalizeNodes(score, lat) {
-	// for color := range lat.Labels.Labels() {
 		color := l.Color
 		if i >= total && groups > 1 {
 			break
 		}
 		for w := 0; w < walks; w++ {
-			n := WalkFromColor(maxE, color, score, lat)
+			n := WalkFromColor(seen, maxE, color, score, lat)
 			if n.Node.SubGraph == nil { // || len(n.Node.SubGraph.E) < 1 {
 				continue
 			}
 			label := string(n.Node.SubGraph.Label())
-			if _, has := seen[label]; !has {
-				db.Add(n)
-				nodes = append(nodes, n)
-				seen[label] = n
-				if true {
-					errors.Logf("DEBUG", "found %d %d/%d %d %v", groups, i, total, len(nodes), n)
-				}
-			} else {
-				if false {
-					errors.Logf("DEBUG", "repeat %v", len(nodes), n)
-				}
+			if added[label] {
+				continue
+			}
+			added[label] = true
+			db.Add(n)
+			if true {
+				errors.Logf("DEBUG", "found %d %d/%d %d %v", groups, i, total, db.Count(), n)
 			}
 		}
 		if prevScore - l.Score  > .0001 {
@@ -159,9 +153,6 @@ func LocalizeFromWalks(maxE, walks int, tests []*test.Testcase, oracle test.Exec
 	}
 	if false {
 		errors.Logf("DEBUG", "groups %v", groups)
-	}
-	if len(nodes) == 0 {
-		fmt.Println("no graphs")
 	}
 	return clusters(tests, oracle, score, lat, db)
 }
@@ -349,15 +340,15 @@ func RankColors(score Score, lat *lattice.Lattice, colors map[int][]*Cluster) Re
 	return result
 }
 
-func Walk(maxE int, score Score, lat *lattice.Lattice) (*SearchNode) {
+func Walk(seen map[string]bool, maxE int, score Score, lat *lattice.Lattice) (*SearchNode) {
 	cur := &SearchNode{
 		Node: lat.Root(),
 		Score: 0,
 	}
-	return WalkFrom(maxE, cur, score, lat)
+	return WalkFrom(seen, maxE, cur, score, lat)
 }
 
-func WalkFromColor(maxE, color int, score Score, lat *lattice.Lattice) (*SearchNode) {
+func WalkFromColor(seen map[string]bool, maxE, color int, score Score, lat *lattice.Lattice) (*SearchNode) {
 	// color := lat.Labels.Color("(*dynagrok/examples/avl.Avl).Verify blk 3")
 	vsg := subgraph.Build(1, 0).FromVertex(color).Build()
 	embIdxs := lat.Fail.ColorIndex[color]
@@ -370,23 +361,38 @@ func WalkFromColor(maxE, color int, score Score, lat *lattice.Lattice) (*SearchN
 		Node: colorNode,
 		Score: score(lat, colorNode),
 	}
-	return WalkFrom(maxE, cur, score, lat)
+	return WalkFrom(seen, maxE, cur, score, lat)
 }
 
-func WalkFrom(maxE int, cur *SearchNode, score Score, lat *lattice.Lattice) (*SearchNode) {
+func WalkFrom(seen map[string]bool, maxE int, cur *SearchNode, score Score, lat *lattice.Lattice) (*SearchNode) {
 	i := 0
 	prev := cur
 	for cur != nil {
 		if false {
 			errors.Logf("DEBUG", "cur %v", cur)
 		}
+		var label string
+		if cur.Node.SubGraph != nil {
+			label = string(cur.Node.SubGraph.Label())
+		}
+		if i >= maxE {
+			break
+		}
+		seen[label] = true
 		kids, err := cur.Node.Children()
 		if err != nil {
 			panic(err)
 		}
 		prev = cur
-		cur = weighted(filterKids(score, cur.Score, lat, kids))
-		if i >= maxE {
+		tries := 0
+		filtered := filterKids(score, cur.Score, lat, kids)
+		for {
+			next := weighted(filtered)
+			if next != nil && seen[string(next.Node.SubGraph.Label())] && tries < 10 {
+				tries++
+				continue
+			}
+			cur = next
 			break
 		}
 		i++
@@ -492,7 +498,7 @@ func filterKids(score Score, parentScore float64, lat *lattice.Lattice, kids []*
 	var epsilon float64 = 0
 	entries := make([]*SearchNode, 0, len(kids))
 	for _, kid := range kids {
-		if kid.FIS() < 2 {
+		if kid.FIS() < MIN_FAILS_SUP {
 			continue
 		}
 		kidScore := score(lat, kid)
@@ -524,9 +530,32 @@ func weighted(slice []*SearchNode) (*SearchNode) {
 
 func weights(slice []*SearchNode) []float64 {
 	weights := make([]float64, 0, len(slice))
-	for _, v := range slice {
+	// mean := 0.0
+	// for _, v := range slice {
+	// 	mean += v.Score
+	// }
+	// mean = mean/float64(len(slice))
+	// std := 0.0
+	// for _, v := range slice {
+	// 	std += (v.Score - mean)*(v.Score - mean)
+	// }
+	// std = math.Sqrt(std/float64(len(slice)))
+	min := 0.0
+	for i, v := range slice {
+		// w := (v.Score - mean)/std
 		w := v.Score
 		weights = append(weights, w)
+		if i <= 0 || w < min {
+			min = w
+		}
+	}
+	if min < 0 {
+		for i, w := range weights {
+			weights[i] = w - min
+		}
+	}
+	for i, w := range weights {
+		weights[i] = w + .001
 	}
 	return weights
 }

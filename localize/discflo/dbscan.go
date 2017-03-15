@@ -160,13 +160,19 @@ type DbScan struct {
 	clusters     []cluster
 	items        int
 	epsilon      float64
+	seen         map[string]bool
 }
 
 func NewDbScan(epsilon float64) (*DbScan) {
 	r := &DbScan{
 		epsilon:   epsilon,
+		seen:      make(map[string]bool),
 	}
 	return r
+}
+
+func (r *DbScan) Count() int {
+	return r.items
 }
 
 func (r *DbScan) Add(n *SearchNode) error {
