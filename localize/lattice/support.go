@@ -4,6 +4,10 @@ import (
 	"github.com/timtadh/dynagrok/localize/lattice/subgraph"
 )
 
+func (n *Node) Support() int {
+	return n.MNI()
+}
+
 func (n *Node) MNI() int {
 	sets := make([]map[int]bool, len(n.SubGraph.V))
 	for _, emb := range n.Embeddings {

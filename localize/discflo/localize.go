@@ -89,7 +89,7 @@ func LocalizeNodes(score Score, lat *lattice.Lattice) stat.Result {
 
 
 func Localize(walks int, tests []*test.Testcase, oracle test.Executor, score Score, lat *lattice.Lattice) (Clusters, error) {
-	maxE := 10
+	maxE := 50
 	// return LocalizeFromLEAP(maxE, walks, tests, oracle, lat)
 	return LocalizeFromWalks(maxE, walks, tests, oracle, score, lat)
 }
