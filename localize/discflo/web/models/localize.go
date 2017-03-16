@@ -11,8 +11,8 @@ import (
 )
 
 import (
-	"github.com/timtadh/dynagrok/localize/lattice"
 	"github.com/timtadh/dynagrok/localize/discflo"
+	"github.com/timtadh/dynagrok/localize/mine"
 	"github.com/timtadh/dynagrok/localize/stat"
 	"github.com/timtadh/dynagrok/localize/test"
 )
@@ -26,8 +26,7 @@ type Localization struct {
 type Clusters struct {
 	lock       sync.Mutex
 	tests      []*test.Testcase
-	lat        *lattice.Lattice
-	score      discflo.Score
+	miner      *miner.Miner
 	included   []*Cluster
 	excluded   []*Cluster
 	clusters   map[int]*Cluster

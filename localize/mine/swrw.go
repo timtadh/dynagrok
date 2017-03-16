@@ -82,6 +82,7 @@ func filterKids(m *Miner, parentScore float64, kids []*lattice.Node) ([]*SearchN
 		kidScore := m.Score.Score(kid)
 		_, prf := FailureProbability(m.Lattice, kid)
 		_, pro := OkProbability(m.Lattice, kid)
+		// errors.Logf("DEBUG", "kid %v %v", kidScore, kid)
 		if (abs(parentScore - kidScore) <= epsilon && abs(1 - prf/(pro + prf)) <= epsilon) || kidScore > parentScore {
 			entries = append(entries, &SearchNode{kid, kidScore, nil})
 		}

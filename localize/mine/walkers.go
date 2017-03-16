@@ -82,7 +82,7 @@ func WalkingTopColors(walker Walker, opts ...TopColorOpt) MinerFunc {
 				w = 0
 				i++
 			}
-			if i >= total && groups >= o.minGroups {
+			if i >= len(locations) || i >= total && groups >= o.minGroups {
 				return nil, nil
 			}
 			color := locations[i].Color
@@ -97,7 +97,7 @@ func WalkingTopColors(walker Walker, opts ...TopColorOpt) MinerFunc {
 				goto start
 			}
 			count++
-			if true {
+			if false {
 				errors.Logf("DEBUG", "found %d %d/%d %d %v", groups, i, total, count, n)
 			}
 			return n, sni

@@ -6,20 +6,10 @@ import (
 
 type Options struct {
 	MaxEdges int
-	MinEdges int
 	MinFails int
 }
 
 type Option func(*Options)
-
-func MinEdges(minEdges int) Option {
-	if minEdges < 1 {
-		panic(fmt.Errorf("MinEdges must be >= 1 (got %v)", minEdges))
-	}
-	return func(o *Options) {
-		o.MinEdges = minEdges
-	}
-}
 
 func MaxEdges(maxEdges int) Option {
 	if maxEdges < 2 {

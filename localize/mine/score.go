@@ -1,6 +1,10 @@
 package mine
 
 import (
+	"github.com/timtadh/data-structures/errors"
+)
+
+import (
 	"github.com/timtadh/dynagrok/localize/lattice"
 	"github.com/timtadh/dynagrok/localize/stat"
 )
@@ -26,7 +30,11 @@ func NewScore(sf ScoreFunc, opts *Options, lat *lattice.Lattice) *Score {
 func (s *Score) Score(n *lattice.Node) float64 {
 	prF, prFandNode := FailureProbability(s.lat, n)
 	prO, prOandNode := OkProbability(s.lat, n)
-	return s.score(prF, prFandNode, prO, prOandNode)
+	score := s.score(prF, prFandNode, prO, prOandNode)
+	if false {
+		errors.Logf("DEBUG", "score %v (%v %v) (%v %v) %v", score, prF, prFandNode, prO, prOandNode, n)
+	}
+	return score
 }
 
 func (s *Score) Max(n *lattice.Node) float64 {
@@ -51,7 +59,7 @@ func FailureProbability(lat *lattice.Lattice, n *lattice.Node) (prF, prFandNode 
 	F := float64(lat.Fail.G.Graphs)
 	O := float64(lat.Ok.G.Graphs)
 	T := F + O
-	f := float64(n.Support())
+	f := float64(n.FIS())
 	return O/T, f/T
 }
 
@@ -76,7 +84,11 @@ func OkProbability(lat *lattice.Lattice, n *lattice.Node) (prO, prOandNode float
 	O := float64(lat.Ok.G.Graphs)
 	T := F + O
 	size := float64(len(n.SubGraph.V) + len(n.SubGraph.E))
-	prOandNode = totalEdgeAndVertexOkPr(lat, n)/size
+	if len(n.SubGraph.E) > 0 || len(n.SubGraph.V) >= 1 {
+		prOandNode = totalEdgeAndVertexOkPr(lat, n)/size
+	} else {
+		prOandNode = O/T
+	}
 	return O/T, prOandNode
 }
 

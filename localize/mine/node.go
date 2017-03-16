@@ -61,7 +61,7 @@ func WalksToNodes(m *Miner, walk Walk, walks int) (sni SearchNodes) {
 func RootNode(lat *lattice.Lattice) *SearchNode {
 	return &SearchNode{
 		Node: lat.Root(),
-		Score: 0,
+		Score: -100000000000,
 	}
 }
 

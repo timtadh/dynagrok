@@ -19,18 +19,48 @@ import (
 	"github.com/timtadh/dynagrok/localize/lattice"
 	"github.com/timtadh/dynagrok/localize/test"
 	"github.com/timtadh/dynagrok/localize/discflo"
-	"github.com/timtadh/dynagrok/localize/discflo/web"
+	// "github.com/timtadh/dynagrok/localize/discflo/web"
+	"github.com/timtadh/dynagrok/localize/mine"
 )
 
 func NewCommand(c *cmd.Config) cmd.Runnable {
 	var o discflo.Options
+	var wo walkOpts
+	bb := NewBranchAndBoundParser(c, &o, &wo)
+	urw := NewURWParser(c, &o, &wo)
+	swrw := NewSWRWParser(c, &o, &wo)
+	walks := NewWalksParser(c, &o, &wo)
+	topColors := NewWalkTopColorsParser(c, &o, &wo)
 	return cmd.Concat(
 		NewOptionParser(c, &o),
 		cmd.Commands(map[string]cmd.Runnable {
+			bb.Name(): bb,
+			urw.Name(): cmd.Concat(
+				urw,
+				cmd.Commands(map[string]cmd.Runnable {
+					walks.Name(): walks,
+					topColors.Name(): topColors,
+				}),
+			),
+			swrw.Name(): cmd.Concat(
+				swrw,
+				cmd.Commands(map[string]cmd.Runnable {
+					walks.Name(): walks,
+					topColors.Name(): topColors,
+				}),
+			),
+		}),
+		cmd.Commands(map[string]cmd.Runnable {
 			"": NewRunner(c, &o),
-			"web": web.NewCommand(c, &o),
 		}),
 	)
+	// return cmd.Concat(
+	// 	NewOptionParser(c, &o),
+	// 	cmd.Commands(map[string]cmd.Runnable {
+	// 		"": NewRunner(c, &o),
+	// 		// "web": web.NewCommand(c, &o),
+	// 	}),
+	// )
 }
 
 func NewOptionParser(c *cmd.Config, o *discflo.Options) cmd.Runnable {
@@ -57,13 +87,15 @@ Option Flags
                                       separated list).
     -s,--score=<score>                Suspiciousness score to use
     --scores                          List of available suspiciousness scores
-    -w,--walks=<int>                  Number of walks to perform (default: 100)
     --minimize-tests                  Do the test case minimization
     --failure-oracle=<path>           A failure oracle to filter out graphs with
                                       non-failing minimized tests.
     -n,--non-failing=<profile>        A non-failing profile or profiles. (May be
                                       specified multiple times or with a comma
                                       separated list).
+    --max-edges=<int>                 Maximal number of edges in a mined pattern
+    --min-fails=<int>                 Minimum number of failures associated with
+                                      each behavior.
 `,
 	"s:b:a:t:w:n:",
 	[]string{
@@ -72,17 +104,17 @@ Option Flags
 		"test=",
 		"score=",
 		"scores",
-		"walks=",
 		"minimize-tests",
 		"failure-oracle=",
 		"non-failing=",
+		"max-edges=",
+		"min-fails=",
 	},
 	func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
 		binArgs, err := test.ParseArgs("<$stdin")
 		if err != nil {
 			return nil, cmd.Errorf(3, "Unexpected error: %v", err)
 		}
-		o.Walks = 100
 		var oracle *test.Remote
 		var testPaths []string
 		var okPaths []string
@@ -112,10 +144,10 @@ Option Flags
 				}
 			case "-s", "--score":
 				name := oa.Arg()
-				if n, has := discflo.ScoreAbbrvs[oa.Arg()]; has {
+				if n, has := mine.ScoreAbbrvs[oa.Arg()]; has {
 					name = n
 				}
-				if m, has := discflo.Scores[name]; has {
+				if m, has := mine.Scores[name]; has {
 					fmt.Println("using method", name)
 					o.Score = m
 					o.ScoreName = name
@@ -124,22 +156,28 @@ Option Flags
 				}
 			case "--scores":
 				fmt.Println("\nNames of Suspicousness Scores (and Abbrevations):")
-				for name, abbrvs := range discflo.ScoreNames {
+				for name, abbrvs := range mine.ScoreNames {
 					fmt.Printf("  - %v : [%v]\n", name, strings.Join(abbrvs, ", "))
 				}
 				return nil, cmd.Errorf(0, "")
-			case "-w","--walks":
-				w, err := strconv.Atoi(oa.Arg())
-				if err != nil {
-					return nil, cmd.Errorf(1, "Could not parse arg to `%v` expected an int (got %v). err: %v", oa.Opt(), oa.Arg(), err)
-				}
-				o.Walks = w
 			case "--minimize-tests":
 				o.Minimize = true
 			case "-n", "--non-failing":
 				for _, path := range strings.Split(oa.Arg(), ",") {
 					okPaths = append(okPaths, path)
 				}
+			case "--max-edges":
+				m, err := strconv.Atoi(oa.Arg())
+				if err != nil {
+					return nil, cmd.Errorf(1, "Could not parse arg to `%v` expected an int (got %v). err: %v", oa.Opt(), oa.Arg(), err)
+				}
+				o.Opts = append(o.Opts, mine.MaxEdges(m))
+			case "--min-fails":
+				m, err := strconv.Atoi(oa.Arg())
+				if err != nil {
+					return nil, cmd.Errorf(1, "Could not parse arg to `%v` expected an int (got %v). err: %v", oa.Opt(), oa.Arg(), err)
+				}
+				o.Opts = append(o.Opts, mine.MinFails(m))
 			}
 		}
 		if len(testPaths) < 1 {
@@ -211,14 +249,15 @@ Option Flags
 func NewRunner(c *cmd.Config, o *discflo.Options) cmd.Runnable {
 	return cmd.BareCmd(
 	func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
+		miner := mine.NewMiner(o.Miner, o.Lattice, o.Score, o.Opts...)
 		if o.Score == nil {
 			return nil, cmd.Usage(r, 2, "You must supply a score (see -s or --scores)")
 		}
-		clusters, err := discflo.RunLocalize(o)
+		clusters, err := discflo.Localizer(o)(miner)
 		if err != nil {
 			return nil, cmd.Err(3, err)
 		}
-		result := clusters.RankColors(o.Score, o.Lattice)
+		result := clusters.RankColors(miner)
 		fmt.Println(result)
 		fmt.Println(result.StatResult())
 		return nil, nil

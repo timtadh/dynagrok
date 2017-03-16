@@ -65,7 +65,7 @@ func (b *branchBound) MineFrom(m *Miner, start *SearchNode) SearchNodes {
 			continue
 		}
 		seen[label] = true
-		if true && len(max) > 0 {
+		if false && len(max) > 0 {
 			errors.Logf("DEBUG", "cur %v %v %v %v %v", queue.Size(), len(max), max[len(max)-1].Score, m.Score.Max(cur.Node), cur)
 			// for i, x := range max {
 			// 	errors.Logf("DEBUG", "max %d %v", i, x)

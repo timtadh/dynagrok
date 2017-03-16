@@ -19,13 +19,14 @@ import (
 
 import (
 	"github.com/timtadh/dynagrok/localize/lattice"
+	"github.com/timtadh/dynagrok/localize/mine"
 )
 
 type Clusters []*Cluster
 
 type Cluster struct {
 	Score  float64
-	Nodes  []*SearchNode
+	Nodes  []*mine.SearchNode
 }
 
 func (c *Cluster) String() string {
@@ -33,12 +34,12 @@ func (c *Cluster) String() string {
 }
 
 type clusterNode struct {
-	n        *SearchNode
+	n        *mine.SearchNode
 	name     string
 	labels   types.Set
 }
 
-func newClusterNode(n *SearchNode) (*clusterNode, error) {
+func newClusterNode(n *mine.SearchNode) (*clusterNode, error) {
 	labels, err := labelset(n.Node)
 	if err != nil {
 		return nil, err
@@ -175,7 +176,7 @@ func (r *DbScan) Count() int {
 	return r.items
 }
 
-func (r *DbScan) Add(n *SearchNode) error {
+func (r *DbScan) Add(n *mine.SearchNode) error {
 	cn, err := newClusterNode(n)
 	if err != nil {
 		return err
@@ -188,7 +189,7 @@ func (r *DbScan) Add(n *SearchNode) error {
 func (r *DbScan) Clusters() []*Cluster {
 	clstrs := make([]*Cluster, 0, len(r.clusters))
 	for _, cluster := range r.clusters {
-		clstr := make([]*SearchNode, 0, len(cluster))
+		clstr := make([]*mine.SearchNode, 0, len(cluster))
 		sum := 0.0
 		for _, cn := range cluster {
 			clstr = append(clstr, cn.n)

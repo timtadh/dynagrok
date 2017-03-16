@@ -3,6 +3,7 @@ package discflo
 import (
 	"github.com/timtadh/dynagrok/localize/test"
 	"github.com/timtadh/dynagrok/localize/lattice"
+	"github.com/timtadh/dynagrok/localize/mine"
 )
 
 type Options struct {
@@ -10,20 +11,20 @@ type Options struct {
 	Remote    *test.Remote
 	Oracle    test.Executor
 	Tests     []*test.Testcase
-	Score     Score
+	Score     mine.ScoreFunc
+	Miner     mine.MinerFunc
 	ScoreName string
-	Walks     int
+	Opts      []mine.Option
 	Minimize  bool
 }
 
-func RunLocalize(o *Options) (Clusters, error) {
-	return RunLocalizeWithScore(o, o.Score)
-}
-
-func RunLocalizeWithScore(o *Options, s Score) (Clusters, error) {
+func Localizer(o *Options) func(m *mine.Miner) (Clusters, error) {
 	var tests []*test.Testcase
 	if o.Minimize {
 		tests = o.Tests
 	}
-	return Localize(o.Walks, tests, o.Oracle, s, o.Lattice)
+	return func(m *mine.Miner) (Clusters, error) {
+		return Localize(m, tests, o.Oracle)
+	}
 }
+

@@ -18,6 +18,7 @@ import (
 	"github.com/timtadh/dynagrok/localize/discflo"
 	"github.com/timtadh/dynagrok/localize/stat"
 	"github.com/timtadh/dynagrok/localize/lattice"
+	"github.com/timtadh/dynagrok/localize/mine"
 )
 
 type Options struct {
@@ -100,29 +101,32 @@ Option Flags
 				}
 			}
 		}
-		dflo := func(s discflo.Score) stat.Method {
+		dflo := func(s mine.ScoreFunc) stat.Method {
 			return func(lat *lattice.Lattice) stat.Result {
-				c, err := discflo.RunLocalizeWithScore(&o.Options, s)
+				miner := mine.NewMiner(o.Miner, lat, s, o.Opts...)
+				c, err := discflo.Localizer(&o.Options)(miner)
 				if err != nil {
 					panic(err)
 				}
-				return c.RankColors(s, o.Lattice).StatResult()
+				return c.RankColors(miner).StatResult()
 			}
 		}
 		if o.Score == nil {
-			for name, score := range discflo.Scores {
+			for name, score := range mine.Scores {
 				eval("Discflo + "+name, dflo(score))
-				eval(name, func(s discflo.Score) stat.Method {
+				eval(name, func(s mine.ScoreFunc) stat.Method {
 					return func(lat *lattice.Lattice) stat.Result {
-						return discflo.LocalizeNodes(s, lat)
+						miner := mine.NewMiner(o.Miner, lat, s, o.Opts...)
+						return mine.LocalizeNodes(miner.Score)
 					}
 				}(score))
 			}
 		} else {
 			eval("Discflo + "+o.ScoreName, dflo(o.Score))
-			eval(o.ScoreName, func(s discflo.Score) stat.Method {
+			eval(o.ScoreName, func(s mine.ScoreFunc) stat.Method {
 				return func(lat *lattice.Lattice) stat.Result {
-					return discflo.LocalizeNodes(s, lat)
+					miner := mine.NewMiner(o.Miner, lat, s, o.Opts...)
+					return mine.LocalizeNodes(miner.Score)
 				}
 			}(o.Score))
 		}
