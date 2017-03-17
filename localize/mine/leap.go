@@ -9,35 +9,29 @@ import (
 	"github.com/timtadh/data-structures/heap"
 )
 
-type branchBound struct {
+type sLeap struct {
 	k int
+	sigma float64
 }
 
-func BranchAndBound(k int) TopMiner {
-	return &branchBound{
+func SLeap(k int, sigma float64) TopMiner {
+	return &sLeap{
 		k: k,
+		sigma: sigma,
 	}
 }
 
-func (b *branchBound) Mine(m *Miner) SearchNodes {
-	return b.MineFrom(m, RootNode(m.Lattice))
+func (l *sLeap) Mine(m *Miner) SearchNodes {
+	return l.MineFrom(m, RootNode(m.Lattice))
 }
 
-func (b *branchBound) MineFrom(m *Miner, start *SearchNode) SearchNodes {
+func (l *sLeap) MineFrom(m *Miner, start *SearchNode) SearchNodes {
 	pop := func(stack []*SearchNode) ([]*SearchNode, *SearchNode) {
 		return stack[:len(stack)-1], stack[len(stack)-1]
 	}
 	insert := func(sorted []*SearchNode, item *SearchNode) []*SearchNode {
 		i := 0
 		for ; i < len(sorted); i++ {
-			// a := sorted[i].Node.SubGraph
-			// b := item.Node.SubGraph
-			// if a.SubgraphOf(b) {
-			// 	sorted[i] = item
-			// 	return sorted
-			// } else if b.SubgraphOf(a) {
-			// 	return sorted
-			// }
 			if item.Score > sorted[i].Score {
 				break
 			}
@@ -59,7 +53,7 @@ func (b *branchBound) MineFrom(m *Miner, start *SearchNode) SearchNodes {
 		return int(100000 * n.Score), n
 	}
 	checkMax := func(max []*SearchNode, cur *SearchNode) []*SearchNode {
-		if len(max) < b.k {
+		if len(max) < l.k {
 			return insert(max, cur)
 		} else if cur.Score > max[len(max)-1].Score {
 			max, _ = pop(max)
@@ -70,10 +64,11 @@ func (b *branchBound) MineFrom(m *Miner, start *SearchNode) SearchNodes {
 		}
 		return max
 	}
-	max := make([]*SearchNode, 0, b.k)
+	max := make([]*SearchNode, 0, l.k)
 	queue := heap.NewMaxHeap(m.MaxEdges*2)
 	queue.Push(priority(start))
 	seen := make(map[string]bool)
+mainLoop:
 	for queue.Size() > 0 {
 		var cur *SearchNode
 		cur = queue.Pop().(*SearchNode)
@@ -96,10 +91,30 @@ func (b *branchBound) MineFrom(m *Miner, start *SearchNode) SearchNodes {
 		if err != nil {
 			panic(err)
 		}
-		anyKids := false
-		for _, kid := range filterKids(m, cur.Score, kids) {
+		filteredKids := filterKids(m, cur.Score, kids)
+		for _, kid := range filteredKids {
 			klabel := string(kid.Node.SubGraph.Label())
-			if len(max) < b.k || m.Score.Max(kid.Node) >= max[len(max)-1].Score {
+			if seen[klabel] {
+				_, cp := FailureProbability(m.Lattice, cur.Node)
+				_, kp := FailureProbability(m.Lattice, kid.Node)
+				_, cn := OkProbability(m.Lattice, cur.Node)
+				_, kn := OkProbability(m.Lattice, kid.Node)
+				dp := cp - kp         // probability of an embedding of cur without kid in positive
+				pc := (2*dp)/(cp + kp)
+				dn := cn - kn         // probability of an embedding of cur without kid in negative
+				nc := (2*dn)/(cn + kn)
+				if pc < l.sigma && nc < l.sigma {
+					if false {
+						errors.Logf("DEBUG", "\n\t\t\tleaping!!! %v %v (%v - %v) %v %v", queue.Size(), len(max), max[0].Score, max[len(max)-1].Score, m.Score.Max(cur.Node), cur)
+					}
+					continue mainLoop
+				}
+			}
+		}
+		anyKids := false
+		for _, kid := range filteredKids {
+			klabel := string(kid.Node.SubGraph.Label())
+			if len(max) < l.k || m.Score.Max(kid.Node) >= max[len(max)-1].Score {
 				anyKids = true
 				if !seen[klabel] {
 					queue.Push(priority(kid))

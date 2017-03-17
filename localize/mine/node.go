@@ -36,28 +36,6 @@ func SliceToNodes(slice []*SearchNode) (sni SearchNodes) {
 	return sni
 }
 
-func WalksToNodes(m *Miner, walk Walk, walks int) (sni SearchNodes) {
-	i := 0
-	sni = func() (*SearchNode, SearchNodes) {
-		if i >= walks {
-			return nil, nil
-		}
-		var n *SearchNode
-		for i < walks {
-			n = walk(m)
-			i++
-			if n.Node != nil && n.Node.SubGraph != nil {
-				break
-			}
-		}
-		if n.Node == nil || n.Node.SubGraph == nil {
-			return nil, nil
-		}
-		return n, sni
-	}
-	return sni
-}
-
 func RootNode(lat *lattice.Lattice) *SearchNode {
 	return &SearchNode{
 		Node: lat.Root(),

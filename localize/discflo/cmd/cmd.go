@@ -28,6 +28,7 @@ func NewCommand(c *cmd.Config) cmd.Runnable {
 	var o discflo.Options
 	var wo walkOpts
 	bb := NewBranchAndBoundParser(c, &o, &wo)
+	sleap := NewSLeapParser(c, &o, &wo)
 	urw := NewURWParser(c, &o, &wo)
 	swrw := NewSWRWParser(c, &o, &wo)
 	walks := NewWalksParser(c, &o, &wo)
@@ -42,6 +43,7 @@ func NewCommand(c *cmd.Config) cmd.Runnable {
 		NewOptionParser(c, &o),
 		cmd.Commands(map[string]cmd.Runnable {
 			bb.Name(): bb,
+			sleap.Name(): sleap,
 			urw.Name(): cmd.Concat(urw, walkTypes),
 			swrw.Name(): cmd.Concat(swrw, walkTypes),
 		}),
@@ -91,6 +93,7 @@ Option Flags
                                       specified multiple times or with a comma
                                       separated list).
     --max-edges=<int>                 Maximal number of edges in a mined pattern
+    --min-edges=<int>                 Minimum number of edges in a mined pattern
     --min-fails=<int>                 Minimum number of failures associated with
                                       each behavior.
 `,
@@ -105,6 +108,7 @@ Option Flags
 		"failure-oracle=",
 		"non-failing=",
 		"max-edges=",
+		"min-edges=",
 		"min-fails=",
 	},
 	func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
@@ -169,6 +173,12 @@ Option Flags
 					return nil, cmd.Errorf(1, "Could not parse arg to `%v` expected an int (got %v). err: %v", oa.Opt(), oa.Arg(), err)
 				}
 				o.Opts = append(o.Opts, mine.MaxEdges(m))
+			case "--min-edges":
+				m, err := strconv.Atoi(oa.Arg())
+				if err != nil {
+					return nil, cmd.Errorf(1, "Could not parse arg to `%v` expected an int (got %v). err: %v", oa.Opt(), oa.Arg(), err)
+				}
+				o.Opts = append(o.Opts, mine.MinEdges(m))
 			case "--min-fails":
 				m, err := strconv.Atoi(oa.Arg())
 				if err != nil {

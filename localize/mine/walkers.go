@@ -17,6 +17,28 @@ func Walking(walker Walker, walks int) MinerFunc {
 	}
 }
 
+func WalksToNodes(m *Miner, walk Walk, walks int) (sni SearchNodes) {
+	i := 0
+	sni = func() (*SearchNode, SearchNodes) {
+		if i >= walks {
+			return nil, nil
+		}
+		var n *SearchNode
+		for i < walks {
+			n = walk(m)
+			i++
+			if n.Node != nil && n.Node.SubGraph != nil && len(n.Node.SubGraph.E) >= m.MinEdges {
+				break
+			}
+		}
+		if n.Node == nil || n.Node.SubGraph == nil {
+			return nil, nil
+		}
+		return n, sni
+	}
+	return sni
+}
+
 type topColorOpts struct {
 	percentOfColors float64
 	walksPerColor   int
@@ -53,22 +75,19 @@ func WalkingTopColors(walker Walker, opts ...TopColorOpt) MinerFunc {
 		opt(o)
 	}
 	return func(m *Miner) (sni SearchNodes) {
-		labels := len(m.Lattice.Labels.Labels())
-		total := int(o.percentOfColors * float64(labels))
+		locations := LocalizeNodes(m.Score)
+		total := int(o.percentOfColors * float64(len(locations)))
 		if total < 10 {
 			total = 10
-		} else if total > 500 {
-			total = 500
 		}
-		if total > labels {
-			total = labels
+		if total > len(locations) {
+			total = len(locations)
 		}
 
 		added := make(map[string]bool)
 		prevScore := 0.0
 		groups := 0
 		count := 0
-		locations := LocalizeNodes(m.Score)
 		i := 0
 		w := 0
 		sni = func() (*SearchNode, SearchNodes) {
@@ -82,24 +101,39 @@ func WalkingTopColors(walker Walker, opts ...TopColorOpt) MinerFunc {
 				w = 0
 				i++
 			}
-			if i >= len(locations) || i >= total && groups >= o.minGroups {
+			if i >= len(locations) {
+				if false {
+					errors.Logf("DEBUG", "done %d/%v %d/%d %d/%d %d out of locations", groups, o.minGroups, i, total, w, o.walksPerColor, count)
+				}
+				return nil, nil
+			}
+			if i >= total && groups >= o.minGroups {
+				if false {
+					errors.Logf("DEBUG", "done %d/%v %d/%d %d/%d %d ending condition reached", groups, o.minGroups, i, total, w, o.walksPerColor, count)
+				}
 				return nil, nil
 			}
 			color := locations[i].Color
 			var n *SearchNode
 			n = walker.WalkFromColor(m, color)
 			w++
-			if n.Node.SubGraph == nil || len(n.Node.SubGraph.E) == 0 {
+			if n.Node.SubGraph == nil || len(n.Node.SubGraph.E) < m.MinEdges {
+				if false {
+					errors.Logf("DEBUG", "skipped %d/%v %d/%d %d/%d %d no edges", groups, o.minGroups, i, total, w, o.walksPerColor, count)
+				}
 				goto start
 			}
 			label := string(n.Node.SubGraph.Label())
 			if added[label] {
+				if false {
+					errors.Logf("DEBUG", "skipped %d/%v %d/%d %d/%d %d previously seen", groups, o.minGroups, i, total, w, o.walksPerColor, count)
+				}
 				goto start
 			}
 			added[label] = true
 			count++
-			if true {
-				errors.Logf("DEBUG", "found %d/%v %d/%d %d %v", groups, o.minGroups, i, total, count, n)
+			if false {
+				errors.Logf("DEBUG", "found %d/%v %d/%d %d/%d %d %v", groups, o.minGroups, i, total, w, o.walksPerColor, count, n)
 			}
 			return n, sni
 		}
