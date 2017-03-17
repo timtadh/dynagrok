@@ -21,3 +21,9 @@ func (sg *SubGraph) AsIndices() *digraph.Indices {
 	}
 	return digraph.NewIndices(b, 1)
 }
+
+// a <= b
+func (a *SubGraph) SubgraphOf(b *SubGraph) bool {
+	B := b.AsIndices()
+	return a.EmbeddedIn(B)
+}

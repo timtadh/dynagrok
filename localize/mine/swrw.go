@@ -44,23 +44,18 @@ func (w *swrw) WalkFrom(m *Miner, start *SearchNode) (*SearchNode) {
 		if cur.Node.SubGraph != nil && len(cur.Node.SubGraph.E) >= m.MaxEdges {
 			break
 		}
+		if w.seen[label] && rand.Float64() < 1/(float64(m.MaxEdges)) {
+			prev = start
+			cur = start
+			continue
+		}
 		w.seen[label] = true
 		kids, err := cur.Node.Children()
 		if err != nil {
 			panic(err)
 		}
 		prev = cur
-		tries := 0
-		filtered := filterKids(m, cur.Score, kids)
-		for {
-			next := weighted(filtered)
-			if next != nil && w.seen[string(next.Node.SubGraph.Label())] && tries < 10 {
-				tries++
-				continue
-			}
-			cur = next
-			break
-		}
+		cur = weighted(filterKids(m, cur.Score, kids))
 	}
 	return prev
 }
@@ -117,6 +112,9 @@ func weights(slice []*SearchNode) []float64 {
 		}
 	}
 	for i, w := range weights {
+		if weights[i] < 0 {
+			panic("weight < 0")
+		}
 		weights[i] = w + .001
 	}
 	return weights

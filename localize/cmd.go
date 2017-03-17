@@ -9,7 +9,6 @@ import (
 import (
 	"github.com/timtadh/dynagrok/cmd"
 	discflo "github.com/timtadh/dynagrok/localize/discflo/cmd"
-	"github.com/timtadh/dynagrok/localize/eval"
 	"github.com/timtadh/dynagrok/localize/locavore"
 	"github.com/timtadh/dynagrok/localize/stat"
 )
@@ -17,14 +16,12 @@ import (
 func NewCommand(c *cmd.Config) cmd.Runnable {
 	main := NewLocalizeMain(c)
 	st := stat.NewCommand(c)
-	ev := eval.NewCommand(c)
 	df := discflo.NewCommand(c)
 	locav := locavore.NewCommand(c)
 	return cmd.Concat(
 		main,
 		cmd.Commands(map[string]cmd.Runnable{
 			st.Name():    st,
-			ev.Name():    ev,
 			df.Name():    df,
 			locav.Name(): locav,
 		}),

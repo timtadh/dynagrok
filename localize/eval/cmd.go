@@ -14,22 +14,15 @@ import (
 import (
 	"github.com/timtadh/dynagrok/cmd"
 	"github.com/timtadh/dynagrok/mutate"
-	discfloCmd "github.com/timtadh/dynagrok/localize/discflo/cmd"
 	"github.com/timtadh/dynagrok/localize/discflo"
 	"github.com/timtadh/dynagrok/localize/stat"
 	"github.com/timtadh/dynagrok/localize/lattice"
 	"github.com/timtadh/dynagrok/localize/mine"
 )
 
-type Options struct {
-	discflo.Options
-	FaultsPath string
-}
 
-func NewCommand(c *cmd.Config) cmd.Runnable {
-	var o Options
-	optsParser := discfloCmd.NewOptionParser(c, &o.Options)
-	return cmd.Concat(cmd.Cmd(
+func NewCommand(c *cmd.Config, o *discflo.Options) cmd.Runnable {
+	return cmd.Cmd(
 	"eval",
 	`[options]`,
 	`
@@ -39,40 +32,22 @@ Option Flags
     -h,--help                         Show this message
     -f,--faults=<path>                Path to a fault file.
 `,
-	optsParser.ShortOpts() + "f:",
-	append(optsParser.LongOpts(),
+	"f:",
+	[]string{
 		"faults=",
-	),
+	},
 	func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
-		faults := ""
-		consumed := make(map[int]bool)
-		for i, oa := range optargs {
+		faultsPath := ""
+		for _, oa := range optargs {
 			switch oa.Opt() {
 			case "-f", "--faults":
-				faults = oa.Arg()
-				consumed[i] = true
+				faultsPath = oa.Arg()
 			}
 		}
-		if faults == "" {
+		if faultsPath == "" {
 			return nil, cmd.Errorf(1, "You must supply the `-f` flag and give a path to the faults")
 		}
-		o.FaultsPath = faults
-		outargs := make([]string, 0, len(optargs) + len(args))
-		for i, oa := range optargs {
-			if !consumed[i] {
-				outargs = append(outargs, oa.Opt())
-				if oa.Arg() != "" {
-					outargs = append(outargs, oa.Arg())
-				}
-			}
-		}
-		outargs = append(outargs, args...)
-		return outargs, nil
-	}),
-	optsParser,
-	cmd.BareCmd(
-	func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
-		faults, err := LoadFaults(o.FaultsPath)
+		faults, err := LoadFaults(faultsPath)
 		if err != nil {
 			return nil, cmd.Err(1, err)
 		}
@@ -104,7 +79,7 @@ Option Flags
 		dflo := func(s mine.ScoreFunc) stat.Method {
 			return func(lat *lattice.Lattice) stat.Result {
 				miner := mine.NewMiner(o.Miner, lat, s, o.Opts...)
-				c, err := discflo.Localizer(&o.Options)(miner)
+				c, err := discflo.Localizer(o)(miner)
 				if err != nil {
 					panic(err)
 				}
@@ -131,7 +106,7 @@ Option Flags
 			}(o.Score))
 		}
 		return nil, nil
-	}))
+	})
 }
 
 func Group(results stat.Result) []stat.Result {

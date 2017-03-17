@@ -30,6 +30,14 @@ func (b *branchBound) MineFrom(m *Miner, start *SearchNode) SearchNodes {
 	insert := func(sorted []*SearchNode, item *SearchNode) []*SearchNode {
 		i := 0
 		for ; i < len(sorted); i++ {
+			// a := sorted[i].Node.SubGraph
+			// b := item.Node.SubGraph
+			// if a.SubgraphOf(b) {
+			// 	sorted[i] = item
+			// 	return sorted
+			// } else if b.SubgraphOf(a) {
+			// 	return sorted
+			// }
 			if item.Score > sorted[i].Score {
 				break
 			}
@@ -50,6 +58,18 @@ func (b *branchBound) MineFrom(m *Miner, start *SearchNode) SearchNodes {
 	priority := func(n *SearchNode) (int, *SearchNode) {
 		return int(100000 * n.Score), n
 	}
+	checkMax := func(max []*SearchNode, cur *SearchNode) []*SearchNode {
+		if len(max) < b.k {
+			return insert(max, cur)
+		} else if cur.Score > max[len(max)-1].Score {
+			max, _ = pop(max)
+			return insert(max, cur)
+		} else if cur.Score == max[len(max)-1].Score && rand.Float64() > .5 {
+			max, _ = pop(max)
+			return insert(max, cur)
+		}
+		return max
+	}
 	max := make([]*SearchNode, 0, b.k)
 	queue := heap.NewMaxHeap(m.MaxEdges*2)
 	queue.Push(priority(start))
@@ -65,37 +85,29 @@ func (b *branchBound) MineFrom(m *Miner, start *SearchNode) SearchNodes {
 			continue
 		}
 		seen[label] = true
-		if false && len(max) > 0 {
-			errors.Logf("DEBUG", "cur %v %v %v %v %v", queue.Size(), len(max), max[len(max)-1].Score, m.Score.Max(cur.Node), cur)
-			// for i, x := range max {
-			// 	errors.Logf("DEBUG", "max %d %v", i, x)
-			// }
-		}
-		if cur.Node.SubGraph != nil && len(cur.Node.SubGraph.E) > 0 {
-			if len(max) < b.k {
-				max = insert(max, cur)
-			} else if cur.Score > max[len(max)-1].Score {
-				max, _ = pop(max)
-				max = insert(max, cur)
-			} else if cur.Score == max[len(max)-1].Score && rand.Float64() > .5 {
-				max, _ = pop(max)
-				max = insert(max, cur)
-			}
+		if true && len(max) > 0 {
+			errors.Logf("DEBUG", "\n\t\t\tcur %v %v (%v - %v) %v %v", queue.Size(), len(max), max[0].Score, max[len(max)-1].Score, m.Score.Max(cur.Node), cur)
 		}
 		if cur.Node.SubGraph != nil && len(cur.Node.SubGraph.E) >= m.MaxEdges {
+			max = checkMax(max, cur)
 			continue
 		}
 		kids, err := cur.Node.Children()
 		if err != nil {
 			panic(err)
 		}
+		anyKids := false
 		for _, kid := range filterKids(m, cur.Score, kids) {
 			klabel := string(kid.Node.SubGraph.Label())
-			if len(max) < b.k {
-				queue.Push(priority(kid))
-			} else if !seen[klabel] && m.Score.Max(kid.Node) >= max[len(max)-1].Score {
-				queue.Push(priority(kid))
+			if len(max) < b.k || m.Score.Max(kid.Node) >= max[len(max)-1].Score {
+				anyKids = true
+				if !seen[klabel] {
+					queue.Push(priority(kid))
+				}
 			}
+		}
+		if !anyKids && cur.Node.SubGraph != nil && len(cur.Node.SubGraph.E) > 0 {
+			max = checkMax(max, cur)
 		}
 	}
 	return SliceToNodes(max)

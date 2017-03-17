@@ -52,9 +52,18 @@ func (r Result) Sort() {
 }
 
 func Localize(m *mine.Miner, tests []*test.Testcase, oracle test.Executor) (Clusters, error) {
+	added := make(map[string]bool)
 	db := NewDbScan(.05)
 	i := 0
 	for n, next := m.Mine()(); next != nil; n, next = next() {
+		if n.Node.SubGraph == nil {
+			continue
+		}
+		label := string(n.Node.SubGraph.Label())
+		if added[label] {
+			continue
+		}
+		added[label] = true
 		db.Add(n)
 		if true {
 			errors.Logf("DEBUG", "found %d %v", i, n)

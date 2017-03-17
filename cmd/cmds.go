@@ -154,7 +154,9 @@ func (s *Sequence) LongOpts() []string {
 func (s *Sequence) ShortUsage() string {
 	shorts := make([]string, 0, len(s.runners))
 	for _, r := range s.runners {
-		shorts = append(shorts, r.ShortUsage())
+		if r.Name() != "<unnamed-action>" {
+			shorts = append(shorts, r.ShortUsage())
+		}
 	}
 	return strings.Join(shorts, " ")
 }
@@ -164,7 +166,7 @@ func (s *Sequence) Usage() string {
 	for _, r := range s.runners {
 		longs = append(longs, r.Usage())
 	}
-	return fmt.Sprintf("%v\n\n%v", s.ShortUsage(), strings.Join(longs, "\n\n"))
+	return fmt.Sprintf("%v", strings.Join(longs, "\n\n"))
 }
 
 func (a *Alternatives) Run(argv []string) ([]string, *Error) {
@@ -184,11 +186,21 @@ func (a *Alternatives) Run(argv []string) ([]string, *Error) {
 }
 
 func (a *Alternatives) Name() string {
+	if len(a.runners) == 1 {
+		for k := range a.runners {
+			return k
+		}
+	}
+	optional := ""
 	keys := make([]string, 0, len(a.runners))
 	for k := range a.runners {
-		keys = append(keys, k)
+		if k != "" {
+			keys = append(keys, k)
+		} else {
+			optional = "?"
+		}
 	}
-	return fmt.Sprintf("(%v)", strings.Join(keys, "|"))
+	return fmt.Sprintf("(%v)%v", strings.Join(keys, "|"), optional)
 }
 
 func (a *Alternatives) ShortOpts() string {
@@ -204,14 +216,25 @@ func (a *Alternatives) ShortUsage() string {
 }
 
 func (a *Alternatives) Usage() string {
+	if len(a.runners) == 1 {
+	}
 	names := make([]string, 0, len(a.runners))
 	longs := make([]string, 0, len(a.runners))
-	for _, r := range a.runners {
-		names = append(names, fmt.Sprintf("    %-15v", r.ShortUsage()))
-		longs = append(longs, fmt.Sprintf("%v\n%v", r.ShortUsage(), indent(r.Usage(), 4)))
+	for name, r := range a.runners {
+		if name != "" {
+			names = append(names, fmt.Sprintf("    %-15v", r.ShortUsage()))
+			longs = append(longs, fmt.Sprintf("%v\n%v", r.ShortUsage(), indent(r.Usage(), 2)))
+		} else {
+			if strings.TrimSpace(r.ShortUsage()) != "<unnamed-action>" {
+				longs = append(longs, fmt.Sprintf("%v\n%v", r.ShortUsage(), indent(r.Usage(), 2)))
+			}
+		}
+	}
+	if len(names) <= 1 {
+		return fmt.Sprintf("%v", strings.Join(longs, "\n\n"))
 	}
 	return fmt.Sprintf("Commands\n%v\n\n%v",
-		strings.Join(names, "\n"), strings.Join(longs, "\n\n"))
+		strings.Join(names, "\n"), indent(strings.Join(longs, "\n\n"), 2))
 }
 
 func keys(runners map[string]Runnable) []string {

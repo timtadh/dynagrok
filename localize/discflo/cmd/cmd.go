@@ -19,8 +19,9 @@ import (
 	"github.com/timtadh/dynagrok/localize/lattice"
 	"github.com/timtadh/dynagrok/localize/test"
 	"github.com/timtadh/dynagrok/localize/discflo"
-	// "github.com/timtadh/dynagrok/localize/discflo/web"
 	"github.com/timtadh/dynagrok/localize/mine"
+	"github.com/timtadh/dynagrok/localize/eval"
+	// "github.com/timtadh/dynagrok/localize/discflo/web"
 )
 
 func NewCommand(c *cmd.Config) cmd.Runnable {
@@ -31,27 +32,21 @@ func NewCommand(c *cmd.Config) cmd.Runnable {
 	swrw := NewSWRWParser(c, &o, &wo)
 	walks := NewWalksParser(c, &o, &wo)
 	topColors := NewWalkTopColorsParser(c, &o, &wo)
+	walkTypes := cmd.Commands(map[string]cmd.Runnable {
+		walks.Name(): walks,
+		topColors.Name(): topColors,
+	})
+	evaluate := eval.NewCommand(c, &o)
 	return cmd.Concat(
 		NewOptionParser(c, &o),
 		cmd.Commands(map[string]cmd.Runnable {
 			bb.Name(): bb,
-			urw.Name(): cmd.Concat(
-				urw,
-				cmd.Commands(map[string]cmd.Runnable {
-					walks.Name(): walks,
-					topColors.Name(): topColors,
-				}),
-			),
-			swrw.Name(): cmd.Concat(
-				swrw,
-				cmd.Commands(map[string]cmd.Runnable {
-					walks.Name(): walks,
-					topColors.Name(): topColors,
-				}),
-			),
+			urw.Name(): cmd.Concat(urw, walkTypes),
+			swrw.Name(): cmd.Concat(swrw, walkTypes),
 		}),
 		cmd.Commands(map[string]cmd.Runnable {
 			"": NewRunner(c, &o),
+			evaluate.Name(): evaluate,
 		}),
 	)
 	// return cmd.Concat(
@@ -97,7 +92,7 @@ Option Flags
     --min-fails=<int>                 Minimum number of failures associated with
                                       each behavior.
 `,
-	"s:b:a:t:w:n:",
+	"s:b:a:t:n:",
 	[]string{
 		"binary=",
 		"binary-args=",
@@ -213,17 +208,22 @@ Option Flags
 				if err != nil {
 					return nil, cmd.Errorf(1, "Could not read test %v, err: %v", path, err)
 				}
-				t := test.Test(path, ex, bits)
-				err = t.Execute()
-				if err != nil {
-					return nil, cmd.Usage(r, 2, "Could not execute the test %d. err: %v", i, err)
-				}
-				if !t.Usable() {
-					count++
-					if count < 10 {
-						continue
+				var t *test.Testcase
+				for {
+					t = test.Test(path, ex, bits)
+					err = t.Execute()
+					if err != nil {
+						return nil, cmd.Usage(r, 2, "Could not execute the test %d. err: %v", i, err)
 					}
-					return nil, cmd.Usage(r, 2, "Can't use test %d", i)
+					if !t.Usable() {
+						count++
+						if count < 10 {
+							continue
+						}
+						return nil, cmd.Usage(r, 2, "Can't use test %d", i)
+					} else {
+						break
+					}
 				}
 				_, err = fails.Write(t.Profile())
 				if err != nil {

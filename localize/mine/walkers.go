@@ -55,8 +55,8 @@ func WalkingTopColors(walker Walker, opts ...TopColorOpt) MinerFunc {
 	return func(m *Miner) (sni SearchNodes) {
 		labels := len(m.Lattice.Labels.Labels())
 		total := int(o.percentOfColors * float64(labels))
-		if total < 200 {
-			total = 200
+		if total < 10 {
+			total = 10
 		} else if total > 500 {
 			total = 500
 		}
@@ -89,16 +89,17 @@ func WalkingTopColors(walker Walker, opts ...TopColorOpt) MinerFunc {
 			var n *SearchNode
 			n = walker.WalkFromColor(m, color)
 			w++
-			if n.Node.SubGraph == nil {
+			if n.Node.SubGraph == nil || len(n.Node.SubGraph.E) == 0 {
 				goto start
 			}
 			label := string(n.Node.SubGraph.Label())
 			if added[label] {
 				goto start
 			}
+			added[label] = true
 			count++
-			if false {
-				errors.Logf("DEBUG", "found %d %d/%d %d %v", groups, i, total, count, n)
+			if true {
+				errors.Logf("DEBUG", "found %d/%v %d/%d %d %v", groups, o.minGroups, i, total, count, n)
 			}
 			return n, sni
 		}
