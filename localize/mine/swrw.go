@@ -55,7 +55,7 @@ func (w *swrw) WalkFrom(m *Miner, start *SearchNode) *SearchNode {
 			panic(err)
 		}
 		prev = cur
-		cur = weighted(filterKids(m, cur.Score, kids))
+		cur = weighted(filterKids(m.MinFails, m, cur.Score, kids))
 	}
 	return prev
 }
@@ -67,11 +67,11 @@ func abs(a float64) float64 {
 	return a
 }
 
-func filterKids(m *Miner, parentScore float64, kids []*lattice.Node) []*SearchNode {
+func filterKids(minFailSup int, m *Miner, parentScore float64, kids []*lattice.Node) []*SearchNode {
 	var epsilon float64 = 0
 	entries := make([]*SearchNode, 0, len(kids))
 	for _, kid := range kids {
-		if kid.FIS() < m.MinFails {
+		if kid.FIS() < minFailSup {
 			continue
 		}
 		kidScore := m.Score.Score(kid)

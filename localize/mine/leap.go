@@ -9,16 +9,92 @@ import (
 	"github.com/timtadh/data-structures/heap"
 )
 
-type sLeap struct {
-	k     int
-	sigma float64
+type leap struct {
+	k          int
+	sigma      float64
 }
 
-func SLeap(k int, sigma float64) TopMiner {
-	return &sLeap{
+func LEAP(k int, sigma float64) TopMiner {
+	l := &leap{
 		k:     k,
 		sigma: sigma,
 	}
+	return l
+}
+
+func (l *leap) Mine(m *Miner) SearchNodes {
+	return l.MineFrom(m, RootNode(m.Lattice))
+}
+
+func (l *leap) MineFrom(m *Miner, start *SearchNode) SearchNodes {
+	sup := func(p float64) int {
+		F := float64(m.Lattice.Fail.G.Graphs)
+		s := int(p * F)
+		if s < 1 {
+			return 1
+		}
+		return s
+	}
+	sum := func(items []*SearchNode) (sum float64) {
+		for _, item := range items {
+			sum += item.Score
+		}
+		return sum
+	}
+	p := 1.0
+	max := newSLeap(l.k, l.sigma, sup(p)).mineFrom(m, start)
+	prev := -1000.0
+	cur := sum(max)
+	for sup(p) >= 1 && abs(cur - prev) > .01 {
+		if true {
+			errors.Logf("DEBUG", "cur %v (%v - %v) |%v - %v| = %v", len(max), max[0].Score, max[len(max)-1].Score, prev, cur, abs(prev - cur))
+		}
+		p /= 2
+		max = newSLeap(l.k, l.sigma, sup(p), startMax(max)).mineFrom(m, start)
+		prev = cur
+		cur = sum(max)
+	}
+	if true {
+		errors.Logf("DEBUG", "cur %v (%v - %v) |%v - %v| = %v", len(max), max[0].Score, max[len(max)-1].Score, prev, cur, abs(prev - cur))
+	}
+	if sup(p) > 1 {
+		max = newSLeap(l.k, l.sigma, 1, startMax(max)).mineFrom(m, start)
+		if true {
+			errors.Logf("DEBUG", "cur %v (%v - %v) |%v - %v| = %v", len(max), max[0].Score, max[len(max)-1].Score, prev, cur, abs(prev - cur))
+		}
+	}
+	return SliceToNodes(max)
+}
+
+type sLeap struct {
+	k          int
+	sigma      float64
+	minFailSup int
+	startMax   []*SearchNode
+}
+
+type sLeapOpt func(*sLeap)
+
+func startMax(max []*SearchNode) sLeapOpt {
+	return func(l *sLeap) {
+		l.startMax = max
+	}
+}
+
+func SLeap(k int, sigma float64, minFailSup int, opts ...sLeapOpt) TopMiner {
+	return newSLeap(k, sigma, minFailSup, opts...)
+}
+
+func newSLeap(k int, sigma float64, minFailSup int, opts ...sLeapOpt) *sLeap {
+	l := &sLeap{
+		k:     k,
+		sigma: sigma,
+		minFailSup: minFailSup,
+	}
+	for _, opt := range opts {
+		opt(l)
+	}
+	return l
 }
 
 func (l *sLeap) Mine(m *Miner) SearchNodes {
@@ -26,10 +102,20 @@ func (l *sLeap) Mine(m *Miner) SearchNodes {
 }
 
 func (l *sLeap) MineFrom(m *Miner, start *SearchNode) SearchNodes {
+	return SliceToNodes(l.mineFrom(m, start))
+}
+
+func (l *sLeap) mineFrom(m *Miner, start *SearchNode) []*SearchNode {
 	pop := func(stack []*SearchNode) ([]*SearchNode, *SearchNode) {
 		return stack[:len(stack)-1], stack[len(stack)-1]
 	}
 	insert := func(sorted []*SearchNode, item *SearchNode) []*SearchNode {
+		label := string(item.Node.SubGraph.Label())
+		for i := 0; i < len(sorted); i++ {
+			if string(sorted[i].Node.SubGraph.Label()) == label {
+				return sorted
+			}
+		}
 		i := 0
 		for ; i < len(sorted); i++ {
 			if item.Score > sorted[i].Score {
@@ -64,7 +150,14 @@ func (l *sLeap) MineFrom(m *Miner, start *SearchNode) SearchNodes {
 		}
 		return max
 	}
+	minFailSup := l.minFailSup
+	if l.minFailSup < 0 {
+		minFailSup = m.MinFails
+	}
 	max := make([]*SearchNode, 0, l.k)
+	for _, n := range l.startMax {
+		max = append(max, n)
+	}
 	queue := heap.NewMaxHeap(m.MaxEdges * 2)
 	queue.Push(priority(start))
 	seen := make(map[string]bool)
@@ -80,7 +173,7 @@ mainLoop:
 			continue
 		}
 		seen[label] = true
-		if true && len(max) > 0 {
+		if false && len(max) > 0 {
 			errors.Logf("DEBUG", "\n\t\t\tcur %v %v (%v - %v) %v %v", queue.Size(), len(max), max[0].Score, max[len(max)-1].Score, m.Score.Max(cur.Node), cur)
 		}
 		if cur.Node.SubGraph != nil && len(cur.Node.SubGraph.E) >= m.MaxEdges {
@@ -91,7 +184,7 @@ mainLoop:
 		if err != nil {
 			panic(err)
 		}
-		filteredKids := filterKids(m, cur.Score, kids)
+		filteredKids := filterKids(minFailSup, m, cur.Score, kids)
 		for _, kid := range filteredKids {
 			klabel := string(kid.Node.SubGraph.Label())
 			if seen[klabel] {
@@ -125,5 +218,5 @@ mainLoop:
 			max = checkMax(max, cur)
 		}
 	}
-	return SliceToNodes(max)
+	return max
 }

@@ -97,7 +97,7 @@ func (b *branchBound) MineFrom(m *Miner, start *SearchNode) SearchNodes {
 			panic(err)
 		}
 		anyKids := false
-		for _, kid := range filterKids(m, cur.Score, kids) {
+		for _, kid := range filterKids(m.MinFails, m, cur.Score, kids) {
 			klabel := string(kid.Node.SubGraph.Label())
 			if len(max) < b.k || m.Score.Max(kid.Node) >= max[len(max)-1].Score {
 				anyKids = true

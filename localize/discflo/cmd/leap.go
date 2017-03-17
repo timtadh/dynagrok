@@ -14,9 +14,9 @@ import (
 	"github.com/timtadh/dynagrok/localize/mine"
 )
 
-func NewSLeapParser(c *cmd.Config, o *discflo.Options, wo *walkOpts) cmd.Runnable {
+func NewLeapParser(c *cmd.Config, o *discflo.Options, wo *walkOpts) cmd.Runnable {
 	return cmd.Cmd(
-		"s-leap",
+		"leap",
 		`[options]`,
 		`
 Option Flags
@@ -48,7 +48,7 @@ Option Flags
 					sigma = s
 				}
 			}
-			o.Miner = mine.SLeap(topk, sigma, -1).Mine
+			o.Miner = mine.LEAP(topk, sigma).Mine
 			return args, nil
 		})
 }

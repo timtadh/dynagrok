@@ -37,7 +37,7 @@ func (w *urw) WalkFrom(m *Miner, start *SearchNode) *SearchNode {
 			panic(err)
 		}
 		prev = cur
-		cur = uniform(filterKids(m, cur.Score, kids))
+		cur = uniform(filterKids(m.MinFails, m, cur.Score, kids))
 	}
 	return prev
 }

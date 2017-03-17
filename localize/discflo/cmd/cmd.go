@@ -29,6 +29,7 @@ func NewCommand(c *cmd.Config) cmd.Runnable {
 	var wo walkOpts
 	bb := NewBranchAndBoundParser(c, &o, &wo)
 	sleap := NewSLeapParser(c, &o, &wo)
+	leap := NewLeapParser(c, &o, &wo)
 	urw := NewURWParser(c, &o, &wo)
 	swrw := NewSWRWParser(c, &o, &wo)
 	walks := NewWalksParser(c, &o, &wo)
@@ -44,6 +45,7 @@ func NewCommand(c *cmd.Config) cmd.Runnable {
 		cmd.Commands(map[string]cmd.Runnable{
 			bb.Name():    bb,
 			sleap.Name(): sleap,
+			leap.Name(): leap,
 			urw.Name():   cmd.Concat(urw, walkTypes),
 			swrw.Name():  cmd.Concat(swrw, walkTypes),
 		}),
