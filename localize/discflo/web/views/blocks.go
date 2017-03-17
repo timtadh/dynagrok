@@ -16,4 +16,3 @@ func (v *Views) Blocks(c *Context) error {
 		Blocks: clusters.Blocks(),
 	})
 }
-

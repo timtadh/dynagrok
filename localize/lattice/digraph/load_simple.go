@@ -1,8 +1,8 @@
 package digraph
 
 import (
-	"io"
 	"bufio"
+	"io"
 	"strconv"
 	"strings"
 	"sync"
@@ -24,8 +24,8 @@ type Info struct {
 func NewInfo() *Info {
 	return &Info{
 		Positions: make(map[int]string),
-		FnNames: make(map[int]string),
-		BBIds: make(map[int]int),
+		FnNames:   make(map[int]string),
+		BBIds:     make(map[int]int),
 	}
 }
 
@@ -44,18 +44,18 @@ func (i Info) Get(color int) (bbid int, fnName, pos string) {
 }
 
 type SimpleLoader struct {
-	Builder   *Builder
-	Labels    *Labels
-	Info      *Info
-	vidxs     map[int]int
+	Builder *Builder
+	Labels  *Labels
+	Info    *Info
+	vidxs   map[int]int
 }
 
 func LoadSimple(info *Info, labels *Labels, input io.Reader) (*Indices, error) {
 	l := &SimpleLoader{
 		Builder: Build(100, 1000),
-		Labels: labels,
-		Info: info,
-		vidxs: make(map[int]int),
+		Labels:  labels,
+		Info:    info,
+		vidxs:   make(map[int]int),
 	}
 	return l.load(input)
 }
@@ -95,7 +95,7 @@ func (l *SimpleLoader) load(input io.Reader) (*Indices, error) {
 	return NewIndices(l.Builder, 0), nil
 }
 
-func (l *SimpleLoader) vertex(rest []string) (error) {
+func (l *SimpleLoader) vertex(rest []string) error {
 	if len(rest) != 1 {
 		return errors.Errorf("line in unexpected format: `%v`", rest)
 	}
@@ -130,7 +130,7 @@ func (l *SimpleLoader) vertex(rest []string) (error) {
 	return nil
 }
 
-func (l *SimpleLoader) edge(rest []string) (error) {
+func (l *SimpleLoader) edge(rest []string) error {
 	if len(rest) != 1 {
 		return errors.Errorf("line in unexpected format: `%v`", rest)
 	}
@@ -198,11 +198,10 @@ func (l *SimpleLoader) addVertex(id, color, bbid int, fnName, pos string) {
 func (l *SimpleLoader) addEdge(sid, tid int) error {
 	if sidx, has := l.vidxs[sid]; !has {
 		return errors.Errorf("unknown src id %v", tid)
-	} else if tidx, has := l.vidxs[tid]; !has{
+	} else if tidx, has := l.vidxs[tid]; !has {
 		return errors.Errorf("unknown targ id %v", tid)
 	} else {
 		l.Builder.AddEdge(&l.Builder.V[sidx], &l.Builder.V[tidx], l.Labels.Color(""))
 	}
 	return nil
 }
-

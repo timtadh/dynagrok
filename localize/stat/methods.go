@@ -2,9 +2,9 @@ package stat
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strings"
-	"math"
 )
 
 import (
@@ -12,11 +12,11 @@ import (
 )
 
 type Location struct {
-	Color    int
-	Position string
-	FnName   string
+	Color        int
+	Position     string
+	FnName       string
 	BasicBlockId int
-	Score float64
+	Score        float64
 }
 
 func (l *Location) String() string {
@@ -39,15 +39,15 @@ var Methods = map[string]Method{
 	"pr-fail-given-line": prFailGivenLine,
 	"pr-line-given-fail": prLineGivenFail,
 	"relative-precision": relativePrecision,
-	"relative-recall": relativeRecall,
-	"precision-gain": precisionGain,
-	"jaccard": jaccard,
-	"sorensen-dice": sorensenDice,
-	"f1": sorensenDice, // from shih-feng's paper f1 is equiv to sd
-	"relative-f1": relativeF1,
-	"ochiai": ochiai,
-	"relative-ochiai": relativeOchiai,
-	"symmetric-klosgen": symmetricKlosgen,
+	"relative-recall":    relativeRecall,
+	"precision-gain":     precisionGain,
+	"jaccard":            jaccard,
+	"sorensen-dice":      sorensenDice,
+	"f1":                 sorensenDice, // from shih-feng's paper f1 is equiv to sd
+	"relative-f1":        relativeF1,
+	"ochiai":             ochiai,
+	"relative-ochiai":    relativeOchiai,
+	"symmetric-klosgen":  symmetricKlosgen,
 	"enhanced-tarantula": enhancedTarantula,
 }
 
@@ -83,7 +83,7 @@ func prFailGivenLine(lat *lattice.Lattice) Result {
 			lat.Info.Positions[color],
 			lat.Info.FnNames[color],
 			lat.Info.BBIds[color],
-			float64(lineFails[color])/float64(lineTotal[color]),
+			float64(lineFails[color]) / float64(lineTotal[color]),
 		}
 		if l.ValidProbability() {
 			result = append(result, l)
@@ -106,7 +106,7 @@ func prLineGivenFail(lat *lattice.Lattice) Result {
 			lat.Info.Positions[color],
 			lat.Info.FnNames[color],
 			lat.Info.BBIds[color],
-			float64(lineFails[color])/float64(lat.Fail.G.Graphs),
+			float64(lineFails[color]) / float64(lat.Fail.G.Graphs),
 		}
 		if l.ValidProbability() {
 			result = append(result, l)
@@ -115,7 +115,6 @@ func prLineGivenFail(lat *lattice.Lattice) Result {
 	result.Sort()
 	return result
 }
-
 
 func relativePrecision(lat *lattice.Lattice) Result {
 	lineFails := make(map[int]int)
@@ -223,7 +222,7 @@ func jaccard(lat *lattice.Lattice) Result {
 			lat.Info.Positions[color],
 			lat.Info.FnNames[color],
 			lat.Info.BBIds[color],
-			float64(lineFails[color])/float64(lat.Fail.G.Graphs + lineOks[color]),
+			float64(lineFails[color]) / float64(lat.Fail.G.Graphs+lineOks[color]),
 		}
 		if l.ValidProbability() {
 			result = append(result, l)
@@ -251,7 +250,7 @@ func sorensenDice(lat *lattice.Lattice) Result {
 			lat.Info.Positions[color],
 			lat.Info.FnNames[color],
 			lat.Info.BBIds[color],
-			2 * float64(lineFails[color])/float64(lat.Fail.G.Graphs + lineTotal[color]),
+			2 * float64(lineFails[color]) / float64(lat.Fail.G.Graphs+lineTotal[color]),
 		}
 		if l.ValidProbability() {
 			result = append(result, l)
@@ -281,7 +280,7 @@ func relativeF1(lat *lattice.Lattice) Result {
 			lat.Info.FnNames[color],
 			lat.Info.BBIds[color],
 			2 *
-				float64(lineTotal[color])/float64(lat.Fail.G.Graphs + lineTotal[color]) *
+				float64(lineTotal[color]) / float64(lat.Fail.G.Graphs+lineTotal[color]) *
 				(float64(lineFails[color])/float64(lineTotal[color]) - float64(lat.Fail.G.Graphs)/float64(totalTests)),
 		}
 		if l.ValidRelativeMeasure() {
@@ -310,7 +309,7 @@ func ochiai(lat *lattice.Lattice) Result {
 			lat.Info.Positions[color],
 			lat.Info.FnNames[color],
 			lat.Info.BBIds[color],
-			math.Sqrt(float64(lineTotal[color])/float64(lat.Fail.G.Graphs)) * float64(lineFails[color])/float64(lineTotal[color]),
+			math.Sqrt(float64(lineTotal[color])/float64(lat.Fail.G.Graphs)) * float64(lineFails[color]) / float64(lineTotal[color]),
 		}
 		if l.ValidProbability() {
 			result = append(result, l)
@@ -376,8 +375,8 @@ func symmetricKlosgen(lat *lattice.Lattice) Result {
 			lat.Info.FnNames[color],
 			lat.Info.BBIds[color],
 			math.Sqrt(float64(lineFails[color])/float64(totalTests)) *
-				max(float64(lineFails[color])/float64(lineTotal[color]) - float64(lat.Fail.G.Graphs)/float64(totalTests),
-					float64(lineFails[color])/float64(lat.Fail.G.Graphs) - float64(lineTotal[color])/float64(totalTests)),
+				max(float64(lineFails[color])/float64(lineTotal[color])-float64(lat.Fail.G.Graphs)/float64(totalTests),
+					float64(lineFails[color])/float64(lat.Fail.G.Graphs)-float64(lineTotal[color])/float64(totalTests)),
 		}
 		if l.ValidRelativeMeasure() {
 			result = append(result, l)
@@ -406,7 +405,7 @@ func enhancedTarantula(lat *lattice.Lattice) Result {
 			lat.Info.Positions[color],
 			lat.Info.FnNames[color],
 			lat.Info.BBIds[color],
-			float64(lineFails[color])/float64(lat.Fail.G.Graphs) *
+			float64(lineFails[color]) / float64(lat.Fail.G.Graphs) *
 				(float64(lineFails[color])/float64(lineTotal[color]) - float64(lat.Fail.G.Graphs)/float64(totalTests)),
 		}
 		if l.ValidRelativeMeasure() {

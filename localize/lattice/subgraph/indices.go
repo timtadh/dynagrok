@@ -6,9 +6,8 @@ import (
 	"github.com/timtadh/dynagrok/localize/lattice/digraph"
 )
 
-
 func (sg *SubGraph) AsIndices() *digraph.Indices {
-	b := digraph.Build(len(sg.V),len(sg.E))
+	b := digraph.Build(len(sg.V), len(sg.E))
 	for vidx := range sg.V {
 		u := &sg.V[vidx]
 		b.AddVertex(u.Color)

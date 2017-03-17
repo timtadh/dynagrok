@@ -16,7 +16,7 @@ func (n *Node) findChildren(allow func(*subgraph.SubGraph) (bool, error)) (nodes
 		errors.Logf("DEBUG", "findChildren %v", n)
 	}
 	if n.SubGraph == nil {
-		for _, n := range n.l.frequentVertices { 
+		for _, n := range n.l.frequentVertices {
 			nodes = append(nodes, n)
 		}
 		return nodes, nil
@@ -81,7 +81,7 @@ func (n *Node) extensions() map[subgraph.Extension]subgraph.Embeddings {
 	return exts
 }
 
-func (n *Node) validExtChecker(do func(*subgraph.Embedding, *subgraph.Extension)) func (*subgraph.Embedding, *digraph.Edge, int, int) {
+func (n *Node) validExtChecker(do func(*subgraph.Embedding, *subgraph.Extension)) func(*subgraph.Embedding, *digraph.Edge, int, int) {
 	return func(emb *subgraph.Embedding, e *digraph.Edge, src, targ int) {
 		if n.l.Fail.EdgeCounts[n.l.Fail.Colors(e)] <= 0 {
 			return
@@ -129,12 +129,12 @@ func (n *Node) extension(embedding *subgraph.Embedding, e *digraph.Edge, src, ta
 		panic("both src and targ unattached")
 	} else if !hasSrc {
 		newVE = &subgraph.VertexEmbedding{
-			SgIdx: srcIdx,
+			SgIdx:  srcIdx,
 			EmbIdx: e.Src,
 		}
 	} else if !hasTarg {
 		newVE = &subgraph.VertexEmbedding{
-			SgIdx: targIdx,
+			SgIdx:  targIdx,
 			EmbIdx: e.Targ,
 		}
 	}

@@ -9,9 +9,9 @@ type MinerFunc func(*Miner) SearchNodes
 
 type Miner struct {
 	Options
-	Score    *Score
-	Lattice  *lattice.Lattice
-	Miner    MinerFunc
+	Score   *Score
+	Lattice *lattice.Lattice
+	Miner   MinerFunc
 }
 
 func NewMiner(mf MinerFunc, lat *lattice.Lattice, sf ScoreFunc, opts ...Option) *Miner {
@@ -34,4 +34,3 @@ func NewMiner(mf MinerFunc, lat *lattice.Lattice, sf ScoreFunc, opts ...Option) 
 func (m *Miner) Mine() SearchNodes {
 	return m.Miner(m)
 }
-

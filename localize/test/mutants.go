@@ -1,7 +1,6 @@
 package test
 
-import (
-)
+import ()
 
 type Mutant struct {
 	Test *Testcase
@@ -25,7 +24,7 @@ func max(a, b int) int {
 func (m *Mutant) Testcase() *Testcase {
 	left := m.Test.Case[:m.I]
 	right := m.Test.Case[m.J+1:]
-	buf := make([]byte, len(left) + len(right))
+	buf := make([]byte, len(left)+len(right))
 	copy(buf[:len(left)], left)
 	copy(buf[len(left):], right)
 	return Test(m.Test.From, m.Test.Exec, buf)
@@ -33,7 +32,7 @@ func (m *Mutant) Testcase() *Testcase {
 
 func (t *Testcase) safe(i int) int {
 	if i >= len(t.Case) {
-		i = len(t.Case)-1
+		i = len(t.Case) - 1
 	}
 	if i < 0 {
 		i = 0
@@ -48,13 +47,13 @@ func (t *Testcase) LineEndTrimmingMuts() []*Mutant {
 	lines := t.Lines()
 	muts := make([]*Mutant, 0, len(lines))
 	for _, i := range lines {
-		if t.safe(i + 1) >= len(t.Case) - 1 {
+		if t.safe(i+1) >= len(t.Case)-1 {
 			continue
 		}
 		muts = append(muts, &Mutant{
 			Test: t,
-			I: t.safe(i + 1),
-			J: len(t.Case)-1,
+			I:    t.safe(i + 1),
+			J:    len(t.Case) - 1,
 		})
 	}
 	return muts
@@ -69,8 +68,8 @@ func (t *Testcase) LineStartTrimmingMuts() []*Mutant {
 	for _, i := range lines {
 		muts = append(muts, &Mutant{
 			Test: t,
-			I: 0,
-			J: i,
+			I:    0,
+			J:    i,
 		})
 	}
 	return muts
@@ -87,14 +86,14 @@ func (t *Testcase) LineTrimmingMuts() []*Mutant {
 		if i > 0 && t.Case[i] == '\n' {
 			i = t.safe(i + 1)
 		}
-		j := lines[idx + 1]
+		j := lines[idx+1]
 		if i > j {
 			continue
 		}
 		muts = append(muts, &Mutant{
 			Test: t,
-			I: i,
-			J: j,
+			I:    i,
+			J:    j,
 		})
 	}
 	return muts
@@ -110,19 +109,19 @@ func (t *Testcase) LineBlockTrimmingMuts() []*Mutant {
 		end := min(
 			sIdx+min(max(15, int(.1*float64(len(lines)))), 100),
 			len(lines))
-		for eIdx := sIdx+1; eIdx < end; eIdx++ {
+		for eIdx := sIdx + 1; eIdx < end; eIdx++ {
 			i := lines[sIdx]
 			if t.Case[i] == '\n' {
 				i = t.safe(i + 1)
 			}
 			j := lines[eIdx]
-			if i + 1 >= j {
+			if i+1 >= j {
 				continue
 			}
 			muts = append(muts, &Mutant{
 				Test: t,
-				I: i,
-				J: j,
+				I:    i,
+				J:    j,
 			})
 		}
 	}
@@ -141,8 +140,8 @@ func (t *Testcase) BlockTrimmingMuts() []*Mutant {
 		for j := i; j < end; j++ {
 			muts = append(muts, &Mutant{
 				Test: t,
-				I: i,
-				J: j,
+				I:    i,
+				J:    j,
 			})
 		}
 	}
@@ -165,8 +164,8 @@ func (t *Testcase) CurlyBlocks() []*Mutant {
 				lefts, open = pop(lefts)
 				blocks = append(blocks, &Mutant{
 					Test: t,
-					I: open,
-					J: i,
+					I:    open,
+					J:    i,
 				})
 			}
 		}
@@ -191,8 +190,8 @@ func (t *Testcase) LineCurlyBlocks() []*Mutant {
 			for _, openNl := range blocks {
 				muts = append(muts, &Mutant{
 					Test: t,
-					I: openNl,
-					J: i,
+					I:    openNl,
+					J:    i,
 				})
 			}
 			blocks = blocks[:0]
@@ -222,8 +221,8 @@ func (t *Testcase) Lines() []int {
 			lines = append(lines, i)
 		}
 	}
-	if len(t.Case) > 0 && lines[len(lines)-1] != len(t.Case) - 1 {
-		lines = append(lines, len(t.Case) - 1)
+	if len(t.Case) > 0 && lines[len(lines)-1] != len(t.Case)-1 {
+		lines = append(lines, len(t.Case)-1)
 	}
 	t.lines = lines
 	return lines

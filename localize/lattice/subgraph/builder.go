@@ -38,13 +38,13 @@ func (b *Builder) From(sg *SubGraph) *Builder {
 func FromGraph(g *digraph.Digraph) *Builder {
 	if g == nil {
 		return &Builder{
-			V:   make([]Vertex, 0),
-			E:   make([]Edge, 0),
+			V: make([]Vertex, 0),
+			E: make([]Edge, 0),
 		}
 	}
 	b := &Builder{
-		V:   make([]Vertex, len(g.V)),
-		E:   make([]Edge, len(g.E)),
+		V: make([]Vertex, len(g.V)),
+		E: make([]Edge, len(g.E)),
 	}
 	for i := range g.V {
 		b.V[i].Idx = i
@@ -257,10 +257,10 @@ func (b *Builder) Build() *SubGraph {
 
 func (b *Builder) BuildFromPermutation(vord, eord []int) *SubGraph {
 	pat := &SubGraph{
-		V:   make([]Vertex, len(b.V)),
-		E:   make([]Edge, len(b.E)),
-		Adj: make([][]int, len(b.V)),
-		InDeg: make([]int, len(b.V)),
+		V:      make([]Vertex, len(b.V)),
+		E:      make([]Edge, len(b.E)),
+		Adj:    make([][]int, len(b.V)),
+		InDeg:  make([]int, len(b.V)),
 		OutDeg: make([]int, len(b.V)),
 	}
 	for i, j := range vord {

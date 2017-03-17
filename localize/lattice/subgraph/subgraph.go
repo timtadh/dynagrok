@@ -81,7 +81,7 @@ func (E Edges) Iterate() (ei bliss.EdgeIterator) {
 func (sg *SubGraph) Colors(i int) digraph.Colors {
 	e := &sg.E[i]
 	return digraph.Colors{
-		SrcColor: sg.V[e.Src].Color,
+		SrcColor:  sg.V[e.Src].Color,
 		TargColor: sg.V[e.Targ].Color,
 		EdgeColor: e.Color,
 	}

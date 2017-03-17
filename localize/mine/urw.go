@@ -8,22 +8,21 @@ import (
 	"github.com/timtadh/data-structures/errors"
 )
 
-
-type urw struct {}
+type urw struct{}
 
 func UnweightedRandomWalk() Walker {
 	return &urw{}
 }
 
-func (w *urw) Walk(m *Miner) (*SearchNode) {
+func (w *urw) Walk(m *Miner) *SearchNode {
 	return w.WalkFrom(m, RootNode(m.Lattice))
 }
 
-func (w *urw) WalkFromColor(m *Miner, color int) (*SearchNode) {
+func (w *urw) WalkFromColor(m *Miner, color int) *SearchNode {
 	return w.WalkFrom(m, ColorNode(m.Lattice, m.Score, color))
 }
 
-func (w *urw) WalkFrom(m *Miner, start *SearchNode) (*SearchNode) {
+func (w *urw) WalkFrom(m *Miner, start *SearchNode) *SearchNode {
 	cur := start
 	prev := cur
 	for cur != nil {
@@ -43,7 +42,7 @@ func (w *urw) WalkFrom(m *Miner, start *SearchNode) (*SearchNode) {
 	return prev
 }
 
-func uniform(slice []*SearchNode) (*SearchNode) {
+func uniform(slice []*SearchNode) *SearchNode {
 	if len(slice) > 0 {
 		return slice[rand.Intn(len(slice))]
 	}

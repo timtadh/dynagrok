@@ -18,10 +18,10 @@ type View func(*Context) error
 
 type Context struct {
 	views *Views
-	s *models.Session
-	rw http.ResponseWriter
-	r *http.Request
-	p httprouter.Params
+	s     *models.Session
+	rw    http.ResponseWriter
+	r     *http.Request
+	p     httprouter.Params
 }
 
 func (v *Views) Context(f View) httprouter.Handle {
@@ -40,7 +40,7 @@ func (v *Views) Context(f View) httprouter.Handle {
 		}()
 		c := &Context{
 			views: v,
-			rw: rw, r: r, p: p,
+			rw:    rw, r: r, p: p,
 		}
 		err := c.Session(v.Log(f))
 		if err != nil {
@@ -70,4 +70,3 @@ func (c *Context) Session(f View) error {
 	// }
 	return f(c)
 }
-

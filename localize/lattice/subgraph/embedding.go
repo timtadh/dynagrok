@@ -19,7 +19,7 @@ type Embedding struct {
 }
 
 type VertexEmbedding struct {
-	SgIdx, EmbIdx   int
+	SgIdx, EmbIdx int
 }
 
 func StartEmbedding(v VertexEmbedding) *Embedding {
@@ -63,7 +63,7 @@ func (v *VertexEmbedding) Translate(orgLen int, vord []int) *VertexEmbedding {
 		idx = vord[idx]
 	}
 	return &VertexEmbedding{
-		SgIdx: idx,
+		SgIdx:  idx,
 		EmbIdx: v.EmbIdx,
 	}
 }
@@ -74,7 +74,7 @@ func (emb *Embedding) Translate(orgLen int, vord []int) *Embedding {
 	}
 	return &Embedding{
 		VertexEmbedding: *emb.VertexEmbedding.Translate(orgLen, vord),
-		Prev: emb.Prev.Translate(orgLen, vord),
+		Prev:            emb.Prev.Translate(orgLen, vord),
 	}
 }
 

@@ -9,8 +9,6 @@ import (
 	"github.com/timtadh/dynagrok/localize/stat"
 )
 
-
-
 type ScoreFunc func(prF, prFandNode, prO, prOandNode float64) float64
 
 type Score struct {
@@ -22,8 +20,8 @@ type Score struct {
 func NewScore(sf ScoreFunc, opts *Options, lat *lattice.Lattice) *Score {
 	return &Score{
 		score: sf,
-		opts: opts,
-		lat: lat,
+		opts:  opts,
+		lat:   lat,
 	}
 }
 
@@ -60,7 +58,7 @@ func FailureProbability(lat *lattice.Lattice, n *lattice.Node) (prF, prFandNode 
 	O := float64(lat.Ok.G.Graphs)
 	T := F + O
 	f := float64(n.FIS())
-	return O/T, f/T
+	return O / T, f / T
 }
 
 func totalEdgeAndVertexOkPr(lat *lattice.Lattice, n *lattice.Node) (o float64) {
@@ -69,11 +67,11 @@ func totalEdgeAndVertexOkPr(lat *lattice.Lattice, n *lattice.Node) (o float64) {
 	T := F + O
 	for i := range n.SubGraph.E {
 		count := lat.Ok.EdgeCounts[n.SubGraph.Colors(i)]
-		o += float64(count)/T
+		o += float64(count) / T
 	}
 	for i := range n.SubGraph.V {
 		count := float64(len(lat.Ok.ColorIndex[n.SubGraph.V[i].Color]))
-		o += float64(count)/T
+		o += float64(count) / T
 	}
 	return o
 }
@@ -85,23 +83,23 @@ func OkProbability(lat *lattice.Lattice, n *lattice.Node) (prO, prOandNode float
 	T := F + O
 	size := float64(len(n.SubGraph.V) + len(n.SubGraph.E))
 	if len(n.SubGraph.E) > 0 || len(n.SubGraph.V) >= 1 {
-		prOandNode = totalEdgeAndVertexOkPr(lat, n)/size
+		prOandNode = totalEdgeAndVertexOkPr(lat, n) / size
 	} else {
-		prOandNode = O/T
+		prOandNode = O / T
 	}
-	return O/T, prOandNode
+	return O / T, prOandNode
 }
 
 func MinFailureProbability(o *Options, lat *lattice.Lattice) (minPrFandNode float64) {
 	F := float64(lat.Fail.G.Graphs)
 	O := float64(lat.Ok.G.Graphs)
 	T := F + O
-	return float64(o.MinFails)/T
+	return float64(o.MinFails) / T
 }
 
 func MinOkProbability(o *Options, lat *lattice.Lattice, n *lattice.Node) (minPrOandNode float64) {
 	largest := float64(2*o.MaxEdges + 1)
-	return totalEdgeAndVertexOkPr(lat, n)/largest
+	return totalEdgeAndVertexOkPr(lat, n) / largest
 }
 
 func LocalizeNodes(score *Score) stat.Result {

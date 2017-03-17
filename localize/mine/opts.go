@@ -21,7 +21,6 @@ func MinEdges(minEdges int) Option {
 	}
 }
 
-
 func MaxEdges(maxEdges int) Option {
 	if maxEdges < 2 {
 		panic(fmt.Errorf("MaxEdges must be >= 2 (got %v)", maxEdges))
@@ -39,4 +38,3 @@ func MinFails(minFails int) Option {
 		o.MinFails = minFails
 	}
 }
-

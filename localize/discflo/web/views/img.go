@@ -1,6 +1,5 @@
 package views
 
-
 import (
 	"fmt"
 )
@@ -30,4 +29,3 @@ func (v *Views) Img(c *Context) error {
 	_, err = c.rw.Write(bytes)
 	return err
 }
-

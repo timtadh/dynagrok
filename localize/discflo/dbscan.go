@@ -1,12 +1,12 @@
 package discflo
 
 import (
-	"fmt"
-	"path/filepath"
-	"os"
 	"encoding/json"
+	"fmt"
 	"math"
 	"math/rand"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -25,8 +25,8 @@ import (
 type Clusters []*Cluster
 
 type Cluster struct {
-	Score  float64
-	Nodes  []*mine.SearchNode
+	Score float64
+	Nodes []*mine.SearchNode
 }
 
 func (c *Cluster) String() string {
@@ -34,9 +34,9 @@ func (c *Cluster) String() string {
 }
 
 type clusterNode struct {
-	n        *mine.SearchNode
-	name     string
-	labels   types.Set
+	n      *mine.SearchNode
+	name   string
+	labels types.Set
 }
 
 func newClusterNode(n *mine.SearchNode) (*clusterNode, error) {
@@ -79,8 +79,8 @@ func correlation(clusters []cluster, metric func(a, b *clusterNode) float64) flo
 			}
 		}
 	}
-	meanDist := totalDist/totalItems
-	meanIncidence := totalIncidence/totalItems
+	meanDist := totalDist / totalItems
+	meanIncidence := totalIncidence / totalItems
 	var sumOfSqDist float64
 	var sumOfSqIncidence float64
 	var sumOfProduct float64
@@ -96,9 +96,9 @@ func correlation(clusters []cluster, metric func(a, b *clusterNode) float64) flo
 					}
 					distDiff := (dist - meanDist)
 					incidenceDiff := (incidence - meanIncidence)
-					sumOfSqDist += distDiff*distDiff
-					sumOfSqIncidence += incidenceDiff*incidenceDiff
-					sumOfProduct += distDiff*incidenceDiff
+					sumOfSqDist += distDiff * distDiff
+					sumOfSqIncidence += incidenceDiff * incidenceDiff
+					sumOfProduct += distDiff * incidenceDiff
 				}
 			}
 		}
@@ -116,7 +116,7 @@ func intradist(clusters []cluster, metric func(a, b *clusterNode) float64) float
 			}
 		}
 		if len(X) > 0 {
-			totalDist += dist/float64(len(X))
+			totalDist += dist / float64(len(X))
 		}
 	}
 	return totalDist
@@ -139,12 +139,12 @@ func interdist(clusters []cluster, metric func(a, b *clusterNode) float64) float
 					}
 				}
 				if len(Y) > 0 {
-					dist += to/float64(len(Y))
+					dist += to / float64(len(Y))
 				}
 			}
 		}
 		if len(X) > 0 {
-			totalDist += dist/float64(len(X))
+			totalDist += dist / float64(len(X))
 		}
 	}
 	return totalDist
@@ -158,16 +158,16 @@ func noNan(x float64) interface{} {
 }
 
 type DbScan struct {
-	clusters     []cluster
-	items        int
-	epsilon      float64
-	seen         map[string]bool
+	clusters []cluster
+	items    int
+	epsilon  float64
+	seen     map[string]bool
 }
 
-func NewDbScan(epsilon float64) (*DbScan) {
+func NewDbScan(epsilon float64) *DbScan {
 	r := &DbScan{
-		epsilon:   epsilon,
-		seen:      make(map[string]bool),
+		epsilon: epsilon,
+		seen:    make(map[string]bool),
 	}
 	return r
 }
@@ -196,7 +196,7 @@ func (r *DbScan) Clusters() []*Cluster {
 			sum += cn.n.Score
 		}
 		lc := float64(len(clstr))
-		score := (sum/lc) * math.Sqrt(lc/(lc + 1))
+		score := (sum / lc) * math.Sqrt(lc/(lc+1))
 		clstrs = append(clstrs, &Cluster{
 			Score: score,
 			Nodes: clstr,
@@ -214,13 +214,13 @@ func (r *DbScan) WriteClusters(dir string) error {
 	enc := json.NewEncoder(f)
 	enc.SetEscapeHTML(false)
 	enc.SetIndent("", "")
-	random := make([]cluster, rand.Intn(int(float64(len(r.clusters))*1.2)) + 2)
+	random := make([]cluster, rand.Intn(int(float64(len(r.clusters))*1.2))+2)
 	for i, cluster := range r.clusters {
 		for _, cn := range cluster {
 			x := map[string]interface{}{
 				"cluster": i,
-				"name": cn.name,
-				"labels": fmt.Sprintf("%v", cn.labels),
+				"name":    cn.name,
+				"labels":  fmt.Sprintf("%v", cn.labels),
 			}
 			err := enc.Encode(x)
 			if err != nil {
@@ -243,8 +243,8 @@ func (r *DbScan) metrics(filePath string, random []cluster) error {
 	enc.SetEscapeHTML(false)
 	enc.SetIndent("", "")
 	if len(r.clusters) >= r.items || len(r.clusters) <= 1 {
-		x := map[string]interface{} {
-			"items": r.items,
+		x := map[string]interface{}{
+			"items":    r.items,
 			"clusters": len(r.clusters),
 		}
 		return enc.Encode(x)
@@ -254,27 +254,27 @@ func (r *DbScan) metrics(filePath string, random []cluster) error {
 	intraLabelRand := intradist(random, labelSimilarity)
 	interLabelRand := interdist(random, labelSimilarity)
 	stderr := func(a, b float64) float64 {
-		return math.Sqrt((a-b)*(a-b))
+		return math.Sqrt((a - b) * (a - b))
 	}
-	x := map[string]interface{} {
+	x := map[string]interface{}{
 		"items": r.items,
-		"cluster-metrics": map[string]interface{} {
-			"count": len(r.clusters),
-			"label-correlation": noNan(correlation(r.clusters, labelSimilarity)),
+		"cluster-metrics": map[string]interface{}{
+			"count":                len(r.clusters),
+			"label-correlation":    noNan(correlation(r.clusters, labelSimilarity)),
 			"label-intra-distance": noNan(intraLabel),
 			"label-inter-distance": noNan(interLabel),
-			"label-distance-ratio": noNan(intraLabel/interLabel),
+			"label-distance-ratio": noNan(intraLabel / interLabel),
 		},
-		"random-metrics": map[string]interface{} {
-			"count": len(random),
-			"label-correlation": noNan(correlation(random, labelSimilarity)),
+		"random-metrics": map[string]interface{}{
+			"count":                len(random),
+			"label-correlation":    noNan(correlation(random, labelSimilarity)),
 			"label-intra-distance": noNan(intraLabelRand),
 			"label-inter-distance": noNan(interLabelRand),
-			"label-distance-ratio": noNan(intraLabelRand/interLabelRand),
+			"label-distance-ratio": noNan(intraLabelRand / interLabelRand),
 		},
-		"standard-error":map[string]interface{} {
-			"count": noNan(stderr(float64(len(r.clusters)), float64(len(random)))),
-			"label-correlation": noNan(stderr(correlation(r.clusters, labelSimilarity), correlation(random, labelSimilarity))),
+		"standard-error": map[string]interface{}{
+			"count":                noNan(stderr(float64(len(r.clusters)), float64(len(random)))),
+			"label-correlation":    noNan(stderr(correlation(r.clusters, labelSimilarity), correlation(random, labelSimilarity))),
 			"label-intra-distance": noNan(stderr(intraLabel, intraLabelRand)),
 			"label-inter-distance": noNan(stderr(interLabel, interLabelRand)),
 			"label-distance-ratio": noNan(stderr(intraLabel/interLabel, intraLabelRand/interLabelRand)),
@@ -282,8 +282,8 @@ func (r *DbScan) metrics(filePath string, random []cluster) error {
 	}
 	err = enc.Encode(x)
 	if err != nil && strings.Contains(err.Error(), "NaN") {
-		x := map[string]interface{} {
-			"items": r.items,
+		x := map[string]interface{}{
+			"items":    r.items,
 			"clusters": len(r.clusters),
 		}
 		return enc.Encode(x)
@@ -301,7 +301,7 @@ func add(clusters []cluster, cn *clusterNode, epsilon float64, sim func(a, b *cl
 	for i := len(clusters) - 1; i >= 0; i-- {
 		for _, b := range clusters[i] {
 			s := sim(cn, b)
-			if s <= epsilon  {
+			if s <= epsilon {
 				near.Add(types.Int(i))
 				if min_near == -1 || s < min_sim {
 					min_near = i
@@ -336,7 +336,7 @@ func remove(list []cluster, i int) []cluster {
 	} else if i < 0 {
 		panic(fmt.Errorf("out of range (i (%v) < 0)", i))
 	}
-	for ; i < len(list) - 1; i++ {
+	for ; i < len(list)-1; i++ {
 		list[i] = list[i+1]
 	}
 	list[len(list)-1] = nil
@@ -353,5 +353,3 @@ func labelset(n *lattice.Node) (types.Set, error) {
 	}
 	return s, nil
 }
-
-

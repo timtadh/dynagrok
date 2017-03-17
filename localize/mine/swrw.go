@@ -22,15 +22,15 @@ func ScoreWeightedRandomWalk() Walker {
 	}
 }
 
-func (w *swrw) Walk(m *Miner) (*SearchNode) {
+func (w *swrw) Walk(m *Miner) *SearchNode {
 	return w.WalkFrom(m, RootNode(m.Lattice))
 }
 
-func (w *swrw) WalkFromColor(m *Miner, color int) (*SearchNode) {
+func (w *swrw) WalkFromColor(m *Miner, color int) *SearchNode {
 	return w.WalkFrom(m, ColorNode(m.Lattice, m.Score, color))
 }
 
-func (w *swrw) WalkFrom(m *Miner, start *SearchNode) (*SearchNode) {
+func (w *swrw) WalkFrom(m *Miner, start *SearchNode) *SearchNode {
 	cur := start
 	prev := cur
 	for cur != nil {
@@ -67,7 +67,7 @@ func abs(a float64) float64 {
 	return a
 }
 
-func filterKids(m *Miner, parentScore float64, kids []*lattice.Node) ([]*SearchNode) {
+func filterKids(m *Miner, parentScore float64, kids []*lattice.Node) []*SearchNode {
 	var epsilon float64 = 0
 	entries := make([]*SearchNode, 0, len(kids))
 	for _, kid := range kids {
@@ -78,14 +78,14 @@ func filterKids(m *Miner, parentScore float64, kids []*lattice.Node) ([]*SearchN
 		_, prf := FailureProbability(m.Lattice, kid)
 		_, pro := OkProbability(m.Lattice, kid)
 		// errors.Logf("DEBUG", "kid %v %v", kidScore, kid)
-		if (abs(parentScore - kidScore) <= epsilon && abs(1 - prf/(pro + prf)) <= epsilon) || kidScore > parentScore {
+		if (abs(parentScore-kidScore) <= epsilon && abs(1-prf/(pro+prf)) <= epsilon) || kidScore > parentScore {
 			entries = append(entries, &SearchNode{kid, kidScore, nil})
 		}
 	}
 	return entries
 }
 
-func weighted(slice []*SearchNode) (*SearchNode) {
+func weighted(slice []*SearchNode) *SearchNode {
 	if len(slice) <= 0 {
 		return nil
 	}
@@ -127,7 +127,7 @@ func weightedSample(weights []float64) int {
 	}
 	i := 0
 	r := total * rand.Float64()
-	for ; i < len(weights) - 1 && r > weights[i]; i++ {
+	for ; i < len(weights)-1 && r > weights[i]; i++ {
 		r -= weights[i]
 	}
 	return i

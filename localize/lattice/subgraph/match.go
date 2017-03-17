@@ -8,7 +8,6 @@ import (
 	"github.com/timtadh/dynagrok/localize/lattice/digraph"
 )
 
-
 func (sg *SubGraph) SupportOf(indices *digraph.Indices) (size, support int, err error) {
 	// errors.Logf("DEBUG", "checking %v", sg)
 	_, rsg, err := sg.EstimateMatch(indices)
@@ -49,7 +48,7 @@ func (sg *SubGraph) EstimateMatch(indices *digraph.Indices) (match float64, csg 
 			if len(sg.E) == 0 {
 				match = 1
 			} else {
-				match = float64(maxEid)/float64(len(sg.E))
+				match = float64(maxEid) / float64(len(sg.E))
 			}
 			return match, csg, nil
 		}

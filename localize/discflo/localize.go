@@ -13,14 +13,14 @@ import (
 
 import (
 	"github.com/timtadh/dynagrok/localize/lattice/subgraph"
-	"github.com/timtadh/dynagrok/localize/test"
-	"github.com/timtadh/dynagrok/localize/stat"
 	"github.com/timtadh/dynagrok/localize/mine"
+	"github.com/timtadh/dynagrok/localize/stat"
+	"github.com/timtadh/dynagrok/localize/test"
 )
 
 type Location struct {
 	stat.Location
-	Clusters   []*Cluster
+	Clusters []*Cluster
 }
 
 func (l *Location) ShortString() string {
@@ -99,7 +99,7 @@ func clusters(tests []*test.Testcase, oracle test.Executor, m *mine.Miner, db *D
 				fmt.Printf("------------ node %d -----------------\n", j)
 				fmt.Println(RankNodes(m, n.Node.SubGraph))
 				fmt.Println("--------------------------------------")
-				for count := 0; count < len(tests) ; count++ {
+				for count := 0; count < len(tests); count++ {
 					j := rand.Intn(len(tests))
 					t := tests[j]
 					min, err := t.Minimize(m.Lattice, n.Node.SubGraph)
@@ -160,7 +160,6 @@ func clusters(tests []*test.Testcase, oracle test.Executor, m *mine.Miner, db *D
 	return filtered, nil
 }
 
-
 func (clusters Clusters) Colors() map[int][]*Cluster {
 	colors := make(map[int][]*Cluster)
 	for _, clstr := range clusters {
@@ -197,8 +196,8 @@ func ScoreColor(m *mine.Miner, color int, in []*Cluster) float64 {
 	var s float64
 	t := 0
 	for _, c := range in {
-		rm := s/float64(t)
-		if t < 1 || abs(c.Score - rm) < epsilon {
+		rm := s / float64(t)
+		if t < 1 || abs(c.Score-rm) < epsilon {
 			s += c.Score
 			t++
 		} else {

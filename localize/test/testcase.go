@@ -99,4 +99,3 @@ func (t *Testcase) Execute() error {
 func (t *Testcase) ExecuteWith(e Executor) (stdout, stderr, profile, failures []byte, ok bool, err error) {
 	return e.Execute(t.Case)
 }
-

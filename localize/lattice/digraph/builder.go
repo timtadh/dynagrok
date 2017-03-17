@@ -21,22 +21,22 @@ func Build(V, E int) *Builder {
 		E = 100
 	}
 	return &Builder{
-		V: make(Vertices, 0, V),
-		E: make(Edges, 0, E),
-		Adj: make([][]int, 0, V),
+		V:            make(Vertices, 0, V),
+		E:            make(Edges, 0, E),
+		Adj:          make([][]int, 0, V),
 		VertexColors: make(map[int]int, V),
-		EdgeColors: make(map[int]int, E),
+		EdgeColors:   make(map[int]int, E),
 	}
 }
 
 func (b *Builder) Build(indexVertex func(*Vertex), indexEdge func(*Edge)) *Digraph {
 	g := &Digraph{
-		V: make(Vertices, len(b.V)),
-		E: make(Edges, len(b.E)),
-		Adj: make([][]int, len(b.V)),
-		Kids: make([][]int, len(b.V)),
+		V:       make(Vertices, len(b.V)),
+		E:       make(Edges, len(b.E)),
+		Adj:     make([][]int, len(b.V)),
+		Kids:    make([][]int, len(b.V)),
 		Parents: make([][]int, len(b.V)),
-		Graphs: b.Graphs,
+		Graphs:  b.Graphs,
 	}
 	for i := range b.V {
 		g.V[i].Idx = b.V[i].Idx
@@ -96,7 +96,7 @@ func (b *Builder) AddVertex(color int) *Vertex {
 		b.Adj[idx] = make([]int, 0, 5)
 	} else {
 		b.V = append(b.V, Vertex{
-			Idx: idx,
+			Idx:   idx,
 			Color: color,
 		})
 		b.Adj = append(b.Adj, make([]int, 0, 5))
@@ -114,8 +114,8 @@ func (b *Builder) AddEdge(u, v *Vertex, color int) *Edge {
 		b.E[idx].Color = color
 	} else {
 		b.E = append(b.E, Edge{
-			Src: u.Idx,
-			Targ: v.Idx,
+			Src:   u.Idx,
+			Targ:  v.Idx,
 			Color: color,
 		})
 	}

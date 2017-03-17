@@ -1,18 +1,17 @@
 package test
 
-
 import (
+	"bytes"
+	"context"
+	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
-	"syscall"
-	"bytes"
 	"path/filepath"
-	"time"
-	"fmt"
-	"context"
-	"io/ioutil"
-	"strings"
 	"strconv"
+	"strings"
+	"syscall"
+	"time"
 )
 
 import (
@@ -24,10 +23,10 @@ import (
 )
 
 type Remote struct {
-	Config *cmd.Config
-	Path string
+	Config  *cmd.Config
+	Path    string
 	Timeout time.Duration
-	MaxMem int // Maximum Resident Memory in Bytes
+	MaxMem  int // Maximum Resident Memory in Bytes
 }
 
 type RemoteOption func(r *Remote)
@@ -63,13 +62,13 @@ func NewRemote(path string, opts ...RemoteOption) (r *Remote, err error) {
 	if err != nil {
 		return nil, err
 	}
-	if stat.Mode() & 0111 == 0 {
+	if stat.Mode()&0111 == 0 {
 		return nil, errors.Errorf("File %v is not executable", path)
 	}
 	r = &Remote{
-		Path: path,
+		Path:    path,
 		Timeout: 2 * time.Second,
-		MaxMem: 50000000, // 50 MB
+		MaxMem:  50000000, // 50 MB
 	}
 	for _, opt := range opts {
 		opt(r)
@@ -184,7 +183,7 @@ func (r *Remote) watch(ctx context.Context, cancel context.CancelFunc, c *exec.C
 		if err != nil && c.ProcessState != nil {
 			cancel()
 		}
-		time.AfterFunc(100 * time.Nanosecond, func() {
+		time.AfterFunc(100*time.Nanosecond, func() {
 			if c.ProcessState != nil {
 				cancel()
 			}
@@ -256,4 +255,3 @@ func getMemoryUsage(p *os.Process) (int, error) {
 	}
 	return pages * os.Getpagesize(), nil
 }
-

@@ -4,7 +4,6 @@ import (
 	"net/http"
 )
 
-
 func (v *Views) ExcludeCluster(c *Context) error {
 	clusters, err := v.localization.Clusters()
 	if err != nil {
@@ -21,4 +20,3 @@ func (v *Views) ExcludeCluster(c *Context) error {
 	http.Redirect(c.rw, c.r, "/blocks", http.StatusFound)
 	return nil
 }
-

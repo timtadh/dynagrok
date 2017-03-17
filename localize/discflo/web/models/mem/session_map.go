@@ -5,23 +5,21 @@ import (
 	"sync"
 )
 
-import (
-)
+import ()
 
 import (
 	"github.com/timtadh/dynagrok/localize/discflo/web/models"
 )
 
-
 type SessionMapStore struct {
-	lock sync.Mutex
-	name string
+	lock  sync.Mutex
+	name  string
 	store map[string]*models.Session
 }
 
 func NewSessionMapStore(name string) *SessionMapStore {
 	return &SessionMapStore{
-		name: name,
+		name:  name,
 		store: make(map[string]*models.Session, 1000),
 	}
 }
@@ -55,4 +53,3 @@ func (m *SessionMapStore) Update(s *models.Session) error {
 	m.store[s.Key] = s.Copy()
 	return nil
 }
-

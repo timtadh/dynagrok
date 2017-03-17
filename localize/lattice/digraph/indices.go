@@ -13,17 +13,17 @@ type Colors struct {
 }
 
 type Indices struct {
-	G               *Digraph
-	ColorIndex      map[int][]int          // Colors -> []Idx in G.V
-	SrcIndex        map[IdColorColor][]int // (SrcIdx, EdgeColor, TargColor) -> TargIdx (where Idx in G.V)
-	TargIndex       map[IdColorColor][]int // (TargIdx, EdgeColor, SrcColor) -> SrcIdx (where Idx in G.V)
-	EdgeIndex       map[Edge]*Edge
-	EdgeCounts      map[Colors]int         // (src-color, targ-color, edge-color) -> count
-	FreqEdges       []Colors               // frequent color triples
-	EdgesFromColor  map[int][]Colors       // freq src-colors -> color triples
-	EdgesToColor    map[int][]Colors       // freq targ-colors -> color triples
-	VertexColors    map[int]int            // the color frequency for vertices
-	EdgeColors      map[int]int            // the color frequency for edges
+	G              *Digraph
+	ColorIndex     map[int][]int          // Colors -> []Idx in G.V
+	SrcIndex       map[IdColorColor][]int // (SrcIdx, EdgeColor, TargColor) -> TargIdx (where Idx in G.V)
+	TargIndex      map[IdColorColor][]int // (TargIdx, EdgeColor, SrcColor) -> SrcIdx (where Idx in G.V)
+	EdgeIndex      map[Edge]*Edge
+	EdgeCounts     map[Colors]int   // (src-color, targ-color, edge-color) -> count
+	FreqEdges      []Colors         // frequent color triples
+	EdgesFromColor map[int][]Colors // freq src-colors -> color triples
+	EdgesToColor   map[int][]Colors // freq targ-colors -> color triples
+	VertexColors   map[int]int      // the color frequency for vertices
+	EdgeColors     map[int]int      // the color frequency for edges
 }
 
 func NewIndices(b *Builder, minSupport int) *Indices {
@@ -98,7 +98,7 @@ func (i *Indices) EdgeColorFrequency(color int) int {
 
 func (i *Indices) Colors(e *Edge) Colors {
 	return Colors{
-		SrcColor: i.G.V[e.Src].Color,
+		SrcColor:  i.G.V[e.Src].Color,
 		TargColor: i.G.V[e.Targ].Color,
 		EdgeColor: e.Color,
 	}

@@ -12,8 +12,6 @@ import (
 	"github.com/timtadh/dynagrok/localize/lattice/digraph"
 )
 
-
-
 func Load(failPath, okPath string) (l *Lattice, err error) {
 	failFile, failClose, err := cmd.Input(failPath)
 	if err != nil {

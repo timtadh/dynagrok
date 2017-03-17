@@ -11,15 +11,15 @@ import (
 )
 
 type Node struct {
-	l *Lattice
-	SubGraph *subgraph.SubGraph
+	l          *Lattice
+	SubGraph   *subgraph.SubGraph
 	Embeddings subgraph.Embeddings
 }
 
 func NewNode(l *Lattice, sg *subgraph.SubGraph, embs subgraph.Embeddings) *Node {
 	return &Node{
-		l: l,
-		SubGraph: sg,
+		l:          l,
+		SubGraph:   sg,
 		Embeddings: embs,
 	}
 }
@@ -40,4 +40,3 @@ func (n *Node) CanonKids() (nodes []*Node, err error) {
 		return isCanonicalExtension(n.SubGraph, ext)
 	})
 }
-

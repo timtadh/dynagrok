@@ -1,8 +1,8 @@
 package digraph
 
 import (
-	"sync"
 	"fmt"
+	"sync"
 )
 
 type Labels struct {

@@ -29,10 +29,9 @@ func (v *Views) Block(c *Context) error {
 	}
 	bbid, fnName, _ := v.opts.Lattice.Info.Get(color)
 	return v.tmpl.ExecuteTemplate(c.rw, "block", &data{
-		Color: color,
-		FnName: fnName,
+		Color:        color,
+		FnName:       fnName,
 		BasicBlockId: bbid,
-		Clusters: colors[color],
+		Clusters:     colors[color],
 	})
 }
-

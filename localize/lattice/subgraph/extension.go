@@ -85,7 +85,6 @@ func (e *Extension) ExtEquals(x *Extension) bool {
 		e.Color == x.Color
 }
 
-
 func (e *Extension) Less(o types.Sortable) bool {
 	switch x := o.(type) {
 	case *Extension:

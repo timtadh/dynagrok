@@ -13,22 +13,21 @@ import (
 	"time"
 )
 
-
 type Session struct {
-	Key string
-	CsrfKey []byte
-	Addr string
+	Key      string
+	CsrfKey  []byte
+	Addr     string
 	UsrAgent string
-	Created time.Time
+	Created  time.Time
 	Accessed time.Time
-	User string
+	User     string
 }
 
 type SessionStore interface {
 	Name() string
 	Get(key string) (*Session, error)
-	Update(*Session) (error)
-	Invalidate(*Session) (error)
+	Update(*Session) error
+	Invalidate(*Session) error
 }
 
 func randBytes(length int) []byte {
@@ -94,14 +93,13 @@ func GetSession(store SessionStore, rw http.ResponseWriter, r *http.Request) (s 
 	return s, nil
 }
 
-
 func newSession(r *http.Request) *Session {
 	return &Session{
-		Key: hex.EncodeToString(randBytes(16)),
-		CsrfKey: randBytes(64),
-		Addr: ip(r),
+		Key:      hex.EncodeToString(randBytes(16)),
+		CsrfKey:  randBytes(64),
+		Addr:     ip(r),
 		UsrAgent: userAgent(r),
-		Created: time.Now().UTC(),
+		Created:  time.Now().UTC(),
 		Accessed: time.Now().UTC(),
 	}
 }
@@ -151,11 +149,10 @@ func (s *Session) update(name string, r *http.Request) error {
 func (s *Session) write(name string, rw http.ResponseWriter, r *http.Request) {
 	secure := r.URL.Scheme == "https" || r.TLS != nil
 	http.SetCookie(rw, &http.Cookie{
-		Name: name,
-		Value: s.Key,
-		Path: "/",
-		Secure: secure,
+		Name:     name,
+		Value:    s.Key,
+		Path:     "/",
+		Secure:   secure,
 		HttpOnly: true,
 	})
 }
-

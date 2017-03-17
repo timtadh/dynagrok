@@ -10,7 +10,6 @@ type Walker interface {
 	WalkFromColor(*Miner, int) *SearchNode
 }
 
-
 func Walking(walker Walker, walks int) MinerFunc {
 	return func(m *Miner) SearchNodes {
 		return WalksToNodes(m, walker.Walk, walks)
@@ -94,7 +93,7 @@ func WalkingTopColors(walker Walker, opts ...TopColorOpt) MinerFunc {
 		start:
 			if w >= o.walksPerColor {
 				l := locations[i]
-				if prevScore - l.Score  > .0001 {
+				if prevScore-l.Score > .0001 {
 					groups++
 				}
 				prevScore = l.Score
@@ -140,4 +139,3 @@ func WalkingTopColors(walker Walker, opts ...TopColorOpt) MinerFunc {
 		return sni
 	}
 }
-

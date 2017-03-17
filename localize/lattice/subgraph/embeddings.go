@@ -29,7 +29,6 @@ const (
 
 type EmbIterator func(bool) (*Embedding, EmbIterator)
 
-
 func (sg *SubGraph) EmbeddedIn(indices *digraph.Indices) bool {
 	for _, next := sg.IterEmbeddings(MostConnected, indices, nil, nil)(false); next != nil; _, next = next(true) {
 		return true
@@ -160,7 +159,7 @@ func (sg *SubGraph) startEmbeddings(indices *digraph.Indices, startIdx int) []*E
 	color := sg.V[startIdx].Color
 	embs := make([]*Embedding, 0, indices.VertexColorFrequency(color))
 	for _, gIdx := range indices.ColorIndex[color] {
-		embs = append(embs, &Embedding{VertexEmbedding:VertexEmbedding{EmbIdx: gIdx, SgIdx: startIdx}})
+		embs = append(embs, &Embedding{VertexEmbedding: VertexEmbedding{EmbIdx: gIdx, SgIdx: startIdx}})
 	}
 	return embs
 }
@@ -305,12 +304,12 @@ func (sg *SubGraph) extendEmbedding(indices *digraph.Indices, cur *Embedding, e 
 		// }
 		if o == nil || len(o[newIdx]) == 0 {
 			do(&Embedding{
-				VertexEmbedding:VertexEmbedding{
+				VertexEmbedding: VertexEmbedding{
 					EmbIdx: newId, SgIdx: newIdx},
 				Prev: cur})
 		} else if o[newIdx] != nil && o[newIdx][newId] {
 			do(&Embedding{
-				VertexEmbedding:VertexEmbedding{
+				VertexEmbedding: VertexEmbedding{
 					EmbIdx: newId, SgIdx: newIdx},
 				Prev: cur})
 		}
@@ -356,9 +355,9 @@ outer:
 		}
 		for _, id := range indices.ColorIndex[sg.V[idx].Color] {
 			if overlap == nil || len(overlap[idx]) == 0 || overlap[idx][id] {
-				emb := &Embedding{VertexEmbedding:VertexEmbedding{
+				emb := &Embedding{VertexEmbedding: VertexEmbedding{
 					EmbIdx: id,
-					SgIdx: idx,
+					SgIdx:  idx,
 				}}
 				sg.extendEmbedding(indices, emb, e, overlap, func(_ *Embedding) {
 					total++

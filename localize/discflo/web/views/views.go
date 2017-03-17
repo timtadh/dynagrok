@@ -1,18 +1,18 @@
 package views
 
 import (
+	"html/template"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-	"io/ioutil"
-	"html/template"
 )
 
 import (
-	"github.com/timtadh/data-structures/errors"
 	"github.com/julienschmidt/httprouter"
+	"github.com/timtadh/data-structures/errors"
 )
 
 import (
@@ -34,9 +34,9 @@ type Views struct {
 func Routes(c *cmd.Config, o *discflo.Options, assetPath string) (http.Handler, error) {
 	mux := httprouter.New()
 	v := &Views{
-		config: c,
-		opts: o,
-		assets: filepath.Clean(assetPath),
+		config:   c,
+		opts:     o,
+		assets:   filepath.Clean(assetPath),
 		sessions: mem.NewSessionMapStore("session"),
 	}
 	mux.GET("/", v.Context(v.Index))

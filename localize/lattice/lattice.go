@@ -12,17 +12,17 @@ import (
 )
 
 type Lattice struct {
-	Fail, Ok                 *digraph.Indices
-	Labels                   *digraph.Labels
-	Info                     *digraph.Info
-	NodeAttrs                map[int]map[string]interface{}
-	frequentVertices         []*Node
+	Fail, Ok         *digraph.Indices
+	Labels           *digraph.Labels
+	Info             *digraph.Info
+	NodeAttrs        map[int]map[string]interface{}
+	frequentVertices []*Node
 }
 
 func NewLattice(load func(l *Lattice) error) (l *Lattice, err error) {
 	l = &Lattice{
-		Labels: digraph.NewLabels(),
-		Info: digraph.NewInfo(),
+		Labels:    digraph.NewLabels(),
+		Info:      digraph.NewInfo(),
 		NodeAttrs: make(map[int]map[string]interface{}),
 	}
 	err = load(l)

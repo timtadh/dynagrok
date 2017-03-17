@@ -27,11 +27,11 @@ func (c *Context) indexIn(name string, has func(int) bool) (int, error) {
 
 func (v *Views) GenerateTest(c *Context) error {
 	type data struct {
-		ClusterId  int
-		NodeId  int
-		Test string
-		Stdout string
-		Stderr string
+		ClusterId int
+		NodeId    int
+		Test      string
+		Stdout    string
+		Stderr    string
 	}
 	clusters, err := v.localization.Clusters()
 	if err != nil {
@@ -65,10 +65,9 @@ func (v *Views) GenerateTest(c *Context) error {
 	}
 	return v.tmpl.ExecuteTemplate(c.rw, "test", &data{
 		ClusterId: cid,
-		NodeId: nid,
-		Test: test,
-		Stdout: out,
-		Stderr: errout,
+		NodeId:    nid,
+		Test:      test,
+		Stdout:    out,
+		Stderr:    errout,
 	})
 }
-

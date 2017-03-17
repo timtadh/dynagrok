@@ -8,13 +8,12 @@ import (
 )
 
 import (
+	"github.com/timtadh/combos"
 	"github.com/timtadh/data-structures/errors"
 	"github.com/timtadh/dot"
-	"github.com/timtadh/combos"
 )
 
 import ()
-
 
 type VertexAttrs map[int]map[string]interface{}
 
@@ -30,13 +29,13 @@ type DotLoader struct {
 
 func LoadDot(positions, fnNames map[int]string, bbids map[int]int, labels *Labels, input io.Reader) (*Indices, error) {
 	l := &DotLoader{
-		Builder: Build(100, 1000),
-		Labels: labels,
-		Attrs: make(VertexAttrs),
+		Builder:   Build(100, 1000),
+		Labels:    labels,
+		Attrs:     make(VertexAttrs),
 		Positions: positions,
-		FnNames: fnNames,
-		BBIds: bbids,
-		vidxs: make(map[int]int),
+		FnNames:   fnNames,
+		BBIds:     bbids,
+		vidxs:     make(map[int]int),
 	}
 	return l.load(input)
 }
@@ -48,7 +47,7 @@ func (l *DotLoader) load(input io.Reader) (*Indices, error) {
 	}
 	dp := &dotParse{
 		loader: l,
-		vids: make(map[string]int),
+		vids:   make(map[string]int),
 	}
 	err = dot.StreamParse(text, dp)
 	if err != nil {
@@ -85,7 +84,7 @@ func (l *DotLoader) addVertex(id int, color int, label string, attrs map[string]
 func (l *DotLoader) addEdge(sid, tid int, color int, label string) (err error) {
 	if sidx, has := l.vidxs[sid]; !has {
 		return errors.Errorf("unknown src id %v", tid)
-	} else if tidx, has := l.vidxs[tid]; !has{
+	} else if tidx, has := l.vidxs[tid]; !has {
 		return errors.Errorf("unknown targ id %v", tid)
 	} else {
 		l.Builder.AddEdge(&l.Builder.V[sidx], &l.Builder.V[tidx], color)
@@ -93,14 +92,13 @@ func (l *DotLoader) addEdge(sid, tid int, color int, label string) (err error) {
 	return nil
 }
 
-
 type dotParse struct {
-	loader *DotLoader
-	graphId int
+	loader   *DotLoader
+	graphId  int
 	curGraph string
 	subgraph int
-	nextId int
-	vids map[string]int
+	nextId   int
+	vids     map[string]int
 }
 
 func (p *dotParse) Enter(name string, n *combos.Node) error {
@@ -191,4 +189,3 @@ func (p *dotParse) loadEdge(n *combos.Node) (err error) {
 	}
 	return p.loader.addEdge(sid, tid, p.loader.Labels.Color(label), label)
 }
-

@@ -1,13 +1,13 @@
 package models
 
 import (
+	"bytes"
+	"context"
 	"fmt"
+	"os/exec"
 	"sort"
 	"sync"
 	"time"
-	"context"
-	"bytes"
-	"os/exec"
 )
 
 import (
@@ -25,18 +25,18 @@ type Localization struct {
 }
 
 type Clusters struct {
-	lock       sync.Mutex
-	tests      []*test.Testcase
-	lat        *lattice.Lattice
-	miner      *mine.Miner
-	opts       *discflo.Options
-	included   []*Cluster
-	excluded   []*Cluster
-	clusters   map[int]*Cluster
-	allColors  [][]*Cluster
-	colors     map[int][]*Cluster
-	imgs       map[sgid][]byte
-	blocks     Blocks
+	lock      sync.Mutex
+	tests     []*test.Testcase
+	lat       *lattice.Lattice
+	miner     *mine.Miner
+	opts      *discflo.Options
+	included  []*Cluster
+	excluded  []*Cluster
+	clusters  map[int]*Cluster
+	allColors [][]*Cluster
+	colors    map[int][]*Cluster
+	imgs      map[sgid][]byte
+	blocks    Blocks
 }
 
 type sgid struct {
@@ -96,18 +96,18 @@ func (l *Localization) Exclude(id int) error {
 
 func (l *Localization) newClusters(miner *mine.Miner, clusters discflo.Clusters) *Clusters {
 	c := &Clusters{
-		lat: l.opts.Lattice,
-		miner: miner,
-		tests: l.opts.Tests,
+		lat:      l.opts.Lattice,
+		miner:    miner,
+		tests:    l.opts.Tests,
 		included: make([]*Cluster, 0, len(clusters)),
 		excluded: make([]*Cluster, 0, len(clusters)),
 		clusters: make(map[int]*Cluster, len(clusters)),
-		imgs: make(map[sgid][]byte),
+		imgs:     make(map[sgid][]byte),
 	}
 	for i, x := range clusters {
 		cluster := &Cluster{
-			Cluster: *x,
-			Id: i,
+			Cluster:     *x,
+			Id:          i,
 			IncludedIdx: i,
 			ExcludedIdx: -1,
 		}
@@ -178,12 +178,12 @@ func (c *Clusters) Blocks() Blocks {
 	for color, clusters := range colors {
 		bbid, fnName, pos := c.lat.Info.Get(color)
 		blocks = append(blocks, &Block{
-			In:    clusters,
+			In: clusters,
 			Location: stat.Location{
-				Score: discflo.ScoreColor(c.miner, color, c.asDiscflo(clusters)),
-				Color: color,
-				Position: pos,
-				FnName: fnName,
+				Score:        discflo.ScoreColor(c.miner, color, c.asDiscflo(clusters)),
+				Color:        color,
+				Position:     pos,
+				FnName:       fnName,
 				BasicBlockId: bbid,
 			},
 		})
@@ -275,7 +275,7 @@ func (c *Clusters) Img(id, nid int) ([]byte, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	if img, has := c.imgs[sgid{id,nid}]; has {
+	if img, has := c.imgs[sgid{id, nid}]; has {
 		return img, nil
 	}
 
@@ -291,7 +291,7 @@ func (c *Clusters) Img(id, nid int) ([]byte, error) {
 	dotty := node.Node.SubGraph.Dotty(c.lat.Labels)
 	var outbuf, errbuf bytes.Buffer
 	inbuf := bytes.NewBuffer([]byte(dotty))
-	ctx, cancel := context.WithTimeout(context.Background(), 2 * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "dot", "-Tpng")
 	cmd.Stdin = inbuf
@@ -302,7 +302,7 @@ func (c *Clusters) Img(id, nid int) ([]byte, error) {
 		return nil, err
 	}
 	img := outbuf.Bytes()
-	c.imgs[sgid{id,nid}] = img
+	c.imgs[sgid{id, nid}] = img
 	return img, nil
 }
 

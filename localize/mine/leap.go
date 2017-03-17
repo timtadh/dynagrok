@@ -10,13 +10,13 @@ import (
 )
 
 type sLeap struct {
-	k int
+	k     int
 	sigma float64
 }
 
 func SLeap(k int, sigma float64) TopMiner {
 	return &sLeap{
-		k: k,
+		k:     k,
 		sigma: sigma,
 	}
 }
@@ -65,7 +65,7 @@ func (l *sLeap) MineFrom(m *Miner, start *SearchNode) SearchNodes {
 		return max
 	}
 	max := make([]*SearchNode, 0, l.k)
-	queue := heap.NewMaxHeap(m.MaxEdges*2)
+	queue := heap.NewMaxHeap(m.MaxEdges * 2)
 	queue.Push(priority(start))
 	seen := make(map[string]bool)
 mainLoop:
@@ -99,10 +99,10 @@ mainLoop:
 				_, kp := FailureProbability(m.Lattice, kid.Node)
 				_, cn := OkProbability(m.Lattice, cur.Node)
 				_, kn := OkProbability(m.Lattice, kid.Node)
-				dp := cp - kp         // probability of an embedding of cur without kid in positive
-				pc := (2*dp)/(cp + kp)
-				dn := cn - kn         // probability of an embedding of cur without kid in negative
-				nc := (2*dn)/(cn + kn)
+				dp := cp - kp // probability of an embedding of cur without kid in positive
+				pc := (2 * dp) / (cp + kp)
+				dn := cn - kn // probability of an embedding of cur without kid in negative
+				nc := (2 * dn) / (cn + kn)
 				if pc < l.sigma && nc < l.sigma {
 					if false {
 						errors.Logf("DEBUG", "\n\t\t\tleaping!!! %v %v (%v - %v) %v %v", queue.Size(), len(max), max[0].Score, max[len(max)-1].Score, m.Score.Max(cur.Node), cur)
@@ -127,4 +127,3 @@ mainLoop:
 	}
 	return SliceToNodes(max)
 }
-

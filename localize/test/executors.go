@@ -1,8 +1,8 @@
 package test
 
 import (
-	"os"
 	"io/ioutil"
+	"os"
 	"strings"
 )
 
@@ -17,7 +17,7 @@ type Executor interface {
 
 type stdin struct {
 	args []string
-	r *Remote
+	r    *Remote
 }
 
 func StdinExecutor(args []string, r *Remote) Executor {
@@ -29,10 +29,10 @@ func (s *stdin) Execute(test []byte) (stdout, stderr, profile, failures []byte, 
 }
 
 type singleInput struct {
-	args Arguments
+	args   Arguments
 	inputs []string
-	stdin bool
-	r *Remote
+	stdin  bool
+	r      *Remote
 }
 
 func SingleInputExecutor(args Arguments, r *Remote) (Executor, error) {
@@ -41,10 +41,10 @@ func SingleInputExecutor(args Arguments, r *Remote) (Executor, error) {
 	}
 	_, stdin := args.Stdin()
 	si := &singleInput{
-		args: args,
+		args:   args,
 		inputs: args.Inputs(),
-		stdin: stdin,
-		r: r,
+		stdin:  stdin,
+		r:      r,
 	}
 	return si, nil
 }
@@ -156,8 +156,6 @@ func (a *stdinArg) String() string {
 	return "<$" + a.name
 }
 
-
-
 type inputArg struct {
 	name string
 }
@@ -205,4 +203,3 @@ func (a *literalArg) InputName() string {
 func (a *literalArg) String() string {
 	return a.arg
 }
-

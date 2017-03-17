@@ -10,7 +10,6 @@ import (
 	"github.com/timtadh/matrix"
 )
 
-
 func (sg *SubGraph) Metric(o *SubGraph) float64 {
 	labels := make(map[int]int, len(sg.V)+len(o.V))
 	rlabels := make([]int, 0, len(sg.V)+len(o.V))
@@ -42,8 +41,8 @@ func (sg *SubGraph) Metric(o *SubGraph) float64 {
 		log.Fatal(err)
 	}
 	norm := W2.DenseMatrix().TwoNorm()
-	size := float64(len(rlabels)*len(rlabels))
-	mean := norm/size
+	size := float64(len(rlabels) * len(rlabels))
+	mean := norm / size
 	metric := math.Sqrt(mean)
 	if false {
 		errors.Logf("SIM", "sg    %v", sg)
@@ -63,11 +62,11 @@ func (sg *SubGraph) LE(labels map[int]int) (L, E matrix.Matrix) {
 		L.Set(labels[sg.V[i].Color], i, 1)
 	}
 	for i := range sg.E {
-		L.Set(labels[sg.E[i].Color], V + i, 1)
+		L.Set(labels[sg.E[i].Color], V+i, 1)
 	}
 	for i := range sg.E {
-		E.Set(sg.E[i].Src, V + i, 1)
-		E.Set(V + i, sg.E[i].Targ, 1)
+		E.Set(sg.E[i].Src, V+i, 1)
+		E.Set(V+i, sg.E[i].Targ, 1)
 	}
 	return L, E
 }
@@ -106,4 +105,3 @@ func (sg *SubGraph) Walks(labels map[int]int) (W matrix.Matrix) {
 	}
 	return LELT
 }
-

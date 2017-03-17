@@ -1,9 +1,9 @@
 package discflo
 
 import (
-	"github.com/timtadh/dynagrok/localize/test"
 	"github.com/timtadh/dynagrok/localize/lattice"
 	"github.com/timtadh/dynagrok/localize/mine"
+	"github.com/timtadh/dynagrok/localize/test"
 )
 
 type Options struct {
@@ -27,4 +27,3 @@ func Localizer(o *Options) func(m *mine.Miner) (Clusters, error) {
 		return Localize(m, tests, o.Oracle)
 	}
 }
-

@@ -52,4 +52,3 @@ func (sg *SubGraph) Less(o types.Sortable) bool {
 func (sg *SubGraph) Hash() int {
 	return types.ByteSlice(sg.Label()).Hash()
 }
-

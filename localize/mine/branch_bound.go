@@ -71,7 +71,7 @@ func (b *branchBound) MineFrom(m *Miner, start *SearchNode) SearchNodes {
 		return max
 	}
 	max := make([]*SearchNode, 0, b.k)
-	queue := heap.NewMaxHeap(m.MaxEdges*2)
+	queue := heap.NewMaxHeap(m.MaxEdges * 2)
 	queue.Push(priority(start))
 	seen := make(map[string]bool)
 	for queue.Size() > 0 {
@@ -112,4 +112,3 @@ func (b *branchBound) MineFrom(m *Miner, start *SearchNode) SearchNodes {
 	}
 	return SliceToNodes(max)
 }
-

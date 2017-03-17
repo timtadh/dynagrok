@@ -6,10 +6,9 @@ import (
 
 import (
 	"github.com/timtadh/dynagrok/localize/lattice"
-	"github.com/timtadh/dynagrok/localize/test"
 	"github.com/timtadh/dynagrok/localize/lattice/subgraph"
+	"github.com/timtadh/dynagrok/localize/test"
 )
-
 
 type SearchNodes func() (*SearchNode, SearchNodes)
 
@@ -38,7 +37,7 @@ func SliceToNodes(slice []*SearchNode) (sni SearchNodes) {
 
 func RootNode(lat *lattice.Lattice) *SearchNode {
 	return &SearchNode{
-		Node: lat.Root(),
+		Node:  lat.Root(),
 		Score: -100000000000,
 	}
 }
@@ -52,8 +51,7 @@ func ColorNode(lat *lattice.Lattice, score *Score, color int) *SearchNode {
 	}
 	colorNode := lattice.NewNode(lat, vsg, embs)
 	return &SearchNode{
-		Node: colorNode,
+		Node:  colorNode,
 		Score: score.Score(colorNode),
 	}
 }
-

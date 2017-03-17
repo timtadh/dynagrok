@@ -6,11 +6,10 @@ import (
 	"time"
 )
 
-import (
-)
+import ()
 
 type loggingRW struct {
-	rw http.ResponseWriter
+	rw    http.ResponseWriter
 	total int
 }
 
@@ -41,4 +40,3 @@ func (v *Views) Log(f View) View {
 		return err
 	}
 }
-
