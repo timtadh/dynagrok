@@ -12,6 +12,7 @@ import (
 
 import (
 	"github.com/timtadh/dynagrok/localize/discflo"
+	"github.com/timtadh/dynagrok/localize/lattice"
 	"github.com/timtadh/dynagrok/localize/mine"
 	"github.com/timtadh/dynagrok/localize/stat"
 	"github.com/timtadh/dynagrok/localize/test"
@@ -26,7 +27,9 @@ type Localization struct {
 type Clusters struct {
 	lock       sync.Mutex
 	tests      []*test.Testcase
-	miner      *miner.Miner
+	lat        *lattice.Lattice
+	miner      *mine.Miner
+	opts       *discflo.Options
 	included   []*Cluster
 	excluded   []*Cluster
 	clusters   map[int]*Cluster
@@ -73,11 +76,13 @@ func (l *Localization) Clusters() (*Clusters, error) {
 	if l.clusters != nil {
 		return l.clusters, nil
 	}
-	clusters, err := discflo.RunLocalize(l.opts)
+	o := l.opts
+	miner := mine.NewMiner(o.Miner, o.Lattice, o.Score, o.Opts...)
+	clusters, err := discflo.Localizer(l.opts)(miner)
 	if err != nil {
 		return nil, err
 	}
-	l.clusters = l.newClusters(clusters)
+	l.clusters = l.newClusters(miner, clusters)
 	return l.clusters, nil
 }
 
@@ -89,10 +94,10 @@ func (l *Localization) Exclude(id int) error {
 	return clusters.Exclude(id)
 }
 
-func (l *Localization) newClusters(clusters discflo.Clusters) *Clusters {
+func (l *Localization) newClusters(miner *mine.Miner, clusters discflo.Clusters) *Clusters {
 	c := &Clusters{
 		lat: l.opts.Lattice,
-		score: l.opts.Score,
+		miner: miner,
 		tests: l.opts.Tests,
 		included: make([]*Cluster, 0, len(clusters)),
 		excluded: make([]*Cluster, 0, len(clusters)),
@@ -175,7 +180,7 @@ func (c *Clusters) Blocks() Blocks {
 		blocks = append(blocks, &Block{
 			In:    clusters,
 			Location: stat.Location{
-				Score: discflo.ScoreColor(c.score, c.lat, color, c.asDiscflo(clusters)),
+				Score: discflo.ScoreColor(c.miner, color, c.asDiscflo(clusters)),
 				Color: color,
 				Position: pos,
 				FnName: fnName,

@@ -21,7 +21,7 @@ import (
 	"github.com/timtadh/dynagrok/localize/discflo"
 	"github.com/timtadh/dynagrok/localize/mine"
 	"github.com/timtadh/dynagrok/localize/eval"
-	// "github.com/timtadh/dynagrok/localize/discflo/web"
+	"github.com/timtadh/dynagrok/localize/discflo/web"
 )
 
 func NewCommand(c *cmd.Config) cmd.Runnable {
@@ -37,6 +37,7 @@ func NewCommand(c *cmd.Config) cmd.Runnable {
 		topColors.Name(): topColors,
 	})
 	evaluate := eval.NewCommand(c, &o)
+	web := web.NewCommand(c, &o)
 	return cmd.Concat(
 		NewOptionParser(c, &o),
 		cmd.Commands(map[string]cmd.Runnable {
@@ -47,6 +48,7 @@ func NewCommand(c *cmd.Config) cmd.Runnable {
 		cmd.Commands(map[string]cmd.Runnable {
 			"": NewRunner(c, &o),
 			evaluate.Name(): evaluate,
+			web.Name(): web,
 		}),
 	)
 	// return cmd.Concat(
