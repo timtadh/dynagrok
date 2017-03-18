@@ -139,7 +139,9 @@ func (l *sLeap) mineFrom(m *Miner, start *SearchNode) []*SearchNode {
 		return int(100000 * n.Score), n
 	}
 	checkMax := func(max []*SearchNode, cur *SearchNode) []*SearchNode {
-		if len(max) < l.k {
+		if cur.Node == nil || cur.Node.SubGraph == nil {
+			return max
+		} else if len(max) < l.k {
 			return insert(max, cur)
 		} else if cur.Score > max[len(max)-1].Score {
 			max, _ = pop(max)
@@ -156,7 +158,9 @@ func (l *sLeap) mineFrom(m *Miner, start *SearchNode) []*SearchNode {
 	}
 	max := make([]*SearchNode, 0, l.k)
 	for _, n := range l.startMax {
-		max = append(max, n)
+		if n.Node != nil && n.Node.SubGraph != nil {
+			max = append(max, n)
+		}
 	}
 	queue := heap.NewMaxHeap(m.MaxEdges * 2)
 	queue.Push(priority(start))
@@ -173,7 +177,7 @@ mainLoop:
 			continue
 		}
 		seen[label] = true
-		if true && len(max) > 0 {
+		if true && len(max) > 0 && cur.Node.SubGraph != nil {
 			errors.Logf("DEBUG", "\n\t\t\tcur %v %v (%v - %v) %v %v", queue.Size(), len(max), max[0].Score, max[len(max)-1].Score, m.Score.Max(cur.Node), cur)
 		}
 		if cur.Node.SubGraph != nil && len(cur.Node.SubGraph.E) >= m.MaxEdges {

@@ -1,40 +1,18 @@
 package mine
 
 import (
-	"fmt"
+	"github.com/timtadh/dynagrok/localize/lattice"
+	"github.com/timtadh/dynagrok/localize/test"
 )
 
 type Options struct {
-	MaxEdges int
-	MinEdges int
-	MinFails int
-}
-
-type Option func(*Options)
-
-func MinEdges(minEdges int) Option {
-	if minEdges < 0 {
-		panic(fmt.Errorf("minEdges must be >= 0 (got %v)", minEdges))
-	}
-	return func(o *Options) {
-		o.MinEdges = minEdges
-	}
-}
-
-func MaxEdges(maxEdges int) Option {
-	if maxEdges < 2 {
-		panic(fmt.Errorf("MaxEdges must be >= 2 (got %v)", maxEdges))
-	}
-	return func(o *Options) {
-		o.MaxEdges = maxEdges
-	}
-}
-
-func MinFails(minFails int) Option {
-	if minFails < 1 {
-		panic(fmt.Errorf("minFails must be >= 1 (got %v)", minFails))
-	}
-	return func(o *Options) {
-		o.MinFails = minFails
-	}
+	ScoreName string
+	Score     ScoreFunc
+	Miner     MinerFunc
+	Lattice   *lattice.Lattice
+	Binary    *test.Remote
+	BinArgs   test.Arguments
+	Failing   []*test.Testcase
+	Passing   []*test.Testcase
+	Opts      []MinerOpt
 }

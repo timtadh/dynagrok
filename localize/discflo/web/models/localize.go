@@ -98,7 +98,7 @@ func (l *Localization) newClusters(miner *mine.Miner, clusters discflo.Clusters)
 	c := &Clusters{
 		lat:      l.opts.Lattice,
 		miner:    miner,
-		tests:    l.opts.Tests,
+		tests:    l.opts.Failing,
 		included: make([]*Cluster, 0, len(clusters)),
 		excluded: make([]*Cluster, 0, len(clusters)),
 		clusters: make(map[int]*Cluster, len(clusters)),

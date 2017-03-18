@@ -34,6 +34,11 @@ type Sequence struct {
 	runners []Runnable
 }
 
+type Partial struct {
+	name string
+	runners []Runnable
+}
+
 type Alternatives struct {
 	runners map[string]Runnable
 }
@@ -49,6 +54,21 @@ func Cmd(name, shortMsg, msg, shortOpts string, longOpts []string, act Action) R
 	}
 }
 
+// Join takes multiple runners. Each is assumed to be partial parser
+// for a larger list of options. Each runner is given just those
+// parsed options ([]getopt.OptArg) which are specified by their
+// ShortOpts() and LongOpts(). The last runner given
+// also gets to parse the left over arguments.
+func Join(name string, runners ...Runnable) Runnable {
+	return &Partial{
+		name: name,
+		runners: runners,
+	}
+}
+
+// Concat has concatenates the parsers for each runner
+// together. Each successive runner parses the arguments
+// returned by the pervious runner.
 func Concat(runners ...Runnable) Runnable {
 	return &Sequence{
 		runners: runners,
@@ -68,29 +88,7 @@ func BareCmd(act Action) Runnable {
 	}
 }
 
-func (c *Command) Run(argv []string) ([]string, *Error) {
-	args, optargs, err := getopt.GetOpt(argv, c.ShortOpts(), c.LongOpts())
-	if err != nil {
-		return nil, Usage(c, -1, "could not process args: %v", err)
-	}
-	for _, oa := range optargs {
-		switch oa.Opt() {
-		case "-h", "--help":
-			return nil, Usage(c, 0)
-		}
-	}
-	return c.Action(c, args, optargs)
-}
-
-func (c *Command) ShortOpts() string {
-	short := c.shortOpts
-	if !strings.Contains(short, "h") {
-		short += "h"
-	}
-	return short
-}
-
-func (c *Command) LongOpts() []string {
+func run(r Runnable, argv []string) ([]string, []getopt.OptArg, *Error) {
 	has := func(list []string, s string) bool {
 		for _, item := range list {
 			if s == item {
@@ -99,11 +97,41 @@ func (c *Command) LongOpts() []string {
 		}
 		return false
 	}
-	long := c.longOpts
+	short := r.ShortOpts()
+	if !strings.Contains(short, "h") {
+		short += "h"
+	}
+	long := r.LongOpts()
 	if !has(long, "help") {
 		long = append(long, "help")
 	}
-	return long
+	args, optargs, err := getopt.GetOpt(argv, short, long)
+	if err != nil {
+		return nil, nil, Errorf(-1, "could not process args: %v", err)
+	}
+	for _, oa := range optargs {
+		switch oa.Opt() {
+		case "-h", "--help":
+			return nil, nil, Usage(r, 0)
+		}
+	}
+	return args, optargs, nil
+}
+
+func (c *Command) Run(argv []string) ([]string, *Error) {
+	args, optargs, err := run(c, argv)
+	if err != nil {
+		return nil, err
+	}
+	return c.Action(c, args, optargs)
+}
+
+func (c *Command) ShortOpts() string {
+	return c.shortOpts
+}
+
+func (c *Command) LongOpts() []string {
+	return c.longOpts
 }
 
 func (c *Command) Name() string {
@@ -118,16 +146,100 @@ func (c *Command) Usage() string {
 	return c.message
 }
 
-func (s *Sequence) Run(argv []string) ([]string, *Error) {
-	_, optargs, err := getopt.GetOpt(argv, s.ShortOpts(), s.LongOpts())
-	if err != nil {
-		return nil, Usage(s, -1, "could not process args: %v", err)
+func (p *Partial) Run(argv []string) ([]string, *Error) {
+	if len(p.runners) <= 0 {
+		panic("no runners")
 	}
-	for _, oa := range optargs {
-		switch oa.Opt() {
-		case "-h", "--help":
-			return nil, Usage(s, 0)
+	args, optargs, e := run(p, argv)
+	if e != nil {
+		return nil, e
+	}
+	myopts := func(r Runnable) []string {
+		short := r.ShortOpts()
+		long := r.LongOpts()
+		has := func(opt string) bool {
+			if len(opt) > 1 && strings.Contains(short, opt[1:]) {
+				return true
+			} else if len(opt) > 2 {
+				for _, item := range long {
+					if opt[2:] == strings.TrimRight(item, "=") {
+						return true
+					}
+				}
+			}
+			return false
 		}
+		mine := make([]string, 0, len(optargs))
+		for _, oa := range optargs {
+			if has(oa.Opt()) {
+				mine = append(mine, oa.Opt())
+				if oa.Arg() != "" {
+					mine = append(mine, oa.Arg())
+				}
+			}
+		}
+		return mine
+	}
+	for _, r := range p.runners[:len(p.runners)-1] {
+		_, err := r.Run(myopts(r))
+		if err != nil {
+			return nil, err
+		}
+	}
+	r := p.runners[len(p.runners)-1]
+	argv, err := r.Run(append(myopts(r), args...))
+	if err != nil {
+		return nil, err
+	}
+	return argv, nil
+}
+
+func (p *Partial) Name() string {
+	return p.name
+}
+
+func (p *Partial) ShortOpts() string {
+	shortOpts := ""
+	for _, r := range p.runners {
+		shortOpts += r.ShortOpts()
+	}
+	return shortOpts
+}
+
+func (p *Partial) LongOpts() []string {
+	var longOpts []string
+	for _, r := range p.runners {
+		longOpts = append(longOpts, r.LongOpts()...)
+	}
+	return longOpts
+}
+
+func (p *Partial) ShortUsage() string {
+	shorts := make([]string, 0, len(p.runners))
+	for _, r := range p.runners {
+		u := r.ShortUsage()
+		if len(u) > 0 {
+			shorts = append(shorts, u)
+		}
+	}
+	return strings.Join(shorts, " ")
+}
+
+func (p *Partial) Usage() string {
+	longs := make([]string, 0, len(p.runners))
+	for _, r := range p.runners {
+		u := strings.TrimSpace(r.Usage())
+		if len(u) > 0 {
+			longs = append(longs, u)
+		}
+	}
+	return indent(fmt.Sprintf("%v", strings.Join(longs, "\n")), 4)
+}
+
+func (s *Sequence) Run(argv []string) ([]string, *Error) {
+	_, _, err := run(s, argv)
+	if err != nil {
+		return nil, err
 	}
 	for _, r := range s.runners {
 		var err *Error
@@ -250,6 +362,15 @@ func indent(s string, spaces int) string {
 	nlines := make([]string, 0, len(olines))
 	for _, line := range olines {
 		nlines = append(nlines, fmt.Sprintf(fmt.Sprintf("%%-%dv%%v", 4), "", line))
+	}
+	return strings.Join(nlines, "\n")
+}
+
+func noindent(s string) string {
+	olines := strings.Split(s, "\n")
+	nlines := make([]string, 0, len(olines))
+	for _, line := range olines {
+		nlines = append(nlines, strings.TrimSpace(line))
 	}
 	return strings.Join(nlines, "\n")
 }

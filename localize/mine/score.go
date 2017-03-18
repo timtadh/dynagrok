@@ -13,11 +13,11 @@ type ScoreFunc func(prF, prFandNode, prO, prOandNode float64) float64
 
 type Score struct {
 	score ScoreFunc
-	opts  *Options
+	opts  *MinerConfig
 	lat   *lattice.Lattice
 }
 
-func NewScore(sf ScoreFunc, opts *Options, lat *lattice.Lattice) *Score {
+func NewScore(sf ScoreFunc, opts *MinerConfig, lat *lattice.Lattice) *Score {
 	return &Score{
 		score: sf,
 		opts:  opts,
@@ -90,14 +90,14 @@ func OkProbability(lat *lattice.Lattice, n *lattice.Node) (prO, prOandNode float
 	return O / T, prOandNode
 }
 
-func MinFailureProbability(o *Options, lat *lattice.Lattice) (minPrFandNode float64) {
+func MinFailureProbability(o *MinerConfig, lat *lattice.Lattice) (minPrFandNode float64) {
 	F := float64(lat.Fail.G.Graphs)
 	O := float64(lat.Ok.G.Graphs)
 	T := F + O
 	return float64(o.MinFails) / T
 }
 
-func MinOkProbability(o *Options, lat *lattice.Lattice, n *lattice.Node) (minPrOandNode float64) {
+func MinOkProbability(o *MinerConfig, lat *lattice.Lattice, n *lattice.Node) (minPrOandNode float64) {
 	largest := float64(2*o.MaxEdges + 1)
 	return totalEdgeAndVertexOkPr(lat, n) / largest
 }
