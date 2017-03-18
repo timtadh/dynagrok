@@ -113,8 +113,8 @@ func (r *Remote) Execute(args []string, stdin []byte) (stdout, stderr, profile, 
 
 	var outbuf, errbuf bytes.Buffer
 	inbuf := bytes.NewBuffer(stdin)
-	// ctx, cancel := context.WithCancel(context.Background())
-	// defer cancel()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	c := exec.Command(r.Path, args...)
 	c.Env = r.Env(dgprof)
 	c.Stdin = inbuf
@@ -125,12 +125,12 @@ func (r *Remote) Execute(args []string, stdin []byte) (stdout, stderr, profile, 
 	if err != nil {
 		return nil, nil, nil, nil, false, err
 	}
-	// var timeKilled bool
-	// var memKilled bool
-	// // r.watch(ctx, cancel, c, &timeKilled, &memKilled)
+	var timeKilled bool
+	var memKilled bool
+	go r.watch(ctx, cancel, c, &timeKilled, &memKilled)
 
 	err = c.Wait()
-	// cerr := ctx.Err()
+	cerr := ctx.Err()
 	if err != nil {
 		switch err.(type) {
 		case *exec.ExitError:
@@ -139,10 +139,10 @@ func (r *Remote) Execute(args []string, stdin []byte) (stdout, stderr, profile, 
 			return nil, nil, nil, nil, false, err
 		}
 	}
-	// if cerr != nil && cerr == context.DeadlineExceeded {
-	// 	errors.Logf("ERROR", "Killed, too much time used")
-	// 	timeKilled = true
-	// }
+	if cerr != nil && cerr == context.DeadlineExceeded {
+		errors.Logf("ERROR", "Killed, too much time used")
+		timeKilled = true
+	}
 	ok = c.ProcessState.Success() // && !timeKilled && !memKilled
 
 	fgPath := filepath.Join(dgprof, "flow-graph.txt")
