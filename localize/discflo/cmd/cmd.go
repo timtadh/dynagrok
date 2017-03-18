@@ -72,40 +72,65 @@ func NewOptionParser(c *cmd.Config, o *discflo.Options) cmd.Runnable {
 Use DISCriminative subgraph Fault LOcalization (disc-flo) to localize faults
 from failing and passing runs.
 
-<succeeding-profiles> should be a directory (or file) containing flow-graphs
-                      from successful executions of an instrumented copy of the
-                      program under test (PUT).
-
 Option Flags
     -h,--help                         Show this message
+    --scores                          List of available suspiciousness scores
+    -s,--score=<score>                Suspiciousness score to use
     -b,--binary=<path>                The binary to test. It should be
                                       instrumented.
                                       (see: dynagrok instrument -h)
     -a,--binary-args=<string>         Argument flags/files/pattern for the 
                                       binary under test. (optional) (see notes below)
-    -t,--test=<path>                  Failing test case to minimize. (May be
+    -f,--failing-tests=<path>         Failing test case to minimize. (May be
                                       specified multiple times or with a comma
                                       separated list).
-    -s,--score=<score>                Suspiciousness score to use
-    --scores                          List of available suspiciousness scores
-    --minimize-tests                  Do the test case minimization
+    -p,--passing-tests=<path>         A non-failing profile or profiles. (May be
+                                      specified multiple times or with a comma
+                                      separated list).
+    --minimize-tests                  Use test case minimization to minimize the
+                                      failing tests.
     --failure-oracle=<path>           A failure oracle to filter out graphs with
                                       non-failing minimized tests.
-    -n,--non-failing=<profile>        A non-failing profile or profiles. (May be
-                                      specified multiple times or with a comma
-                                      separated list).
     --max-edges=<int>                 Maximal number of edges in a mined pattern
     --min-edges=<int>                 Minimum number of edges in a mined pattern
     --min-fails=<int>                 Minimum number of failures associated with
                                       each behavior.
+
+Notes on Binary Args (-a,--binary-args)
+
+    In order for the instrumented binary to be run the discflo needs to know
+    how to run it. Specifically what command line flags should be given and how
+    to supply in input. By default no flags are given and the input is supplied
+    on standard in. Here are some usage examples:
+
+    No flags, test input on standard in:
+
+        $ dynagrok localize discflo <...> -a '\<$test'
+
+    Several flags test input on standard in:
+
+        $ dynagrok localize discflo <...> -a '\-o /dev/null --verbose <$test'
+
+    Test input as an argument
+
+        $ dynagrok localize discflo <...> -a '\$test'
+
+    Test input as an argument to a flag
+
+        $ dynagrok localize discflo <...> -a '\-i $test'
+        $ dynagrok localize discflo <...> -a '\--input $test'
+
+    Notes
+    1. '\--input=$test' is currently not supported!
+    2. Only one input is currently allowed
 `,
 		"s:b:a:t:n:",
 		[]string{
+			"score=",
+			"scores",
 			"binary=",
 			"binary-args=",
 			"test=",
-			"score=",
-			"scores",
 			"minimize-tests",
 			"failure-oracle=",
 			"non-failing=",

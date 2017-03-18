@@ -23,9 +23,9 @@ func Usage(cmd Runnable, code int, format_and_args ...interface{}) *Error {
 	if len(format_and_args) > 0 {
 		format := format_and_args[0].(string)
 		args := format_and_args[1:]
-		err = fmt.Errorf("error: %v\n\n%v\n", fmt.Sprintf(format, args...), cmd.Usage())
+		err = fmt.Errorf("error: %v\n\n%v\n", fmt.Sprintf(format, args...), cmd.ShortUsage())
 	} else {
-		err = fmt.Errorf(cmd.Usage())
+		err = fmt.Errorf("%v\n\n%v\n", cmd.ShortUsage(), cmd.Usage())
 	}
 	return &Error{Err: err, ExitCode: code}
 }

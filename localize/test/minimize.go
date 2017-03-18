@@ -29,6 +29,7 @@ func (t *Testcase) Minimize(lat *lattice.Lattice, sg *subgraph.SubGraph) (*Testc
 		return nil, err
 	}
 	if !sg.EmbeddedIn(p) {
+		errors.Logf("DEBUG", "cannot minimize %v with %v bytes and %v lines", t.From, len(t.Case), len(t.Lines()))
 		return nil, nil
 	}
 	errors.Logf("DEBUG", "minimizing %v with %v bytes and %v lines", t.From, len(t.Case), len(t.Lines()))

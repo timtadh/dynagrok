@@ -46,7 +46,7 @@ func (l *leap) MineFrom(m *Miner, start *SearchNode) SearchNodes {
 	prev := -1000.0
 	cur := sum(max)
 	for sup(p) >= 1 && abs(cur - prev) > .01 {
-		if true {
+		if true && len(max) > 0 {
 			errors.Logf("DEBUG", "cur %v (%v - %v) |%v - %v| = %v", len(max), max[0].Score, max[len(max)-1].Score, prev, cur, abs(prev - cur))
 		}
 		p /= 2
@@ -54,12 +54,12 @@ func (l *leap) MineFrom(m *Miner, start *SearchNode) SearchNodes {
 		prev = cur
 		cur = sum(max)
 	}
-	if true {
+	if true && len(max) > 0 {
 		errors.Logf("DEBUG", "cur %v (%v - %v) |%v - %v| = %v", len(max), max[0].Score, max[len(max)-1].Score, prev, cur, abs(prev - cur))
 	}
 	if sup(p) > 1 {
-		max = newSLeap(l.k, l.sigma, 1, startMax(max)).mineFrom(m, start)
-		if true {
+		max = newSLeap(l.k, 0, 1, startMax(max)).mineFrom(m, start)
+		if true && len(max) > 0 {
 			errors.Logf("DEBUG", "cur %v (%v - %v) |%v - %v| = %v", len(max), max[0].Score, max[len(max)-1].Score, prev, cur, abs(prev - cur))
 		}
 	}
@@ -173,7 +173,7 @@ mainLoop:
 			continue
 		}
 		seen[label] = true
-		if false && len(max) > 0 {
+		if true && len(max) > 0 {
 			errors.Logf("DEBUG", "\n\t\t\tcur %v %v (%v - %v) %v %v", queue.Size(), len(max), max[0].Score, max[len(max)-1].Score, m.Score.Max(cur.Node), cur)
 		}
 		if cur.Node.SubGraph != nil && len(cur.Node.SubGraph.E) >= m.MaxEdges {

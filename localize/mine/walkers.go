@@ -131,7 +131,7 @@ func WalkingTopColors(walker Walker, opts ...TopColorOpt) MinerFunc {
 			}
 			added[label] = true
 			count++
-			if false {
+			if true {
 				errors.Logf("DEBUG", "found %d/%v %d/%d %d/%d %d %v", groups, o.minGroups, i, total, w, o.walksPerColor, count, n)
 			}
 			return n, sni
