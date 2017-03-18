@@ -35,10 +35,15 @@ func NewCommand(c *cmd.Config) cmd.Runnable {
 	evaluate := eval.NewCommand(c, &o)
 	web := web.NewCommand(c, &o)
 	return cmd.Concat(
-		cmd.Join(
+		cmd.Annotate(
+			cmd.Join(
+				"disc-flo",
+				mine.NewOptionParser(c, &o.Options),
+				NewOptionParser(c, &o),
+			),
 			"disc-flo",
-			mine.NewOptionParser(c, &o.Options),
-			NewOptionParser(c, &o),
+			"", "[options]",
+			"\nOptions", mine.Notes,
 		),
 		cmd.Commands(map[string]cmd.Runnable{
 			bb.Name():    bb,
@@ -64,8 +69,8 @@ func NewCommand(c *cmd.Config) cmd.Runnable {
 
 func NewOptionParser(c *cmd.Config, o *discflo.Options) cmd.Runnable {
 	return cmd.Cmd(
-		"disc-flo",
-		`[options]`,
+		"",
+		``,
 		`
 --minimize-tests                  Use test case minimization to minimize the
                                   failing tests.

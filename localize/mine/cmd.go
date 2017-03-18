@@ -53,8 +53,8 @@ Notes on Binary Args (-a,--binary-args)
 
 func NewOptionParser(c *cmd.Config, o *Options) cmd.Runnable {
 	return cmd.Cmd(
-		"disc-flo",
-		`[options]`,
+		"",
+		`-s <score> -b <binary> -f <failing-tests> -p <passing-tests>`,
 		`
 --scores                          List of available suspiciousness scores
 -s,--score=<score>                Suspiciousness score to use

@@ -30,6 +30,13 @@ type Command struct {
 	message string
 }
 
+type Annotation struct {
+	name     string
+	shortMsg string
+	message  string
+	runner   Runnable
+}
+
 type Sequence struct {
 	runners []Runnable
 }
@@ -51,6 +58,23 @@ func Cmd(name, shortMsg, msg, shortOpts string, longOpts []string, act Action) R
 		name: strings.TrimSpace(name),
 		shortMsg: strings.TrimSpace(shortMsg),
 		message: strings.TrimSpace(msg),
+	}
+}
+
+func Annotate(r Runnable, name, beforeShort, afterShort, before, after string) Runnable {
+	return &Annotation{
+		name: name,
+		shortMsg: strings.Join([]string{
+			strings.TrimSpace(beforeShort),
+			strings.TrimSpace(r.ShortUsage()),
+			strings.TrimSpace(afterShort),
+		}, " "),
+		message: strings.Join([]string{
+			before,
+			r.Usage(),
+			after,
+		}, "\n"),
+		runner: r,
 	}
 }
 
@@ -144,6 +168,30 @@ func (c *Command) ShortUsage() string {
 
 func (c *Command) Usage() string {
 	return c.message
+}
+
+func (a *Annotation) Run(argv []string) ([]string, *Error) {
+	return a.runner.Run(argv)
+}
+
+func (a *Annotation) ShortOpts() string {
+	return a.runner.ShortOpts()
+}
+
+func (a *Annotation) LongOpts() []string {
+	return a.runner.LongOpts()
+}
+
+func (a *Annotation) Name() string {
+	return a.name
+}
+
+func (a *Annotation) ShortUsage() string {
+	return fmt.Sprintf("%v %v", a.name, strings.TrimSpace(a.shortMsg))
+}
+
+func (a *Annotation) Usage() string {
+	return a.message
 }
 
 func (p *Partial) Run(argv []string) ([]string, *Error) {
