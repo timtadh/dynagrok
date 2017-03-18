@@ -19,7 +19,7 @@ type SearchNode struct {
 }
 
 func (s *SearchNode) String() string {
-	return fmt.Sprintf("%v %v", s.Score, s.Node)
+	return fmt.Sprintf("%6.5v %v", s.Score, s.Node)
 }
 
 func SliceToNodes(slice []*SearchNode) (sni SearchNodes) {

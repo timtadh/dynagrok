@@ -1,4 +1,4 @@
-package cmd
+package mine
 
 import (
 	"strconv"
@@ -10,11 +10,9 @@ import (
 
 import (
 	"github.com/timtadh/dynagrok/cmd"
-	"github.com/timtadh/dynagrok/localize/discflo"
-	"github.com/timtadh/dynagrok/localize/mine"
 )
 
-func NewSLeapParser(c *cmd.Config, o *discflo.Options, wo *walkOpts) cmd.Runnable {
+func NewSLeapParser(c *cmd.Config, o *Options) cmd.Runnable {
 	return cmd.Cmd(
 		"s-leap",
 		`[options]`,
@@ -48,7 +46,7 @@ Option Flags
 					sigma = s
 				}
 			}
-			o.Miner = mine.SLeap(topk, sigma, -1).Mine
+			o.Miner = SLeap(topk, sigma, -1).Mine
 			return args, nil
 		})
 }

@@ -1,6 +1,7 @@
 package mine
 
 import (
+	"sort"
 	"bytes"
 	"fmt"
 	"io/ioutil"
@@ -12,6 +13,7 @@ import (
 
 import (
 	"github.com/timtadh/getopt"
+	"github.com/timtadh/data-structures/errors"
 )
 
 import (
@@ -50,6 +52,78 @@ Notes on Binary Args (-a,--binary-args)
     1. '\--input=$test' is currently not supported!
     2. Only one input is currently allowed
 `
+
+func NewCommand(c *cmd.Config) cmd.Runnable {
+	var o Options
+	return cmd.Concat(
+		cmd.Annotate(
+			NewOptionParser(c, &o),
+			"mine-dsg",
+			"", "[options]",
+			"Mine Discriminative Subgraphs\nOptions", Notes,
+		),
+		NewAlgorithmParser(c, &o),
+		NewRunner(c, &o),
+	)
+}
+
+func NewRunner(c *cmd.Config, o *Options) cmd.Runnable {
+	return cmd.BareCmd(
+		func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
+			if o.Score == nil {
+				return nil, cmd.Usage(r, 2, "You must supply a score (see -s or --scores)")
+			}
+			subgraphs := make([]*SearchNode, 0, 10)
+			added := make(map[string]bool)
+			miner := NewMiner(o.Miner, o.Lattice, o.Score, o.Opts...)
+			for n, next := miner.Mine()(); next != nil; n, next = next() {
+				if n.Node.SubGraph == nil {
+					continue
+				}
+				label := string(n.Node.SubGraph.Label())
+				if added[label] {
+					continue
+				}
+				added[label] = true
+				subgraphs = append(subgraphs, n)
+				if true {
+					errors.Logf("DEBUG", "found %d %v", len(subgraphs), n)
+				}
+			}
+			sort.Slice(subgraphs, func(i, j int) bool {
+				return subgraphs[i].Score > subgraphs[j].Score
+			})
+			fmt.Println()
+			for i, n := range subgraphs {
+				fmt.Printf("  - subgraph %-5d %v\n", i, n)
+				fmt.Println()
+			}
+			fmt.Println()
+			return nil, nil
+		})
+}
+
+func NewAlgorithmParser(c *cmd.Config, o *Options) cmd.Runnable {
+	var wo walkOpts
+	bb := NewBranchAndBoundParser(c, o)
+	sleap := NewSLeapParser(c, o)
+	leap := NewLeapParser(c, o)
+	urw := NewURWParser(c, o, &wo)
+	swrw := NewSWRWParser(c, o, &wo)
+	walks := NewWalksParser(c, o, &wo)
+	topColors := NewWalkTopColorsParser(c, o, &wo)
+	walkTypes := cmd.Commands(map[string]cmd.Runnable{
+		walks.Name():     walks,
+		topColors.Name(): topColors,
+	})
+	return cmd.Commands(map[string]cmd.Runnable{
+		bb.Name():    bb,
+		sleap.Name(): sleap,
+		leap.Name(): leap,
+		urw.Name():   cmd.Concat(urw, walkTypes),
+		swrw.Name():  cmd.Concat(swrw, walkTypes),
+	})
+}
 
 func NewOptionParser(c *cmd.Config, o *Options) cmd.Runnable {
 	return cmd.Cmd(

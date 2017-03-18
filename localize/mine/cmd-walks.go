@@ -1,4 +1,4 @@
-package cmd
+package mine
 
 import (
 	"strconv"
@@ -10,15 +10,13 @@ import (
 
 import (
 	"github.com/timtadh/dynagrok/cmd"
-	"github.com/timtadh/dynagrok/localize/discflo"
-	"github.com/timtadh/dynagrok/localize/mine"
 )
 
 type walkOpts struct {
-	walker mine.Walker
+	walker Walker
 }
 
-func NewWalksParser(c *cmd.Config, o *discflo.Options, wo *walkOpts) cmd.Runnable {
+func NewWalksParser(c *cmd.Config, o *Options, wo *walkOpts) cmd.Runnable {
 	return cmd.Cmd(
 		"k-walks",
 		`[options]`,
@@ -43,12 +41,12 @@ Option Flags
 					walks = w
 				}
 			}
-			o.Miner = mine.Walking(wo.walker, walks)
+			o.Miner = Walking(wo.walker, walks)
 			return args, nil
 		})
 }
 
-func NewWalkTopColorsParser(c *cmd.Config, o *discflo.Options, wo *walkOpts) cmd.Runnable {
+func NewWalkTopColorsParser(c *cmd.Config, o *Options, wo *walkOpts) cmd.Runnable {
 	return cmd.Cmd(
 		"walk-top-colors",
 		`[options]`,
@@ -66,7 +64,7 @@ Option Flags
 			"min-groups-walked=",
 		},
 		func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
-			opts := make([]mine.TopColorOpt, 0, 10)
+			opts := make([]TopColorOpt, 0, 10)
 			for _, oa := range optargs {
 				switch oa.Opt() {
 				case "-p", "--percent-of-colors":
@@ -74,27 +72,27 @@ Option Flags
 					if err != nil {
 						return nil, cmd.Errorf(1, "Could not parse arg to `%v` expected an int (got %v). err: %v", oa.Opt(), oa.Arg(), err)
 					}
-					opts = append(opts, mine.PercentOfColors(p))
+					opts = append(opts, PercentOfColors(p))
 				case "-w", "--walks-per-color":
 					w, err := strconv.Atoi(oa.Arg())
 					if err != nil {
 						return nil, cmd.Errorf(1, "Could not parse arg to `%v` expected an int (got %v). err: %v", oa.Opt(), oa.Arg(), err)
 					}
-					opts = append(opts, mine.WalksPerColor(w))
+					opts = append(opts, WalksPerColor(w))
 				case "-m", "--min-groups-walked":
 					m, err := strconv.Atoi(oa.Arg())
 					if err != nil {
 						return nil, cmd.Errorf(1, "Could not parse arg to `%v` expected an int (got %v). err: %v", oa.Opt(), oa.Arg(), err)
 					}
-					opts = append(opts, mine.MinGroupsWalked(m))
+					opts = append(opts, MinGroupsWalked(m))
 				}
 			}
-			o.Miner = mine.WalkingTopColors(wo.walker, opts...)
+			o.Miner = WalkingTopColors(wo.walker, opts...)
 			return args, nil
 		})
 }
 
-func NewURWParser(c *cmd.Config, o *discflo.Options, wo *walkOpts) cmd.Runnable {
+func NewURWParser(c *cmd.Config, o *Options, wo *walkOpts) cmd.Runnable {
 	return cmd.Cmd(
 		"urw",
 		`[options]`,
@@ -105,12 +103,12 @@ Option Flags
 		"",
 		[]string{},
 		func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
-			wo.walker = mine.UnweightedRandomWalk()
+			wo.walker = UnweightedRandomWalk()
 			return args, nil
 		})
 }
 
-func NewSWRWParser(c *cmd.Config, o *discflo.Options, wo *walkOpts) cmd.Runnable {
+func NewSWRWParser(c *cmd.Config, o *Options, wo *walkOpts) cmd.Runnable {
 	return cmd.Cmd(
 		"swrw",
 		`[options]`,
@@ -121,7 +119,7 @@ Option Flags
 		"",
 		[]string{},
 		func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
-			wo.walker = mine.ScoreWeightedRandomWalk()
+			wo.walker = ScoreWeightedRandomWalk()
 			return args, nil
 		})
 }

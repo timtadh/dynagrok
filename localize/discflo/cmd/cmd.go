@@ -20,18 +20,6 @@ import (
 
 func NewCommand(c *cmd.Config) cmd.Runnable {
 	var o discflo.Options
-	var wo walkOpts
-	bb := NewBranchAndBoundParser(c, &o, &wo)
-	sleap := NewSLeapParser(c, &o, &wo)
-	leap := NewLeapParser(c, &o, &wo)
-	urw := NewURWParser(c, &o, &wo)
-	swrw := NewSWRWParser(c, &o, &wo)
-	walks := NewWalksParser(c, &o, &wo)
-	topColors := NewWalkTopColorsParser(c, &o, &wo)
-	walkTypes := cmd.Commands(map[string]cmd.Runnable{
-		walks.Name():     walks,
-		topColors.Name(): topColors,
-	})
 	evaluate := eval.NewCommand(c, &o)
 	web := web.NewCommand(c, &o)
 	return cmd.Concat(
@@ -45,26 +33,13 @@ func NewCommand(c *cmd.Config) cmd.Runnable {
 			"", "[options]",
 			"\nOptions", mine.Notes,
 		),
-		cmd.Commands(map[string]cmd.Runnable{
-			bb.Name():    bb,
-			sleap.Name(): sleap,
-			leap.Name(): leap,
-			urw.Name():   cmd.Concat(urw, walkTypes),
-			swrw.Name():  cmd.Concat(swrw, walkTypes),
-		}),
+		mine.NewAlgorithmParser(c, &o.Options),
 		cmd.Commands(map[string]cmd.Runnable{
 			"":              NewRunner(c, &o),
 			evaluate.Name(): evaluate,
 			web.Name():      web,
 		}),
 	)
-	// return cmd.Concat(
-	// 	NewOptionParser(c, &o),
-	// 	cmd.Commands(map[string]cmd.Runnable {
-	// 		"": NewRunner(c, &o),
-	// 		// "web": web.NewCommand(c, &o),
-	// 	}),
-	// )
 }
 
 func NewOptionParser(c *cmd.Config, o *discflo.Options) cmd.Runnable {

@@ -11,18 +11,21 @@ import (
 	discflo "github.com/timtadh/dynagrok/localize/discflo/cmd"
 	"github.com/timtadh/dynagrok/localize/locavore"
 	"github.com/timtadh/dynagrok/localize/stat"
+	"github.com/timtadh/dynagrok/localize/mine"
 )
 
 func NewCommand(c *cmd.Config) cmd.Runnable {
 	main := NewLocalizeMain(c)
 	st := stat.NewCommand(c)
 	df := discflo.NewCommand(c)
+	m := mine.NewCommand(c)
 	locav := locavore.NewCommand(c)
 	return cmd.Concat(
 		main,
 		cmd.Commands(map[string]cmd.Runnable{
 			st.Name():    st,
 			df.Name():    df,
+			m.Name():     m,
 			locav.Name(): locav,
 		}),
 	)
