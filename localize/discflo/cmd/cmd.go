@@ -13,7 +13,7 @@ import (
 	"github.com/timtadh/dynagrok/cmd"
 	"github.com/timtadh/dynagrok/localize/discflo"
 	"github.com/timtadh/dynagrok/localize/discflo/web"
-	"github.com/timtadh/dynagrok/localize/eval"
+	"github.com/timtadh/dynagrok/localize/discflo/eval"
 	"github.com/timtadh/dynagrok/localize/mine"
 	"github.com/timtadh/dynagrok/localize/test"
 )

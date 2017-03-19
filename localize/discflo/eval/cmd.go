@@ -1,9 +1,6 @@
 package eval
 
 import (
-	"bufio"
-	"bytes"
-	"encoding/json"
 	"fmt"
 )
 
@@ -17,7 +14,6 @@ import (
 	"github.com/timtadh/dynagrok/localize/lattice"
 	"github.com/timtadh/dynagrok/localize/mine"
 	"github.com/timtadh/dynagrok/localize/stat"
-	"github.com/timtadh/dynagrok/mutate"
 )
 
 func NewCommand(c *cmd.Config, o *discflo.Options) cmd.Runnable {
@@ -46,7 +42,7 @@ Option Flags
 			if faultsPath == "" {
 				return nil, cmd.Errorf(1, "You must supply the `-f` flag and give a path to the faults")
 			}
-			faults, err := LoadFaults(faultsPath)
+			faults, err := mine.LoadFaults(faultsPath)
 			if err != nil {
 				return nil, cmd.Err(1, err)
 			}
@@ -120,55 +116,4 @@ func Group(results stat.Result) []stat.Result {
 		}
 	}
 	return groups
-}
-
-type Fault struct {
-	FnName       string
-	BasicBlockId int
-}
-
-func (f *Fault) String() string {
-	return fmt.Sprintf(`Fault {
-    FnName: %v,
-    BasicBlockId: %d,
-}`, f.FnName, f.BasicBlockId)
-}
-
-func LoadFault(bits []byte) (*Fault, error) {
-	var e mutate.ExportedMut
-	err := json.Unmarshal(bits, &e)
-	if err != nil {
-		return nil, err
-	}
-	f := &Fault{FnName: e.FnName, BasicBlockId: e.BasicBlockId}
-	return f, nil
-}
-
-func LoadFaults(path string) ([]*Fault, error) {
-	fin, failClose, err := cmd.Input(path)
-	if err != nil {
-		return nil, fmt.Errorf("Could not read the list of failures: %v\n%v", path, err)
-	}
-	defer failClose()
-	seen := make(map[Fault]bool)
-	failures := make([]*Fault, 0, 10)
-	s := bufio.NewScanner(fin)
-	for s.Scan() {
-		line := bytes.TrimSpace(s.Bytes())
-		if len(line) == 0 {
-			continue
-		}
-		f, err := LoadFault(line)
-		if err != nil {
-			return nil, fmt.Errorf("Could not load failure: `%v`\nerror: %v", string(line), err)
-		}
-		if !seen[*f] {
-			seen[*f] = true
-			failures = append(failures, f)
-		}
-	}
-	if err := s.Err(); err != nil {
-		return nil, fmt.Errorf("Could not read the failures file: %v, error: %v", path, err)
-	}
-	return failures, nil
 }

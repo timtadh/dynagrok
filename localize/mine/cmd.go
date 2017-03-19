@@ -56,6 +56,7 @@ Notes on Binary Args (-a,--binary-args)
 func NewCommand(c *cmd.Config) cmd.Runnable {
 	var o Options
 	cmp := NewCompareParser(c, &o)
+	eval := NewEvalParser(c, &o)
 	return cmd.Concat(
 		cmd.Annotate(
 			NewOptionParser(c, &o),
@@ -66,7 +67,10 @@ func NewCommand(c *cmd.Config) cmd.Runnable {
 		cmd.Commands(map[string]cmd.Runnable{
 			"": cmd.Concat(
 					NewAlgorithmParser(c, &o),
-					NewRunner(c, &o),
+					cmd.Commands(map[string]cmd.Runnable{
+						"": NewRunner(c, &o),
+						eval.Name(): eval,
+					}),
 			),
 			cmp.Name(): cmp,
 		}),

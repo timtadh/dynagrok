@@ -339,7 +339,11 @@ func (a *Alternatives) Run(argv []string) ([]string, *Error) {
 		return nil, Usage(a, -1, "Expected one of %v got end of arguments", a.Name())
 	}
 	if r, has := a.runners[argv[0]]; !has {
-		return nil, Usage(a, -1, "Expected one of %v got %v", a.Name(), argv[0])
+		if r, has := a.runners[""]; has {
+			return r.Run(argv)
+		} else {
+			return nil, Usage(a, -1, "Expected one of %v got %v", a.Name(), argv[0])
+		}
 	} else {
 		return r.Run(argv[1:])
 	}
