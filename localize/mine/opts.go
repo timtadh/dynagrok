@@ -8,6 +8,7 @@ import (
 type Options struct {
 	ScoreName string
 	Score     ScoreFunc
+	MinerName string
 	Miner     MinerFunc
 	Lattice   *lattice.Lattice
 	Binary    *test.Remote
@@ -15,4 +16,9 @@ type Options struct {
 	Failing   []*test.Testcase
 	Passing   []*test.Testcase
 	Opts      []MinerOpt
+}
+
+func (o *Options) Copy() *Options {
+	c := *o
+	return &c
 }

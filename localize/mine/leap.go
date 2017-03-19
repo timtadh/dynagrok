@@ -45,7 +45,7 @@ func (l *leap) MineFrom(m *Miner, start *SearchNode) SearchNodes {
 	max := newSLeap(l.k, l.sigma, sup(p)).mineFrom(m, start)
 	prev := -1000.0
 	cur := sum(max)
-	for sup(p) >= 1 && abs(cur - prev) > .01 {
+	for sup(p) >= m.MinFails && abs(cur - prev) > .01 {
 		if true && len(max) > 0 {
 			errors.Logf("DEBUG", "cur %v (%v - %v) |%v - %v| = %v", len(max), max[0].Score, max[len(max)-1].Score, prev, cur, abs(prev - cur))
 		}
@@ -57,11 +57,9 @@ func (l *leap) MineFrom(m *Miner, start *SearchNode) SearchNodes {
 	if true && len(max) > 0 {
 		errors.Logf("DEBUG", "cur %v (%v - %v) |%v - %v| = %v", len(max), max[0].Score, max[len(max)-1].Score, prev, cur, abs(prev - cur))
 	}
-	if sup(p) > 1 {
-		max = newSLeap(l.k, 0, 1, startMax(max)).mineFrom(m, start)
-		if true && len(max) > 0 {
-			errors.Logf("DEBUG", "cur %v (%v - %v) |%v - %v| = %v", len(max), max[0].Score, max[len(max)-1].Score, prev, cur, abs(prev - cur))
-		}
+	max = newSLeap(l.k, 0, m.MinFails, startMax(max)).mineFrom(m, start)
+	if true && len(max) > 0 {
+		errors.Logf("DEBUG", "cur %v (%v - %v) |%v - %v| = %v", len(max), max[0].Score, max[len(max)-1].Score, prev, cur, abs(prev - cur))
 	}
 	return SliceToNodes(max)
 }
@@ -118,8 +116,12 @@ func (l *sLeap) mineFrom(m *Miner, start *SearchNode) []*SearchNode {
 		}
 		i := 0
 		for ; i < len(sorted); i++ {
+			a := item.Node.SubGraph
+			b := sorted[i].Node.SubGraph
 			if item.Score > sorted[i].Score {
 				break
+			} else if a.SubgraphOf(b) {
+				return sorted
 			}
 		}
 		sorted = sorted[:len(sorted)+1]
@@ -208,17 +210,15 @@ mainLoop:
 				}
 			}
 		}
-		anyKids := false
 		for _, kid := range filteredKids {
 			klabel := string(kid.Node.SubGraph.Label())
 			if len(max) < l.k || m.Score.Max(kid.Node) >= max[len(max)-1].Score {
-				anyKids = true
 				if !seen[klabel] {
 					queue.Push(priority(kid))
 				}
 			}
 		}
-		if !anyKids && cur.Node.SubGraph != nil && len(cur.Node.SubGraph.E) >= m.MinEdges {
+		if cur.Node.SubGraph != nil && len(cur.Node.SubGraph.E) >= m.MinEdges && len(filteredKids) <= 0 {
 			max = checkMax(max, cur)
 		}
 	}

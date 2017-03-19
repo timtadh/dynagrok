@@ -42,6 +42,7 @@ Option Flags
 				}
 			}
 			o.Miner = Walking(wo.walker, walks)
+			o.MinerName += " k-walks"
 			return args, nil
 		})
 }
@@ -88,6 +89,7 @@ Option Flags
 				}
 			}
 			o.Miner = WalkingTopColors(wo.walker, opts...)
+			o.MinerName += " walk-top-colors"
 			return args, nil
 		})
 }
@@ -104,6 +106,7 @@ Option Flags
 		[]string{},
 		func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
 			wo.walker = UnweightedRandomWalk()
+			o.MinerName += "urw"
 			return args, nil
 		})
 }
@@ -120,6 +123,7 @@ Option Flags
 		[]string{},
 		func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
 			wo.walker = ScoreWeightedRandomWalk()
+			o.MinerName += "swrw"
 			return args, nil
 		})
 }

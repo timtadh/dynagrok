@@ -55,6 +55,7 @@ Notes on Binary Args (-a,--binary-args)
 
 func NewCommand(c *cmd.Config) cmd.Runnable {
 	var o Options
+	cmp := NewCompareParser(c, &o)
 	return cmd.Concat(
 		cmd.Annotate(
 			NewOptionParser(c, &o),
@@ -62,8 +63,13 @@ func NewCommand(c *cmd.Config) cmd.Runnable {
 			"", "[options]",
 			"Mine Discriminative Subgraphs\nOptions", Notes,
 		),
-		NewAlgorithmParser(c, &o),
-		NewRunner(c, &o),
+		cmd.Commands(map[string]cmd.Runnable{
+			"": cmd.Concat(
+					NewAlgorithmParser(c, &o),
+					NewRunner(c, &o),
+			),
+			cmp.Name(): cmp,
+		}),
 	)
 }
 

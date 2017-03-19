@@ -47,6 +47,7 @@ Option Flags
 				}
 			}
 			o.Miner = LEAP(topk, sigma).Mine
+			o.MinerName += "LEAP"
 			return args, nil
 		})
 }

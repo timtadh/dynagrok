@@ -30,16 +30,12 @@ func (b *branchBound) MineFrom(m *Miner, start *SearchNode) SearchNodes {
 	insert := func(sorted []*SearchNode, item *SearchNode) []*SearchNode {
 		i := 0
 		for ; i < len(sorted); i++ {
-			// a := sorted[i].Node.SubGraph
-			// b := item.Node.SubGraph
-			// if a.SubgraphOf(b) {
-			// 	sorted[i] = item
-			// 	return sorted
-			// } else if b.SubgraphOf(a) {
-			// 	return sorted
-			// }
+			a := item.Node.SubGraph
+			b := sorted[i].Node.SubGraph
 			if item.Score > sorted[i].Score {
 				break
+			} else if a.SubgraphOf(b) {
+				return sorted
 			}
 		}
 		sorted = sorted[:len(sorted)+1]
@@ -96,17 +92,16 @@ func (b *branchBound) MineFrom(m *Miner, start *SearchNode) SearchNodes {
 		if err != nil {
 			panic(err)
 		}
-		anyKids := false
-		for _, kid := range filterKids(m.MinFails, m, cur.Score, kids) {
+		filtered := filterKids(m.MinFails, m, cur.Score, kids)
+		for _, kid := range filtered {
 			klabel := string(kid.Node.SubGraph.Label())
 			if len(max) < b.k || m.Score.Max(kid.Node) >= max[len(max)-1].Score {
-				anyKids = true
 				if !seen[klabel] {
 					queue.Push(priority(kid))
 				}
 			}
 		}
-		if !anyKids && cur.Node.SubGraph != nil && len(cur.Node.SubGraph.E) >= m.MinEdges {
+		if len(filtered) <= 0 && cur.Node.SubGraph != nil && len(cur.Node.SubGraph.E) >= m.MinEdges {
 			max = checkMax(max, cur)
 		}
 	}

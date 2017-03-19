@@ -38,6 +38,7 @@ Option Flags
 				}
 			}
 			o.Miner = BranchAndBound(topk).Mine
+			o.MinerName += "branch-and-bound"
 			return args, nil
 		})
 }
