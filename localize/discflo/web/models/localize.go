@@ -69,6 +69,18 @@ func Localize(opts *discflo.Options) *Localization {
 	}
 }
 
+func (l *Localization) Lattice() (*lattice.Lattice) {
+	l.lock.Lock()
+	defer l.lock.Unlock()
+	return l.opts.Lattice
+}
+
+func (l *Localization) Tests() (tests []*test.Testcase) {
+	l.lock.Lock()
+	defer l.lock.Unlock()
+	return l.opts.Failing
+}
+
 func (l *Localization) Clusters() (*Clusters, error) {
 	l.lock.Lock()
 	defer l.lock.Unlock()
@@ -200,6 +212,15 @@ func (c *Clusters) Has(id int) bool {
 	return has
 }
 
+func (c *Clusters) HasTest(id int) bool {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	if id >= 0 && id < len(c.tests) {
+		return true
+	}
+	return false
+}
+
 func (c *Clusters) Get(id int) *Cluster {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -243,20 +264,24 @@ func (c *Clusters) Exclude(id int) error {
 	return nil
 }
 
-func (c *Clusters) Test(id, nid int) (*test.Testcase, error) {
+func (c *Clusters) Test(tid, cid, nid int) (*test.Testcase, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	cluster, has := c.clusters[id]
+	cluster, has := c.clusters[cid]
 	if !has {
-		return nil, fmt.Errorf("Could not find cluster %v in the clusters map.", id)
+		return nil, fmt.Errorf("Could not find cluster %v in the clusters map.", cid)
 	}
 	if nid < 0 || nid >= len(cluster.Nodes) {
-		return nil, fmt.Errorf("Could not find node %v in the for cluster %v.", nid, id)
+		return nil, fmt.Errorf("Could not find node %v in the for cluster %v.", nid, cid)
 	}
 	node := cluster.Nodes[nid]
-	if node.Test == nil {
-		for _, t := range c.tests {
+
+	if tid < 0 || tid >= len(c.tests) {
+		for i, t := range c.tests {
+			if node.Tests[i] != nil {
+				return node.Tests[i], nil
+			}
 			min, err := t.Minimize(c.lat, node.Node.SubGraph)
 			if err != nil {
 				return nil, err
@@ -264,11 +289,25 @@ func (c *Clusters) Test(id, nid int) (*test.Testcase, error) {
 			if min == nil {
 				continue
 			}
-			node.Test = min
-			break
+			node.Tests[i] = min
+			return node.Tests[i], nil
 		}
+		return nil, nil
+	} else {
+		if node.Tests[tid] != nil {
+			return node.Tests[tid], nil
+		}
+		t := c.tests[tid]
+		min, err := t.Minimize(c.lat, node.Node.SubGraph)
+		if err != nil {
+			return nil, err
+		}
+		if min == nil {
+			return nil, nil
+		}
+		node.Tests[tid] = min
+		return min, nil
 	}
-	return node.Test, nil
 }
 
 func (c *Clusters) Img(id, nid int) ([]byte, error) {

@@ -37,6 +37,10 @@ func (v *Views) GenerateTest(c *Context) error {
 	if err != nil {
 		return err
 	}
+	tid, err := c.indexIn("tid", clusters.HasTest)
+	if err != nil {
+		return err
+	}
 	cid, err := c.indexIn("cid", clusters.Has)
 	if err != nil {
 		return err
@@ -49,7 +53,7 @@ func (v *Views) GenerateTest(c *Context) error {
 	if err != nil {
 		return err
 	}
-	tc, err := clusters.Test(cid, nid)
+	tc, err := clusters.Test(tid, cid, nid)
 	if err != nil {
 		return err
 	}
@@ -71,3 +75,4 @@ func (v *Views) GenerateTest(c *Context) error {
 		Stderr:    errout,
 	})
 }
+

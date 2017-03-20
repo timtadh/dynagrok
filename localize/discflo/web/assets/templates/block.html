@@ -5,7 +5,9 @@
 	</h1>
 	<hr/>
 	<ul>
+	{{$lat := .Lattice}}
 	{{$color := .Color}}
+	{{$tests := .Tests}}
 	{{range $_, $cluster := .Clusters}}
 		{{if $cluster.Included}}
 		<li>
@@ -15,13 +17,20 @@
 			{{range $nid, $node := $cluster.Nodes}}
 				<li>
 					{{$node.Score}}
-					{{if not $node.Test}}
-						<a href="/test/{{$cluster.Id}}/{{$nid}}">Generate Test</a>
+					<ul>
+					{{range $testId, $test := $tests}}
+						{{if $test.CanMinimize $lat $node.Node.SubGraph}}
+						<li>
+							<a href="/test/{{$testId}}/{{$cluster.Id}}/{{$nid}}">Generate Minimal Test ({{$testId}})</a>
+						</li>
+						{{end}}
 					{{end}}
+					</ul>
 					<div>
-						{{if $node.Test}}
-							<h4>Test Input</h4>
-							<pre>{{$node.Test}}</pre>
+						{{range $testId, $test := $node.Tests}}
+							<h4>Test Input ({{$testId}}) </h4>
+							<a href="/test/{{$testId}}/{{$cluster.Id}}/{{$nid}}">View Minimal Test ({{$testId}})</a>
+							<pre>{{$test}}</pre>
 						{{end}}
 						<a href="/graph/{{$cluster.Id}}/{{$nid}}">
 							<img src="/graph/{{$cluster.Id}}/{{$nid}}"/>

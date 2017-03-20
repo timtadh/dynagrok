@@ -155,7 +155,7 @@ func (d *discflo) clusters(db *DbScan) (Clusters, error) {
 					if min == nil {
 						continue
 					}
-					n.Test = min
+					n.Tests[j] = min
 					fmt.Printf("------------ min test %d %d ----------\n", i, j)
 					fmt.Print(min)
 					if len(min.Case) <= 0 || min.Case[len(min.Case)-1] != '\n' {
@@ -164,7 +164,7 @@ func (d *discflo) clusters(db *DbScan) (Clusters, error) {
 					fmt.Println("--------------------------------------")
 					break
 				}
-				if n.Test == nil {
+				if len(n.Tests) <= 0 {
 					// skip this graph
 					errors.Logf("INFO", "filtered (no test) %d %v", i, n)
 					fmt.Println("--------------------------------------")
@@ -175,15 +175,20 @@ func (d *discflo) clusters(db *DbScan) (Clusters, error) {
 					var profile []byte
 					var failures []byte
 					var ok bool
+					var t *test.Testcase
+					for _, x := range n.Tests {
+						t = x
+						break
+					}
 					for len(profile) <= 0 {
 						var err error
-						_, _, profile, failures, ok, err = n.Test.ExecuteWith(d.oracle)
+						_, _, profile, failures, ok, err = t.ExecuteWith(d.oracle)
 						if err != nil {
 							return nil, err
 						}
 					}
 					if false {
-						errors.Logf("INFO", "ran failure oracle %v %v %v", len(n.Test.Case), len(failures), ok)
+						errors.Logf("INFO", "ran failure oracle %v %v %v", len(t.Case), len(failures), ok)
 					}
 					if len(failures) > 0 {
 						filtered = append(filtered, c)
