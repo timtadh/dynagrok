@@ -42,6 +42,7 @@ type topColorOpts struct {
 	percentOfColors float64
 	walksPerColor   int
 	minGroups       int
+	skipSeenColors  bool
 }
 
 type TopColorOpt func(*topColorOpts)
@@ -64,11 +65,18 @@ func MinGroupsWalked(m int) TopColorOpt {
 	}
 }
 
+func SkipSeenColors() TopColorOpt {
+	return func(o *topColorOpts) {
+		o.skipSeenColors = true
+	}
+}
+
 func WalkingTopColors(walker Walker, opts ...TopColorOpt) MinerFunc {
 	o := &topColorOpts{
 		percentOfColors: .0625,
 		walksPerColor:   2,
 		minGroups:       2,
+		skipSeenColors:  false,
 	}
 	for _, opt := range opts {
 		opt(o)
@@ -84,6 +92,7 @@ func WalkingTopColors(walker Walker, opts ...TopColorOpt) MinerFunc {
 		}
 
 		added := make(map[string]bool)
+		colors := make(map[int]bool)
 		prevScore := 0.0
 		groups := 0
 		count := 0
@@ -113,6 +122,10 @@ func WalkingTopColors(walker Walker, opts ...TopColorOpt) MinerFunc {
 				return nil, nil
 			}
 			color := locations[i].Color
+			if o.skipSeenColors && w == 0 && colors[color] {
+				i++
+				goto start
+			}
 			var n *SearchNode
 			n = walker.WalkFromColor(m, color)
 			w++
@@ -130,6 +143,9 @@ func WalkingTopColors(walker Walker, opts ...TopColorOpt) MinerFunc {
 				goto start
 			}
 			added[label] = true
+			for _, v := range n.Node.SubGraph.V {
+				colors[v.Color] = true
+			}
 			count++
 			if false {
 				errors.Logf("DEBUG", "found %d/%v %d/%d %d/%d %d %v", groups, o.minGroups, i, total, w, o.walksPerColor, count, n)

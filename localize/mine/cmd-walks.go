@@ -57,12 +57,15 @@ Option Flags
     -p,--percent-of-colors<float>     Percent of top colors to walk from
     -w,--walks-per-color=<int>        Number of walks to take per color
     -m,--min-groups-walked=<int>      Minimum number of groups of colors to walk from
+    -s,--skip-seen-colors             Skip taking walks from colors which have already
+                                      been found from some other color.
 `,
-		"p:w:m:",
+		"p:w:m:s",
 		[]string{
 			"percent-of-colors=",
 			"walks-per-color=",
 			"min-groups-walked=",
+			"skip-seen-colors",
 		},
 		func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
 			opts := make([]TopColorOpt, 0, 10)
@@ -86,6 +89,8 @@ Option Flags
 						return nil, cmd.Errorf(1, "Could not parse arg to `%v` expected an int (got %v). err: %v", oa.Opt(), oa.Arg(), err)
 					}
 					opts = append(opts, MinGroupsWalked(m))
+				case "-s", "--skip-seen-colors":
+					opts = append(opts, SkipSeenColors())
 				}
 			}
 			o.Miner = WalkingTopColors(wo.walker, opts...)
