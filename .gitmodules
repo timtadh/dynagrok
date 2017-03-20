@@ -41,3 +41,12 @@
 [submodule "src/github.com/julienschmidt/httprouter"]
 	path = src/github.com/julienschmidt/httprouter
 	url = git@github.com:julienschmidt/httprouter
+[submodule "examples/src/github.com/timtadh/combos"]
+	path = examples/src/github.com/timtadh/combos
+	url = git@github.com:timtadh/combos
+[submodule "examples/src/github.com/timtadh/dot"]
+	path = examples/src/github.com/timtadh/dot
+	url = git@github.com:timtadh/dot
+[submodule "examples/src/github.com/timtadh/lexmachine"]
+	path = examples/src/github.com/timtadh/lexmachine
+	url = git@github.com:timtadh/lexmachine
