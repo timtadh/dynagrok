@@ -29,7 +29,13 @@ if [[ -z "$MUTATE" ]]; then
 	exit 1
 fi
 
-MUTANTS=$5
+COUNT=$5
+if [[ -z "$COUNT" ]]; then
+	echo "must supply the number mutants to make as arg 5"
+	exit 1
+fi
+
+MUTANTS=$6
 if [[ -z "$MUTATE" ]]; then
 	MUTANTS=/tmp/mutants
 fi
@@ -88,7 +94,7 @@ if [[ $HEAD != $COMMIT ]]; then
 	)
 fi
 
-COUNT=10
+COUNT=2
 TESTS=$dgpath/examples/compiler-tests/oks
 TARGET=/tmp/mutant-go-$VERSION
 export GOROOT=$goroot
@@ -145,13 +151,12 @@ for ((MUTANT=1;MUTANT<=$COUNT;MUTANT++)); do
 			run mkdir -p $DGPROF
 			$COMPILER -o /dev/null $path
 			if [[ -f $DGPROF/failures ]]; then
-				run cp $path $FAILS/tests/$t.go
-				run cp $DGPROF/flow-graph.txt $FAILS/profiles/$t.txt
+				run cp $path $FAILS/tests/
 				run cp $DGPROF/failures $FAILS/failures/$t
 			else
-				run cp $path $OKS/tests/$t.go
-				run cp $DGPROF/flow-graph.txt $OKS/profiles/$t.txt
+				run cp $path $OKS/tests/
 			fi
+			run rm -r $DGPROF
 			t=$((t+1))
 		done
 		run rm -r $MUTANTS/m$MUTANT/tests
