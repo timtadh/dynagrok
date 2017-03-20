@@ -21,15 +21,15 @@
 					{{range $testId, $test := $tests}}
 						{{if $test.CanMinimize $lat $node.Node.SubGraph}}
 						<li>
-							<a href="/test/{{$testId}}/{{$cluster.Id}}/{{$nid}}">Generate Minimal Test ({{$testId}})</a>
+							<a href="/test/{{$testId}}/{{$cluster.Id}}/{{$nid}}">Generate Minimal Test ({{$testId}}) {{$test.From}}</a>
 						</li>
 						{{end}}
 					{{end}}
 					</ul>
 					<div>
 						{{range $testId, $test := $node.Tests}}
-							<h4>Test Input ({{$testId}}) </h4>
-							<a href="/test/{{$testId}}/{{$cluster.Id}}/{{$nid}}">View Minimal Test ({{$testId}})</a>
+							<h4>Test Input ({{$testId}}) {{$test.From}}</h4>
+							<a href="/test/{{$testId}}/{{$cluster.Id}}/{{$nid}}">View Input/Output</a>
 							<pre>{{$test}}</pre>
 						{{end}}
 						<a href="/graph/{{$cluster.Id}}/{{$nid}}">
