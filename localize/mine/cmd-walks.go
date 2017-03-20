@@ -59,6 +59,7 @@ Option Flags
     -m,--min-groups-walked=<int>      Minimum number of groups of colors to walk from
     -s,--skip-seen-colors             Skip taking walks from colors which have already
                                       been found from some other color.
+    --debug=<int>                     Debug level >= 0
 `,
 		"p:w:m:s",
 		[]string{
@@ -66,6 +67,7 @@ Option Flags
 			"walks-per-color=",
 			"min-groups-walked=",
 			"skip-seen-colors",
+			"debug=",
 		},
 		func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
 			opts := make([]TopColorOpt, 0, 10)
@@ -91,6 +93,12 @@ Option Flags
 					opts = append(opts, MinGroupsWalked(m))
 				case "-s", "--skip-seen-colors":
 					opts = append(opts, SkipSeenColors())
+				case "--debug":
+					d, err := strconv.Atoi(oa.Arg())
+					if err != nil {
+						return nil, cmd.Errorf(1, "Could not parse arg to `%v` expected a int (got %v). err: %v", oa.Opt(), oa.Arg(), err)
+					}
+					opts = append(opts, WTCDebugLevel(d))
 				}
 			}
 			o.Miner = WalkingTopColors(wo.walker, opts...)

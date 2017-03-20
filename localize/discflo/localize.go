@@ -51,11 +51,57 @@ func (r Result) Sort() {
 	})
 }
 
-func Localize(m *mine.Miner, tests []*test.Testcase, oracle test.Executor) (Clusters, error) {
+type discflo struct {
+	miner   *mine.Miner
+	tests   []*test.Testcase
+	oracle  test.Executor
+	epsilon float64
+	debug   int
+}
+
+type DiscfloOption func(*discflo)
+
+func Tests(tests []*test.Testcase) DiscfloOption {
+	return func(d *discflo) {
+		d.tests = tests
+	}
+}
+
+func Oracle(oracle test.Executor) DiscfloOption {
+	return func(d *discflo) {
+		d.oracle = oracle
+	}
+}
+
+func DbScanEpsilon(epsilon float64) DiscfloOption {
+	return func(d *discflo) {
+		d.epsilon = epsilon
+	}
+}
+
+func DebugLevel(i int) DiscfloOption {
+	return func(d *discflo) {
+		d.debug = i
+	}
+}
+
+func Localize(m *mine.Miner, opts ...DiscfloOption) (Clusters, error) {
+	d := &discflo{
+		miner:   m,
+		epsilon: .05,
+		debug:   0,
+	}
+	for _, opt := range opts {
+		opt(d)
+	}
+	return d.localize()
+}
+
+func (d *discflo) localize() (Clusters, error) {
 	added := make(map[string]bool)
-	db := NewDbScan(.05)
+	db := NewDbScan(d.epsilon)
 	i := 0
-	for n, next := m.Mine()(); next != nil; n, next = next() {
+	for n, next := d.miner.Mine()(); next != nil; n, next = next() {
 		if n.Node.SubGraph == nil {
 			continue
 		}
@@ -65,15 +111,15 @@ func Localize(m *mine.Miner, tests []*test.Testcase, oracle test.Executor) (Clus
 		}
 		added[label] = true
 		db.Add(n)
-		if true {
+		if d.debug >= 1 {
 			errors.Logf("DEBUG", "found %d %v", i, n)
 		}
 		i++
 	}
-	return clusters(tests, oracle, m, db)
+	return d.clusters(db)
 }
 
-func clusters(tests []*test.Testcase, oracle test.Executor, m *mine.Miner, db *DbScan) (Clusters, error) {
+func (d *discflo) clusters(db *DbScan) (Clusters, error) {
 	clusters := db.Clusters()
 	sort.Slice(clusters, func(i, j int) bool {
 		return clusters[i].Score > clusters[j].Score
@@ -85,7 +131,7 @@ func clusters(tests []*test.Testcase, oracle test.Executor, m *mine.Miner, db *D
 	}
 	passing := make([]*mine.SearchNode, 0, 10)
 	filtered := make([]*Cluster, 0, 10)
-	if len(tests) > 0 {
+	if len(d.tests) > 0 {
 		for i, c := range clusters {
 			if len(filtered) >= 5 && i > 5 || len(filtered) >= 2 && i > 10 || len(filtered) >= 1 && i > 15 {
 				break
@@ -97,12 +143,12 @@ func clusters(tests []*test.Testcase, oracle test.Executor, m *mine.Miner, db *D
 			for j, n := range c.Nodes {
 				fmt.Println(n)
 				fmt.Printf("------------ node %d -----------------\n", j)
-				fmt.Println(RankNodes(m, n.Node.SubGraph))
+				fmt.Println(RankNodes(d.miner, n.Node.SubGraph))
 				fmt.Println("--------------------------------------")
-				for count := 0; count < len(tests); count++ {
-					j := rand.Intn(len(tests))
-					t := tests[j]
-					min, err := t.Minimize(m.Lattice, n.Node.SubGraph)
+				for count := 0; count < len(d.tests); count++ {
+					j := rand.Intn(len(d.tests))
+					t := d.tests[j]
+					min, err := t.Minimize(d.miner.Lattice, n.Node.SubGraph)
 					if err != nil {
 						return nil, err
 					}
@@ -122,7 +168,7 @@ func clusters(tests []*test.Testcase, oracle test.Executor, m *mine.Miner, db *D
 					// skip this graph
 					errors.Logf("INFO", "filtered (no test) %d %v", i, n)
 					fmt.Println("--------------------------------------")
-				} else if oracle == nil {
+				} else if d.oracle == nil {
 					filtered = append(filtered, c)
 					break
 				} else {
@@ -131,7 +177,7 @@ func clusters(tests []*test.Testcase, oracle test.Executor, m *mine.Miner, db *D
 					var ok bool
 					for len(profile) <= 0 {
 						var err error
-						_, _, profile, failures, ok, err = n.Test.ExecuteWith(oracle)
+						_, _, profile, failures, ok, err = n.Test.ExecuteWith(d.oracle)
 						if err != nil {
 							return nil, err
 						}

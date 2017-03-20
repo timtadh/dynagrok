@@ -43,6 +43,7 @@ type topColorOpts struct {
 	walksPerColor   int
 	minGroups       int
 	skipSeenColors  bool
+	debug           int
 }
 
 type TopColorOpt func(*topColorOpts)
@@ -71,12 +72,19 @@ func SkipSeenColors() TopColorOpt {
 	}
 }
 
+func WTCDebugLevel(i int) TopColorOpt {
+	return func(o *topColorOpts) {
+		o.debug = i
+	}
+}
+
 func WalkingTopColors(walker Walker, opts ...TopColorOpt) MinerFunc {
 	o := &topColorOpts{
 		percentOfColors: .0625,
 		walksPerColor:   2,
 		minGroups:       2,
 		skipSeenColors:  false,
+		debug:           0,
 	}
 	for _, opt := range opts {
 		opt(o)
@@ -110,13 +118,13 @@ func WalkingTopColors(walker Walker, opts ...TopColorOpt) MinerFunc {
 				i++
 			}
 			if i >= len(locations) {
-				if false {
+				if o.debug >= 2 {
 					errors.Logf("DEBUG", "done %d/%v %d/%d %d/%d %d out of locations", groups, o.minGroups, i, total, w, o.walksPerColor, count)
 				}
 				return nil, nil
 			}
 			if i >= total && groups >= o.minGroups {
-				if false {
+				if o.debug >= 2 {
 					errors.Logf("DEBUG", "done %d/%v %d/%d %d/%d %d ending condition reached", groups, o.minGroups, i, total, w, o.walksPerColor, count)
 				}
 				return nil, nil
@@ -124,20 +132,23 @@ func WalkingTopColors(walker Walker, opts ...TopColorOpt) MinerFunc {
 			color := locations[i].Color
 			if o.skipSeenColors && w == 0 && colors[color] {
 				i++
+				if o.debug >= 3 {
+					errors.Logf("DEBUG", "skipped %d/%v %d/%d %d/%d %d seen this color before", groups, o.minGroups, i, total, w, o.walksPerColor, count)
+				}
 				goto start
 			}
 			var n *SearchNode
 			n = walker.WalkFromColor(m, color)
 			w++
 			if n.Node.SubGraph == nil || len(n.Node.SubGraph.E) < m.MinEdges {
-				if false {
+				if o.debug >= 3 {
 					errors.Logf("DEBUG", "skipped %d/%v %d/%d %d/%d %d no edges", groups, o.minGroups, i, total, w, o.walksPerColor, count)
 				}
 				goto start
 			}
 			label := string(n.Node.SubGraph.Label())
 			if added[label] {
-				if false {
+				if o.debug >= 3 {
 					errors.Logf("DEBUG", "skipped %d/%v %d/%d %d/%d %d previously seen", groups, o.minGroups, i, total, w, o.walksPerColor, count)
 				}
 				goto start
@@ -147,7 +158,7 @@ func WalkingTopColors(walker Walker, opts ...TopColorOpt) MinerFunc {
 				colors[v.Color] = true
 			}
 			count++
-			if false {
+			if o.debug >= 1 {
 				errors.Logf("DEBUG", "found %d/%v %d/%d %d/%d %d %v", groups, o.minGroups, i, total, w, o.walksPerColor, count, n)
 			}
 			return n, sni
