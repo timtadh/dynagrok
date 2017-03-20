@@ -142,8 +142,8 @@ for ((MUTANT=1;MUTANT<=$COUNT;MUTANT++)); do
 		run touch $MUTANTS/m$MUTANT/good
 		OKS=$MUTANTS/m$MUTANT/oks
 		FAILS=$MUTANTS/m$MUTANT/failed
-		run mkdir -p $OKS/tests $OKS/profiles
-		run mkdir -p $FAILS/tests $FAILS/profiles $FAILS/failures
+		run mkdir -p $OKS/tests
+		run mkdir -p $FAILS/tests $FAILS/failures
 		t=$((0))
 		for path in $(find $TESTS -type f -name "*.go" | sort); do
 			echo "running test $t $path"
