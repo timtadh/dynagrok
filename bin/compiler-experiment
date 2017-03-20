@@ -94,7 +94,6 @@ if [[ $HEAD != $COMMIT ]]; then
 	)
 fi
 
-COUNT=2
 TESTS=$dgpath/examples/compiler-tests/oks
 TARGET=/tmp/mutant-go-$VERSION
 export GOROOT=$goroot
