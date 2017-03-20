@@ -19,11 +19,9 @@
 					{{$node.Score}}
 					<ul>
 					{{range $testId, $test := $tests}}
-						{{if $test.CanMinimize $lat $node.Node.SubGraph}}
 						<li>
 							<a href="/test/{{$testId}}/{{$cluster.Id}}/{{$nid}}">Generate Minimal Test ({{$testId}}) {{$test.From}}</a>
 						</li>
-						{{end}}
 					{{end}}
 					</ul>
 					<div>
