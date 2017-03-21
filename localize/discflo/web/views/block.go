@@ -6,20 +6,26 @@ import (
 
 import (
 	"github.com/timtadh/dynagrok/localize/discflo/web/models"
-	"github.com/timtadh/dynagrok/localize/lattice"
 	"github.com/timtadh/dynagrok/localize/test"
+	"github.com/timtadh/dynagrok/localize/mine"
 )
 
 func (v *Views) Block(c *Context) error {
+	type node struct {
+		*mine.SearchNode
+		MinimizableTests map[int]*test.Testcase
+	}
+	type cluster struct {
+		Cluster *models.Cluster
+		Score   float64
+		Nodes   []*node
+	}
 	type data struct {
-		Lattice      *lattice.Lattice
 		Color        int
 		FnName       string
 		BasicBlockId int
-		Clusters     []*models.Cluster
-		Tests        []*test.Testcase
+		Clusters     []*cluster
 	}
-	tests := v.localization.Tests()
 	clusters, err := v.localization.Clusters()
 	if err != nil {
 		return err
@@ -32,13 +38,33 @@ func (v *Views) Block(c *Context) error {
 	if colors[color] == nil {
 		return fmt.Errorf("no clusters for color %v (%v)", color, v.opts.Lattice.Labels.Label(color))
 	}
+	clstrs := make([]*cluster, 0, len(colors[color]))
+	for _, c := range colors[color] {
+		nodes := make([]*node, 0, len(c.Nodes))
+		for nid, n := range c.Nodes {
+			mt, err := clusters.MinimizableTests(c.Id, nid)
+			if err != nil {
+				return err
+			}
+			for tid, _ := range n.Tests {
+				delete(mt, tid)
+			}
+			nodes = append(nodes, &node{
+				SearchNode: n,
+				MinimizableTests: mt,
+			})
+		}
+		clstrs = append(clstrs, &cluster{
+			Cluster: c,
+			Score: c.Score,
+			Nodes: nodes,
+		})
+	}
 	bbid, fnName, _ := v.opts.Lattice.Info.Get(color)
 	return v.tmpl.ExecuteTemplate(c.rw, "block", &data{
-		Lattice:      v.localization.Lattice(),
 		Color:        color,
 		FnName:       fnName,
 		BasicBlockId: bbid,
-		Clusters:     colors[color],
-		Tests:        tests,
+		Clusters:     clstrs,
 	})
 }

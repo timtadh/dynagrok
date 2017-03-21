@@ -15,22 +15,22 @@ import (
 	"github.com/timtadh/dynagrok/localize/lattice/subgraph"
 )
 
-func (t *Testcase) CanMinimize(lat *lattice.Lattice, sg *subgraph.SubGraph) (bool) {
+func (t *Testcase) CanMinimize(lat *lattice.Lattice, sg *subgraph.SubGraph) (bool, error) {
 	err := t.Execute()
 	if err != nil {
-		return false
+		return false, err
 	}
 	if !t.Usable() {
-		return false
+		return false, errors.Errorf("unusable test case")
 	}
 	p, err := t.Digraph(lat)
 	if err != nil {
-		return false
+		return false, err
 	}
 	if !sg.EmbeddedIn(p) {
-		return false
+		return false, nil
 	}
-	return true
+	return true, nil
 }
 
 func (t *Testcase) Minimize(lat *lattice.Lattice, sg *subgraph.SubGraph) (*Testcase, error) {

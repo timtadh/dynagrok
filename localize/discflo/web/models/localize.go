@@ -45,9 +45,11 @@ type sgid struct {
 
 type Cluster struct {
 	discflo.Cluster
-	Id          int
-	IncludedIdx int
-	ExcludedIdx int
+	Id               int
+	IncludedIdx      int
+	ExcludedIdx      int
+	MinimizableTests map[int]map[int]*test.Testcase
+	                 // node-id -> test-id -> original-test
 }
 
 type Blocks []*Block
@@ -73,12 +75,6 @@ func (l *Localization) Lattice() (*lattice.Lattice) {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 	return l.opts.Lattice
-}
-
-func (l *Localization) Tests() (tests []*test.Testcase) {
-	l.lock.Lock()
-	defer l.lock.Unlock()
-	return l.opts.Failing
 }
 
 func (l *Localization) Clusters() (*Clusters, error) {
@@ -122,6 +118,7 @@ func (l *Localization) newClusters(miner *mine.Miner, clusters discflo.Clusters)
 			Id:          i,
 			IncludedIdx: i,
 			ExcludedIdx: -1,
+			MinimizableTests: make(map[int]map[int]*test.Testcase),
 		}
 		c.included = append(c.included, cluster)
 		c.clusters[cluster.Id] = cluster
@@ -262,6 +259,39 @@ func (c *Clusters) Exclude(id int) error {
 	c.colors = nil
 	c.blocks = nil
 	return nil
+}
+
+func (c *Clusters) MinimizableTests(cid, nid int) (map[int]*test.Testcase, error) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	cluster, has := c.clusters[cid]
+	if !has {
+		return nil, fmt.Errorf("Could not find cluster %v in the clusters map.", cid)
+	}
+	if nid < 0 || nid >= len(cluster.Nodes) {
+		return nil, fmt.Errorf("Could not find node %v in the for cluster %v.", nid, cid)
+	}
+	node := cluster.Nodes[nid]
+
+	if cluster.MinimizableTests[nid] != nil {
+		return cluster.MinimizableTests[nid], nil
+	}
+
+	tests := make(map[int]*test.Testcase)
+
+	for i, t := range c.tests {
+		can, err := t.CanMinimize(c.lat, node.Node.SubGraph)
+		if err != nil {
+			return nil, err
+		}
+		if can {
+			tests[i] = t
+		}
+	}
+
+	cluster.MinimizableTests[nid] = tests
+	return cluster.MinimizableTests[nid], nil
 }
 
 func (c *Clusters) Test(tid, cid, nid int) (*test.Testcase, error) {
