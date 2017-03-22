@@ -27,5 +27,6 @@ move:
 	dynagrok -r ~/dev/repos/go-research -d /home/koby/dev/repos/dynagrok -g /home/koby/dev/repos/dynagrok/examples objectstate -m Move --keep-work -w /tmp/work dynagrok/examples/shapes/client
 
 clean:
+	rm /tmp/work/goroot/src/dgruntime* -r
+	rm /tmp/work/goroot/pkg/linux_amd64/dgruntime* -r
 	rm *.instr
-	rm dynagrok
