@@ -29,9 +29,12 @@ func (v *Views) GenerateTest(c *Context) error {
 	type data struct {
 		ClusterId int
 		NodeId    int
+		TestId    int
+		From      string
 		Test      string
 		Stdout    string
 		Stderr    string
+		Original  string
 	}
 	clusters, err := v.localization.Clusters()
 	if err != nil {
@@ -67,12 +70,16 @@ func (v *Views) GenerateTest(c *Context) error {
 		out = string(stdout)
 		errout = string(stderr)
 	}
+	from, original := v.localization.Test(tid)
 	return v.tmpl.ExecuteTemplate(c.rw, "test", &data{
 		ClusterId: cid,
 		NodeId:    nid,
+		TestId:    tid,
+		From:      from,
 		Test:      test,
 		Stdout:    out,
 		Stderr:    errout,
+		Original:  string(original),
 	})
 }
 

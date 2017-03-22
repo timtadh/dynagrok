@@ -71,6 +71,12 @@ func Localize(opts *discflo.Options) *Localization {
 	}
 }
 
+func (l *Localization) Test(tid int) (from string, test []byte) {
+	l.lock.Lock()
+	defer l.lock.Unlock()
+	return l.opts.Failing[tid].From, l.opts.Failing[tid].Case
+}
+
 func (l *Localization) Lattice() (*lattice.Lattice) {
 	l.lock.Lock()
 	defer l.lock.Unlock()
