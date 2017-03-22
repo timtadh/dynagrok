@@ -7,24 +7,29 @@
 	<ul>
 	{{$color := .Color}}
 	{{range $_, $cluster := .Clusters}}
-		{{if $cluster.Included}}
+		{{if $cluster.Cluster.Included}}
 		<li>
 			{{$cluster.Score}}
-			<a href="/exclude/{{$cluster.Id}}">Exclude Cluster</a>
+			<a href="/exclude/{{$cluster.Cluster.Id}}">Exclude Cluster</a>
 			<ul>
 			{{range $nid, $node := $cluster.Nodes}}
 				<li>
 					{{$node.Score}}
-					{{if not $node.Test}}
-						<a href="/test/{{$cluster.Id}}/{{$nid}}">Generate Test</a>
+					<ul>
+					{{range $testId, $test := $node.MinimizableTests}}
+						<li>
+							<a href="/test/{{$testId}}/{{$cluster.Cluster.Id}}/{{$nid}}">Generate Minimal Test ({{$testId}}) {{$test.From}}</a>
+						</li>
 					{{end}}
+					</ul>
 					<div>
-						{{if $node.Test}}
-							<h4>Test Input</h4>
-							<pre>{{$node.Test}}</pre>
+						{{range $testId, $test := $node.Tests}}
+							<h4>Test Input ({{$testId}}) {{$test.From}}</h4>
+							<a href="/test/{{$testId}}/{{$cluster.Cluster.Id}}/{{$nid}}">View Input/Output</a>
+							<pre>{{$test}}</pre>
 						{{end}}
-						<a href="/graph/{{$cluster.Id}}/{{$nid}}">
-							<img src="/graph/{{$cluster.Id}}/{{$nid}}"/>
+						<a href="/graph/{{$cluster.Cluster.Id}}/{{$nid}}">
+							<img src="/graph/{{$cluster.Cluster.Id}}/{{$nid}}"/>
 						</a>
 					</div>
 				</li>

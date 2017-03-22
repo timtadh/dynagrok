@@ -15,7 +15,15 @@ type SearchNodes func() (*SearchNode, SearchNodes)
 type SearchNode struct {
 	Node  *lattice.Node
 	Score float64
-	Test  *test.Testcase
+	Tests  map[int]*test.Testcase
+}
+
+func NewSearchNode(n *lattice.Node, score float64) *SearchNode {
+	return &SearchNode{
+		Node:  n,
+		Score: score,
+		Tests: make(map[int]*test.Testcase),
+	}
 }
 
 func (s *SearchNode) String() string {
@@ -36,10 +44,7 @@ func SliceToNodes(slice []*SearchNode) (sni SearchNodes) {
 }
 
 func RootNode(lat *lattice.Lattice) *SearchNode {
-	return &SearchNode{
-		Node:  lat.Root(),
-		Score: -100000000000,
-	}
+	return NewSearchNode(lat.Root(), -100000000000)
 }
 
 func ColorNode(lat *lattice.Lattice, score *Score, color int) *SearchNode {
@@ -50,8 +55,5 @@ func ColorNode(lat *lattice.Lattice, score *Score, color int) *SearchNode {
 		embs = append(embs, subgraph.StartEmbedding(subgraph.VertexEmbedding{SgIdx: 0, EmbIdx: embIdx}))
 	}
 	colorNode := lattice.NewNode(lat, vsg, embs)
-	return &SearchNode{
-		Node:  colorNode,
-		Score: score.Score(colorNode),
-	}
+	return NewSearchNode(colorNode, score.Score(colorNode))
 }

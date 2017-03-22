@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"time"
+	"strconv"
 )
 
 import (
@@ -13,7 +14,7 @@ import (
 	"github.com/timtadh/dynagrok/cmd"
 	"github.com/timtadh/dynagrok/localize/discflo"
 	"github.com/timtadh/dynagrok/localize/discflo/web"
-	"github.com/timtadh/dynagrok/localize/eval"
+	"github.com/timtadh/dynagrok/localize/discflo/eval"
 	"github.com/timtadh/dynagrok/localize/mine"
 	"github.com/timtadh/dynagrok/localize/test"
 )
@@ -51,11 +52,15 @@ func NewOptionParser(c *cmd.Config, o *discflo.Options) cmd.Runnable {
                                   failing tests.
 --failure-oracle=<path>           A failure oracle to filter out graphs with
                                   non-failing minimized tests.
+--db-scan-epsilon=<float>         Distance epsilon to use in DBScan
+--debug=<int>                     Debug level >= 0
 `,
 		"",
 		[]string{
 			"minimize-tests",
 			"failure-oracle=",
+			"db-scan-epsilon=",
+			"debug=",
 		},
 		func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
 			var oracle *test.Remote
@@ -68,7 +73,19 @@ func NewOptionParser(c *cmd.Config, o *discflo.Options) cmd.Runnable {
 					}
 					oracle = r
 				case "--minimize-tests":
-					o.Minimize = true
+					o.DiscfloOpts = append(o.DiscfloOpts, discflo.Tests(o.Failing))
+				case "--db-scan-epsilon":
+					e, err := strconv.ParseFloat(oa.Arg(), 64)
+					if err != nil {
+						return nil, cmd.Errorf(1, "Could not parse arg to `%v` expected an float (got %v). err: %v", oa.Opt(), oa.Arg(), err)
+					}
+					o.DiscfloOpts = append(o.DiscfloOpts, discflo.DbScanEpsilon(e))
+				case "--debug":
+					d, err := strconv.Atoi(oa.Arg())
+					if err != nil {
+						return nil, cmd.Errorf(1, "Could not parse arg to `%v` expected a int (got %v). err: %v", oa.Opt(), oa.Arg(), err)
+					}
+					o.DiscfloOpts = append(o.DiscfloOpts, discflo.DebugLevel(d))
 				}
 			}
 			if oracle != nil {
@@ -76,7 +93,7 @@ func NewOptionParser(c *cmd.Config, o *discflo.Options) cmd.Runnable {
 				if err != nil {
 					return nil, cmd.Err(2, err)
 				}
-				o.Oracle = fex
+				o.DiscfloOpts = append(o.DiscfloOpts, discflo.Oracle(fex))
 			}
 			return args, nil
 		})

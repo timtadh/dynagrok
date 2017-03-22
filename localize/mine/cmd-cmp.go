@@ -160,3 +160,18 @@ func (nodes SearchNodes) unique() (unique []*SearchNode) {
 	})
 	return unique
 }
+
+func (nodes SearchNodes) group() [][]*SearchNode {
+	unique := nodes.unique()
+	groups := make([][]*SearchNode, 0, 10)
+	for _, n := range unique {
+		lg := len(groups)
+		if lg > 0 && n.Score == groups[lg-1][0].Score {
+			groups[lg-1] = append(groups[lg-1], n)
+		} else {
+			groups = append(groups, make([]*SearchNode, 0, 10))
+			groups[lg] = append(groups[lg], n)
+		}
+	}
+	return groups
+}
