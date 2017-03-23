@@ -1,6 +1,7 @@
 
 body {
 	max-width: 95vw;
+	margin: auto;
 }
 
 .block {
@@ -21,8 +22,5 @@ pre, img, figure, table {
 	padding: .5em;
 	overflow-x: auto;
 	border: 3px solid silver;
-}
-
-img {
-	max-width:100%;
+	max-width: calc(100% - 1.5em);
 }
