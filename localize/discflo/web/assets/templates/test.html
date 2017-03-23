@@ -1,9 +1,17 @@
 {{template "header" "discflo"}}
 <div class="center_box">
 	<h1 class="title">
-		Test
+		Minimized Test Case ({{.TestId}}) {{.From}}
 	</h1>
 	<hr/>
+	<p>
+		The test was minimized such that it still contains the following
+		structure in its inter-procedural basic block flow graph. See below
+		for the original test case.
+	</p>
+	<a href="/graph/{{.ClusterId}}/{{.NodeId}}">
+		<img src="/graph/{{.ClusterId}}/{{.NodeId}}"/>
+	</a>
 	{{if .Test}}
 		<h3>Input</h3>
 		<pre>{{.Test}}</pre>
@@ -17,6 +25,8 @@
 	{{else}}
 		<b>No Test!</b>
 	{{end}}
+	<h3>The Original Test Case</h3>
+	<pre>{{.Original}}</pre>
 </div>
 {{template "footer"}}
 
