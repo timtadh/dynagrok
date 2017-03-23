@@ -139,7 +139,7 @@ func (l *Localization) newClusters(miner *mine.Miner, clusters discflo.Clusters)
 	return c
 }
 
-func (c *Clusters) asDiscflo(clusters []*Cluster) []*discflo.Cluster {
+func (c *Clusters) AsDiscflo(clusters []*Cluster) []*discflo.Cluster {
 	df := make([]*discflo.Cluster, 0, len(clusters))
 	for _, c := range clusters {
 		df = append(df, &c.Cluster)
@@ -195,7 +195,7 @@ func (c *Clusters) Blocks() Blocks {
 		blocks = append(blocks, &Block{
 			In: clusters,
 			Location: stat.Location{
-				Score:        discflo.ScoreColor(c.miner, color, c.asDiscflo(clusters)),
+				Score:        discflo.ScoreColor(c.miner, color, c.AsDiscflo(clusters)),
 				Color:        color,
 				Position:     pos,
 				FnName:       fnName,

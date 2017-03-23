@@ -44,7 +44,8 @@ func Routes(c *cmd.Config, o *discflo.Options, assetPath string) (http.Handler, 
 	mux.GET("/block/:color", v.Context(v.Block))
 	mux.GET("/test/:tid/:cid/:nid", v.Context(v.GenerateTest))
 	mux.GET("/exclude/:cid", v.Context(v.ExcludeCluster))
-	mux.GET("/graph/:cid/:nid", v.Context(v.Img))
+	mux.GET("/graph/:cid/:nid/image.png", v.Context(v.Img))
+	mux.GET("/graph/:cid/:nid", v.Context(v.Graph))
 	mux.ServeFiles("/static/*filepath", http.Dir(filepath.Join(assetPath, "static")))
 	err := v.Init()
 	if err != nil {

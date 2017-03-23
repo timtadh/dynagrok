@@ -1,0 +1,49 @@
+{{template "header" "discflo"}}
+<div class="center_box">
+	<h1 class="title">
+		Subgraph {{.NodeId}} of cluster {{.ClusterId}}: {{.Score}}
+	</h1>
+	<hr/>
+	<div>
+		<ul>
+		{{$cid := .ClusterId}}
+		{{$nid := .NodeId}}
+		{{range $testId, $test := .MinimizableTests}}
+			<li>
+				<a href="/test/{{$testId}}/{{$cid}}/{{$nid}}">Generate Minimal Test ({{$testId}}) {{$test.From}}</a>
+			</li>
+		{{end}}
+		</ul>
+		<div>
+		{{range $testId, $test := .MinimizedTests}}
+			<h4>Test Input ({{$testId}}) {{$test.From}}</h4>
+			<a href="/test/{{$testId}}/{{$cid}}/{{$nid}}">View Input/Output</a>
+			<pre>{{$test}}</pre>
+		{{end}}
+		</div>
+		<div>
+			<a href="/graph/{{.ClusterId}}/{{.NodeId}}/image.png">
+				<img src="/graph/{{.ClusterId}}/{{.NodeId}}/image.png"/>
+			</a>
+		</div>
+	</div>
+	<div class="blocks">
+	{{range $_, $block := .Locations}}
+		<div class="block">
+			<div class="score">
+				{{$block.Score}}
+			</div>
+			<div class="position">
+				{{$block.Position}}
+			</div>
+			<div class="basic-block">
+				<a href="/block/{{$block.Color}}">
+					{{$block.FnName}} ({{$block.BasicBlockId}})
+				</a>
+			</div>
+		</div>
+	{{end}}
+	</div>
+</div>
+{{template "footer"}}
+
