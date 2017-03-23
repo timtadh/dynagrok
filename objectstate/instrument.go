@@ -152,8 +152,9 @@ func (i instrumenter) mkMethodInput(pos token.Pos, name string, inputs []string)
 	p := i.program.Fset.Position(pos)
 	s := fmt.Sprintf("dgruntime.MethodInput(%s, %s", strconv.Quote(name), strconv.Quote(p.String()))
 	for _, input := range inputs {
-		s = s + ", " + input
+		s = fmt.Sprintf("%v, struct {Name string \nVal interface{}\n}{Name: \"%v\", Val: %v}", s, input, input)
 	}
+
 	s = s + ")"
 	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
 	if err != nil {
@@ -166,8 +167,9 @@ func (i instrumenter) mkDeferMethodOutput(pos token.Pos, name string, inputs []s
 	p := i.program.Fset.Position(pos)
 	s := fmt.Sprintf("func() { dgruntime.MethodOutput(%s, %s", strconv.Quote(name), strconv.Quote(p.String()))
 	for _, input := range inputs {
-		s = s + ", " + input
+		s = fmt.Sprintf("%v, struct {Name string \nVal interface{}\n}{Name: \"%v\", Val: %v}", s, input, input)
 	}
+
 	s = s + ") }()"
 	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
 	if err != nil {
@@ -180,7 +182,7 @@ func (i instrumenter) mkMethodOutput(pos token.Pos, name string, inputs []string
 	p := i.program.Fset.Position(pos)
 	s := fmt.Sprintf("dgruntime.MethodOutput(%s, %s", strconv.Quote(name), strconv.Quote(p.String()))
 	for _, input := range inputs {
-		s = s + ", " + input
+		s = fmt.Sprintf("%v, struct {Name string \nVal interface{}\n}{Name: \"%v\", Val: %v}", s, input, input)
 	}
 	s = s + ")"
 	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))

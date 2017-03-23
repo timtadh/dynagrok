@@ -182,9 +182,16 @@ func EnterFunc(name, pos string) {
 //}
 
 func deriveProfile(items []interface{}) dgtypes.ObjectProfile {
+	// profiles will be delivered as a struct {name string, val interface{}}
+
 	values := make(dgtypes.ObjectProfile, 0, len(items))
 	for _, item := range items {
-		values = append(values, dgtypes.NewVal(item))
+		if param, ok := item.(struct {
+			Name string
+			Val  interface{}
+		}); ok {
+			values = append(values, dgtypes.Param{Name: param.Name, Val: dgtypes.NewVal(param.Val)})
+		}
 	}
 	return values
 }
