@@ -5,29 +5,34 @@ type Type interface {
 }
 
 type PrimitiveType struct {
-	name string
+	Tname string
 }
 
 func (p *PrimitiveType) Name() string {
-	return p.name
+	return p.Tname
 }
 
 type PointerType struct {
-	name string
-	Elem Type
+	Tname string
+	Elem  Type
 }
 
 func (p *PointerType) Name() string {
-	return p.name
+	return p.Tname
 }
 
 type CollectionType struct {
-	name string
-	Elem Type
-	Len  int
-	Cap  int
+	Tname string
+	Elem  Type
+	Len   int
+	Cap   int
 }
 
 func (p *CollectionType) Name() string {
-	return p.name
+	return p.Tname
+}
+
+type StructType struct {
+	Tname  string
+	Fields []Type
 }
