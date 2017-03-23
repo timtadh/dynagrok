@@ -5,7 +5,12 @@ import (
 	"encoding/json"
 )
 
-type ObjectProfile []Value
+type ObjectProfile []Param
+
+type Param struct {
+	Name string
+	Val  Value
+}
 
 type FuncProfile struct {
 	FuncName string
