@@ -11,6 +11,7 @@ type Goroutine struct {
 	Closed    bool
 	Inputs    map[string][]dgtypes.ObjectProfile
 	Outputs   map[string][]dgtypes.ObjectProfile
+	Types     map[string]dgtypes.Type
 	Stack     []*dgtypes.FuncCall
 	Calls     map[dgtypes.Call]int
 	Flows     map[dgtypes.FlowEdge]int
@@ -23,6 +24,7 @@ func newGoroutine(id int64) *Goroutine {
 	g := &Goroutine{
 		Inputs:    make(map[string][]dgtypes.ObjectProfile),
 		Outputs:   make(map[string][]dgtypes.ObjectProfile),
+		Types:     make(map[string]dgtypes.Type),
 		GoID:      id,
 		Stack:     make([]*dgtypes.FuncCall, 0, 10),
 		Calls:     make(map[dgtypes.Call]int),

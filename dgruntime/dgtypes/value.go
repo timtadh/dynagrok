@@ -386,7 +386,6 @@ func NewVal(i interface{}) Value {
 	val := reflect.ValueOf(i)
 
 	vType := val.Type()
-	fmt.Println(vType.Name())
 	switch vType.Kind() {
 	case reflect.Int,
 		reflect.Int8,

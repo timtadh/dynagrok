@@ -18,6 +18,17 @@ type FuncProfile struct {
 	Out      []ObjectProfile
 }
 
+type TypeProfile struct {
+	Types []Type
+}
+
+func (tp TypeProfile) Serialize() string {
+	b := new(bytes.Buffer)
+	e := json.NewEncoder(b)
+	e.Encode(tp)
+	return b.String()
+}
+
 func (fp FuncProfile) Vector() []float64 {
 	return []float64{0}
 }
