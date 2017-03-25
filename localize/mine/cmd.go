@@ -57,6 +57,7 @@ func NewCommand(c *cmd.Config) cmd.Runnable {
 	var o Options
 	cmp := NewCompareParser(c, &o)
 	eval := NewEvalParser(c, &o)
+	markovEval := NewMarkovEvalParser(c, &o)
 	return cmd.Concat(
 		cmd.Annotate(
 			NewOptionParser(c, &o),
@@ -70,6 +71,7 @@ func NewCommand(c *cmd.Config) cmd.Runnable {
 					cmd.Commands(map[string]cmd.Runnable{
 						"": NewRunner(c, &o),
 						eval.Name(): eval,
+						markovEval.Name(): markovEval,
 					}),
 			),
 			cmp.Name(): cmp,

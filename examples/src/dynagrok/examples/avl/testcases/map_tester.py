@@ -36,7 +36,7 @@ def _eintr_retry_call(func, *args):
 
 class Remote(object):
 
-    MEM_LIMIT = int(5 * 10**7) ### 50 MB
+    MEM_LIMIT = int(50 * 10**7) ### 500 MB
     TIME_LIMIT = 2 ### 2 seconds
 
     def __init__(self, path, dgpath):
