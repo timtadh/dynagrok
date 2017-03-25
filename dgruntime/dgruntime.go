@@ -88,124 +88,41 @@ func EnterFunc(name, pos string) {
 	// g.m.Unlock()
 }
 
-// deriveFields is a helper method which takes an object reference and ObjectType and
-// uses reflection to determine the fields of the object. It returns the results
-// in a slice.
-//func deriveFields(v reflect.Value) []dgtypes.Field {
-//	fields := make([]dgtypes.Field, 0)
-//	typeOfObj := v.Type()
-//
-//	for i := 0; i < v.NumField(); i++ {
-//		f := v.Field(i)
-//		name := typeOfObj.Field(i).Name
-//		fieldType := typeOfObj.Field(i).Type
-//		if f.CanInterface() { // f.Interface() will fail otherwise
-//			ft := *getType(f.Interface())
-//			switch f.Kind() {
-//			case reflect.Slice:
-//				if f.CanAddr() {
-//					fields = append(fields, dgtypes.Field{Name: name, Exported: true,
-//						Val: dgtypes.Value{Type: ft, Slice: f.UnsafeAddr()}})
-//				} else {
-//					fields = append(fields, dgtypes.Field{Name: name, Exported: true,
-//						Val: dgtypes.Value{Type: ft, Slice: 1}})
-//				}
-//			case reflect.Ptr:
-//				if f.CanAddr() {
-//					fields = append(fields, dgtypes.Field{Name: name, Exported: true,
-//						Val: dgtypes.Value{Type: ft, Pointer: f.UnsafeAddr()}})
-//				} else {
-//					fields = append(fields, dgtypes.Field{Name: name, Exported: true,
-//						Val: dgtypes.Value{Type: ft, Pointer: 1}})
-//				}
-//			case reflect.Struct:
-//				if f.CanAddr() {
-//					fields = append(fields, dgtypes.Field{Name: name, Exported: true, Val: dgtypes.Value{
-//						Type: ft, Struct: dgtypes.NewShallowStruct(ft, f.UnsafeAddr())}})
-//				} else {
-//					fields = append(fields, dgtypes.Field{Name: name, Exported: true,
-//						Val: dgtypes.Value{Type: ft, Struct: dgtypes.NewShallowStruct(ft, 1)}})
-//				}
-//			default:
-//				fields = append(fields, dgtypes.Field{Name: name, Exported: true, Val: dgtypes.Value{Type: ft, Other: f.Interface()}})
-//			}
-//		} else {
-//			fields = append(fields, dgtypes.Field{Name: name, Exported: true,
-//				Val: dgtypes.Value{Type: dgtypes.ObjectType{fieldType.Name(), false}}})
-//			log.Printf("Could not access unexported %v field: %v", f.Kind(), name)
-//		}
-//	}
-//	return fields
-//}
-//
-//// getType uses reflection to find the type of the object at 'obj'.
-//func getType(obj interface{}) *dgtypes.ObjectType {
-//	// uses reflection to determine the typename
-//	value := reflect.ValueOf(obj)
-//	zero := reflect.Value{}
-//	if value == zero {
-//		return &dgtypes.ObjectType{}
-//	}
-//	tipe := value.Type()
-//	if tipe.Kind() == reflect.Ptr {
-//		if value.Elem() == zero {
-//			return &dgtypes.ObjectType{}
-//		}
-//		return &dgtypes.ObjectType{value.Elem().Type().Name(), true}
-//	} else if tipe.Kind() == reflect.Struct {
-//		return &dgtypes.ObjectType{reflect.TypeOf(obj).Name(), false}
-//	}
-//	return &dgtypes.ObjectType{value.Type().String(), false}
-//}
-//
-//func reflectValToValue(val reflect.Value, tp dgtypes.ObjectType) *dgtypes.Value {
-//	typeOfObj := val.Type()
-//	switch typeOfObj.Kind() {
-//	case reflect.Struct:
-//		fields := deriveFields(val)
-//		return &dgtypes.Value{Type: tp, Struct: &dgtypes.StructT{Type: tp, Fields: fields}}
-//	}
-//	return nil
-//}
-//
-//func deriveValue(obj interface{}) *dgtypes.Value {
-//	t := getType(obj)
-//
-//	var v reflect.Value
-//	if (*t).Pointer {
-//		v = reflect.ValueOf(obj).Elem()
-//	} else {
-//		v = reflect.ValueOf(obj)
-//	}
-//
-//	return reflectValToValue(v, *t)
-//}
-
-func deriveProfile(items []interface{}) dgtypes.ObjectProfile {
+func deriveProfile(items []interface{}) (dgtypes.ObjectProfile, []dgtypes.Type) {
 	// profiles will be delivered as a struct {name string, val interface{}}
 
 	values := make(dgtypes.ObjectProfile, 0, len(items))
+	types := make([]dgtypes.Type, 0, len(items))
 	for _, item := range items {
 		if param, ok := item.(struct {
 			Name string
 			Val  interface{}
 		}); ok {
 			values = append(values, dgtypes.Param{Name: param.Name, Val: dgtypes.NewVal(param.Val)})
+			types = append(types, dgtypes.NewType(param.Val))
 		}
 	}
-	return values
+	return values, types
 }
 
 func MethodInput(fnName string, pos string, inputs ...interface{}) {
 	execCheck()
 	g := exec.Goroutine(runtime.GoID())
-	g.Inputs[fnName] = append(g.Inputs[fnName], deriveProfile(inputs))
+	values, types := deriveProfile(inputs)
+	g.Inputs[fnName] = append(g.Inputs[fnName], values)
+	for _, typ := range types {
+		g.Types[typ.Name()] = typ
+	}
 }
 
 func MethodOutput(fnName string, pos string, outputs ...interface{}) {
 	execCheck()
 	g := exec.Goroutine(runtime.GoID())
-	g.Outputs[fnName] = append(g.Outputs[fnName], deriveProfile(outputs))
+	values, types := deriveProfile(outputs)
+	g.Outputs[fnName] = append(g.Outputs[fnName], values)
+	for _, typ := range types {
+		g.Types[typ.Name()] = typ
+	}
 }
 
 func ExitFunc(name string) {

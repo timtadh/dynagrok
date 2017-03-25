@@ -10,6 +10,7 @@ import (
 type Profile struct {
 	Inputs    map[string][]ObjectProfile
 	Outputs   map[string][]ObjectProfile
+	Types     map[string]Type
 	Funcs     map[uintptr]*Function
 	Calls     map[Call]int
 	Flows     map[FlowEdge]int
@@ -25,6 +26,7 @@ func NewProfile() *Profile {
 		Positions: make(map[BlkEntrance]string),
 		Inputs:    make(map[string][]ObjectProfile),
 		Outputs:   make(map[string][]ObjectProfile),
+		Types:     make(map[string]Type),
 	}
 }
 
@@ -176,6 +178,11 @@ func LoadSimple(fout io.Writer) (*Profile, error) {
 }
 
 func (p *Profile) SerializeProfs(fout io.Writer) {
+	types := make([]Type, len(p.Types))
+	for _, typ := range p.Types {
+		types = append(types, typ)
+	}
+	fmt.Fprint(fout, TypeProfile{types}.Serialize())
 	for fname := range p.Inputs {
 		if _, ok := p.Outputs[fname]; ok {
 			fmt.Fprint(fout, FuncProfile{fname, p.Inputs[fname], p.Outputs[fname]}.Serialize())

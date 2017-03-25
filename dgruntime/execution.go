@@ -150,6 +150,9 @@ func (e *Execution) merge(g *Goroutine) {
 	for funcName, instances := range g.Outputs {
 		e.Profile.Outputs[funcName] = append(e.Profile.Outputs[funcName], instances...)
 	}
+	for typeName, typ := range g.Types {
+		e.Profile.Types[typeName] = typ
+	}
 }
 
 func shutdown(e *Execution) {
