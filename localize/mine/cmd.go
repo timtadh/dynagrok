@@ -199,7 +199,7 @@ func NewOptionParser(c *cmd.Config, o *Options) cmd.Runnable {
 						return nil, cmd.Errorf(1, "Localization method '%v' is not supported. (use --methods to get a list)", oa.Arg())
 					}
 				case "-b", "--binary":
-					r, err := test.NewRemote(oa.Arg(), test.MaxMegabytes(500), test.Timeout(10*time.Second), test.Config(c))
+					r, err := test.NewRemote(oa.Arg(), test.MaxMegabytes(50), test.Timeout(5*time.Second), test.Config(c))
 					if err != nil {
 						return nil, cmd.Err(1, err)
 					}

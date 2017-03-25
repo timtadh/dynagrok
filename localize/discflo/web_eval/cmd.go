@@ -1,4 +1,4 @@
-package eval
+package web_eval
 
 import (
 	"fmt"
@@ -13,12 +13,11 @@ import (
 	"github.com/timtadh/dynagrok/localize/discflo"
 	"github.com/timtadh/dynagrok/localize/lattice"
 	"github.com/timtadh/dynagrok/localize/mine"
-	"github.com/timtadh/dynagrok/localize/stat"
 )
 
 func NewCommand(c *cmd.Config, o *discflo.Options) cmd.Runnable {
 	return cmd.Cmd(
-		"eval",
+		"web-eval",
 		`[options]`,
 		`
 Evaluate a fault localization method from ground truth
@@ -49,71 +48,69 @@ Option Flags
 			for _, f := range faults {
 				fmt.Println(f)
 			}
-			eval := func(name string, method stat.Method) {
-				localized := Group(method(o.Lattice))
-				for _, f := range faults {
-					sum := 0
-					for gid, g := range localized {
-						for _, l := range g {
-							if l.FnName == f.FnName && l.BasicBlockId == f.BasicBlockId {
-								fmt.Printf(
-									"    %v {\n        rank: %v, gid: %v, group-size: %v\n        score: %v,\n        fn: %v (%d),\n        pos: %v\n    }\n",
-									name,
-									float64(sum)+float64(len(g))/2, gid, len(g),
-									l.Score,
-									l.FnName,
-									l.BasicBlockId,
-									l.Position,
-								)
-							}
-						}
-						sum += len(g)
-					}
-				}
-			}
-			dflo := func(s mine.ScoreFunc) stat.Method {
-				return func(lat *lattice.Lattice) stat.Result {
+			dflo := func(s mine.ScoreFunc) func(lat *lattice.Lattice) discflo.Result {
+				return func(lat *lattice.Lattice) discflo.Result {
 					miner := mine.NewMiner(o.Miner, lat, s, o.Opts...)
 					c, err := discflo.Localizer(o)(miner)
 					if err != nil {
 						panic(err)
 					}
-					return c.RankColors(miner).StatResult()
+					return c.RankColors(miner)
+				}
+			}
+			eval := func(name string, m func(*lattice.Lattice) discflo.Result) {
+				r := m(o.Lattice)
+				colors, P := MarkovChain(r)
+				M := ExpectedHittingTimes(P)
+				scores := make(map[int]float64)
+				for color, states := range colors {
+					min := 0
+					for i, state := range states {
+						hTime := M[0][state]
+						if i == 0 || hTime < min {
+							min = hTime
+						}
+					}
+					scores[color] = min
+				}
+				for _, f := range faults {
+					for color, score := range scores {
+						b, fn, pos := o.Lattice.Info.Get(color)
+						if fn == f.FnName && b == f.BasicBlockId {
+							fmt.Printf(
+								"    %v {\n\thitting time: %v,\n\tfn: %v (%d),\n\tpos: %v\n    }\n",
+								name,
+								score,
+								fn, b, pos,
+							)
+							break
+						}
+					}
 				}
 			}
 			if o.Score == nil {
 				for name, score := range mine.Scores {
 					eval("Discflo + "+name, dflo(score))
-					eval(name, func(s mine.ScoreFunc) stat.Method {
-						return func(lat *lattice.Lattice) stat.Result {
-							miner := mine.NewMiner(o.Miner, lat, s, o.Opts...)
-							return mine.LocalizeNodes(miner.Score)
-						}
-					}(score))
 				}
 			} else {
 				eval("Discflo + "+o.ScoreName, dflo(o.Score))
-				eval(o.ScoreName, func(s mine.ScoreFunc) stat.Method {
-					return func(lat *lattice.Lattice) stat.Result {
-						miner := mine.NewMiner(o.Miner, lat, s, o.Opts...)
-						return mine.LocalizeNodes(miner.Score)
-					}
-				}(o.Score))
 			}
 			return nil, nil
 		})
 }
 
-func Group(results stat.Result) []stat.Result {
-	groups := make([]stat.Result, 0, 10)
+
+func Group(results discflo.Result) []discflo.Result {
+	groups := make([]discflo.Result, 0, 10)
 	for _, r := range results {
 		lg := len(groups)
 		if lg > 0 && r.Score == groups[lg-1][0].Score {
 			groups[lg-1] = append(groups[lg-1], r)
 		} else {
-			groups = append(groups, make(stat.Result, 0, 10))
+			groups = append(groups, make(discflo.Result, 0, 10))
 			groups[lg] = append(groups[lg], r)
 		}
 	}
 	return groups
 }
+
