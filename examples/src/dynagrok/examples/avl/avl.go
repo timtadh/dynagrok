@@ -67,6 +67,8 @@ func cmd(t *Avl, cmd string, args []string) {
 		fmt.Println("ex verify", t.Verify())
 	case "serialize":
 		fmt.Println(t.root.Serialize())
+	case "dotty":
+		fmt.Println(t.root.Dotty())
 	default:
 		fmt.Printf("err not a command: %v\n", cmd)
 	}
