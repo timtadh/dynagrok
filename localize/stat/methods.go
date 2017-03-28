@@ -33,6 +33,21 @@ func (r Result) String() string {
 	return strings.Join(parts, "\n")
 }
 
+func (r Result) Group() []Result {
+	r.Sort()
+	groups := make([]Result, 0, 10)
+	for _, n := range r {
+		lg := len(groups)
+		if lg > 0 && n.Score == groups[lg-1][0].Score {
+			groups[lg-1] = append(groups[lg-1], n)
+		} else {
+			groups = append(groups, make([]Location, 0, 10))
+			groups[lg] = append(groups[lg], n)
+		}
+	}
+	return groups
+}
+
 type Method func(lat *lattice.Lattice) Result
 
 var Methods = map[string]Method{

@@ -69,7 +69,7 @@ func NewIndices(b *Builder, minSupport int) *Indices {
 			i.EdgeCounts[colorKey] += 1
 			// only add to frequent edges exactly when this colorKey has
 			// surpassed min_support.
-			if i.EdgeCounts[colorKey] == minSupport {
+			if i.EdgeCounts[colorKey] >= minSupport {
 				if i.EdgesFromColor[e.Color] == nil {
 					i.EdgesFromColor[e.Color] = make([]Colors, 0, 10)
 				}

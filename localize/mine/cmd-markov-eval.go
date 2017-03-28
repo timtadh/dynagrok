@@ -13,6 +13,7 @@ import (
 
 import (
 	"github.com/timtadh/dynagrok/cmd"
+	"github.com/timtadh/dynagrok/localize/lattice"
 )
 
 func NewMarkovEvalParser(c *cmd.Config, o *Options) cmd.Runnable {
@@ -48,80 +49,215 @@ Option Flags
 			for _, f := range faults {
 				fmt.Println(f)
 			}
-			eval := func(name string, m *Miner) {
-				group := func(order []int, scores map[int]float64) [][]int {
-					sort.Slice(order, func(i, j int) bool {
-						return scores[order[i]] < scores[order[j]]
-					})
-					groups := make([][]int, 0, 10)
-					for _, n := range order {
-						lg := len(groups)
-						if lg > 0 && scores[n] == scores[groups[lg-1][0]] {
-							groups[lg-1] = append(groups[lg-1], n)
-						} else {
-							groups = append(groups, make([]int, 0, 10))
-							groups[lg] = append(groups[lg], n)
-						}
-					}
-					return groups
-				}
-				colors, P := MarkovChain(m)
-				scores := make(map[int]float64)
-				order := make([]int, 0, len(colors))
-				for color, state := range colors {
-					scores[color] = ExpectedHittingTime(0, state, P)
-					order = append(order, color)
-				}
-				grouped := group(order, scores)
-				ranks := make(map[int]float64)
-				total := 0
-				for gid, group := range grouped {
-					count := 0
-					for _, color := range group {
-						score := scores[color]
-						count++
-						ranks[color] = float64(total) + float64(len(group))/2
-						b, fn, pos := o.Lattice.Info.Get(color)
-						fmt.Printf(
-							"    {\n\tgroup: %v, size: %d,\n\trank: %v, hitting time: %v,\n\tfn: %v (%d),\n\tpos: %v\n    }\n",
-							gid, len(group),
-							ranks[color],
-							score,
-							fn, b, pos,
-						)
-					}
-					total += len(group)
-				}
-				for _, f := range faults {
-					for color, score := range scores {
-						b, fn, pos := o.Lattice.Info.Get(color)
-						if fn == f.FnName && b == f.BasicBlockId {
-							fmt.Printf(
-								"    %v {\n\trank: %v,\n\thitting time: %v,\n\tfn: %v (%d),\n\tpos: %v\n    }\n",
-								name,
-								ranks[color],
-								score,
-								fn, b, pos,
-							)
-							break
-						}
-					}
-				}
-			}
 			if o.Score == nil {
 				for name, score := range Scores {
 					m := NewMiner(o.Miner, o.Lattice, score, o.Opts...)
-					eval("mine-dsg + "+name, m)
+					colors, P := DsgMarkovChain(m)
+					MarkovEval(faults, o.Lattice, "mine-dsg + "+name, colors, P)
+					colors, P = RankListMarkovChain(m)
+					MarkovEval(faults, o.Lattice, name, colors, P)
+					colors, P = RankListWithJumpsMarkovChain(m)
+					MarkovEval(faults, o.Lattice, "jumps + " + name, colors, P)
 				}
 			} else {
 				m := NewMiner(o.Miner, o.Lattice, o.Score, o.Opts...)
-				eval("mine-dsg + "+o.ScoreName, m)
+				colors, P := DsgMarkovChain(m)
+				MarkovEval(faults, o.Lattice, "mine-dsg + "+o.ScoreName, colors, P)
+				colors, P = RankListMarkovChain(m)
+				MarkovEval(faults, o.Lattice, o.ScoreName, colors, P)
+				colors, P = RankListWithJumpsMarkovChain(m)
+				MarkovEval(faults, o.Lattice, "jumps + " + o.ScoreName, colors, P)
 			}
 			return nil, nil
 		})
 }
 
-func MarkovChain(m *Miner) (blockStates map[int]int, P [][]float64) {
+func MarkovEval(faults []*Fault, lat *lattice.Lattice, name string, colorStates map[int][]int, P [][]float64) {
+	group := func(order []int, scores map[int]float64) [][]int {
+		sort.Slice(order, func(i, j int) bool {
+			return scores[order[i]] < scores[order[j]]
+		})
+		groups := make([][]int, 0, 10)
+		for _, n := range order {
+			lg := len(groups)
+			if lg > 0 && scores[n] == scores[groups[lg-1][0]] {
+				groups[lg-1] = append(groups[lg-1], n)
+			} else {
+				groups = append(groups, make([]int, 0, 10))
+				groups[lg] = append(groups[lg], n)
+			}
+		}
+		return groups
+	}
+	scores := make(map[int]float64)
+	order := make([]int, 0, len(colorStates))
+	for color, states := range colorStates {
+		order = append(order, color)
+		for _, state := range states {
+			hit := ExpectedHittingTime(0, state, P)
+			if min, has := scores[color]; !has || hit < min {
+				scores[color] = hit
+			}
+		}
+	}
+	grouped := group(order, scores)
+	ranks := make(map[int]float64)
+	total := 0
+	for gid, group := range grouped {
+		count := 0
+		for _, color := range group {
+			score := scores[color]
+			count++
+			ranks[color] = float64(total) + float64(len(group))/2
+			b, fn, pos := lat.Info.Get(color)
+			if false {
+				fmt.Printf(
+					"    {\n\tgroup: %v, size: %d,\n\trank: %v, hitting time: %v,\n\tfn: %v (%d),\n\tpos: %v\n    }\n",
+					gid, len(group),
+					ranks[color],
+					score,
+					fn, b, pos,
+				)
+			}
+		}
+		total += len(group)
+	}
+	for _, f := range faults {
+		for color, score := range scores {
+			b, fn, pos := lat.Info.Get(color)
+			if fn == f.FnName && b == f.BasicBlockId {
+				fmt.Printf(
+					"    %v {\n\trank: %v,\n\thitting time: %v,\n\tfn: %v (%d),\n\tpos: %v\n    }\n",
+					name,
+					ranks[color],
+					score,
+					fn, b, pos,
+				)
+				break
+			}
+		}
+	}
+}
+
+func RankListMarkovChain(m *Miner) (blockStates map[int][]int, P [][]float64) {
+	sum := func(slice []float64) float64 {
+		sum := 0.0
+		for _, x := range slice {
+			sum += x
+		}
+		return sum
+	}
+	groups := LocalizeNodes(m.Score).Group()
+	groupStates := make(map[int]int)
+	blockStates = make(map[int][]int)
+	states := 0
+	for gid, group := range groups {
+		groupStates[gid] = states
+		states++
+		for _, n := range group {
+			blockStates[n.Color] = append(blockStates[n.Color], states)
+			states++
+		}
+	}
+	P = make([][]float64, 0, states)
+	for i := 0; i < states; i++ {
+		P = append(P, make([]float64, states))
+	}
+	for gid, group := range groups {
+		groupState := groupStates[gid]
+		for _, n := range group {
+			for _, blockState := range blockStates[n.Color] {
+				P[groupState][blockState] = 1
+				P[blockState][groupState] = 1
+			}
+		}
+		if gid > 0 {
+			prev := groupStates[gid - 1]
+			P[prev][groupState] = 1
+			P[groupState][prev] = 1 + rand.Float64()
+			P[groupState][prev] = 1
+		}
+	}
+	for _, row := range P {
+		total := sum(row)
+		if total == 0 {
+			continue
+		}
+		for state := range row {
+			row[state] = row[state]/total
+		}
+	}
+	return blockStates, P
+}
+
+func RankListWithJumpsMarkovChain(m *Miner) (blockStates map[int][]int, P [][]float64) {
+	sum := func(slice []float64) float64 {
+		sum := 0.0
+		for _, x := range slice {
+			sum += x
+		}
+		return sum
+	}
+	groups := LocalizeNodes(m.Score).Group()
+	groupStates := make(map[int]int)
+	blockStates = make(map[int][]int)
+	states := 0
+	for gid, group := range groups {
+		groupStates[gid] = states
+		states++
+		for _, n := range group {
+			blockStates[n.Color] = append(blockStates[n.Color], states)
+			states++
+		}
+	}
+	type pair struct { i, j int}
+	T := make(map[pair]float64)
+	for gid, group := range groups {
+		groupState := groupStates[gid]
+		for _, n := range group {
+			for _, blockState := range blockStates[n.Color] {
+				T[pair{groupState, blockState}] = 1
+				T[pair{blockState, groupState}] = 1
+			}
+		}
+		if gid > 0 {
+			prev := groupStates[gid - 1]
+			T[pair{prev, groupState}] = 1
+			T[pair{groupState, prev}] = 1 + rand.Float64()
+			T[pair{groupState, prev}] = 1
+		}
+	}
+	for color, colorStates := range blockStates {
+		for _, state := range colorStates {
+			edgesFrom := m.Lattice.Fail.EdgesFromColor[color]
+			degree := float64(len(edgesFrom))
+			for _, e := range edgesFrom {
+				for _, targState := range blockStates[e.TargColor] {
+					T[pair{state, targState}] = 1/degree
+				}
+			}
+		}
+	}
+	P = make([][]float64, 0, states)
+	for i := 0; i < states; i++ {
+		P = append(P, make([]float64, states))
+	}
+	for key, entry := range T {
+		P[key.i][key.j] = entry
+	}
+	for _, row := range P {
+		total := sum(row)
+		if total == 0 {
+			continue
+		}
+		for state := range row {
+			row[state] = row[state]/total
+		}
+	}
+	return blockStates, P
+}
+
+func DsgMarkovChain(m *Miner) (blockStates map[int][]int, P [][]float64) {
 	sum := func(slice []float64) float64 {
 		sum := 0.0
 		for _, x := range slice {
@@ -132,7 +268,7 @@ func MarkovChain(m *Miner) (blockStates map[int]int, P [][]float64) {
 	groups := m.Mine().group()
 	groupStates := make(map[int]int)
 	graphStates := make(map[int]int)
-	blockStates = make(map[int]int)
+	blockStates = make(map[int][]int)
 	states := 0
 	for gid, group := range groups {
 		groupStates[gid] = states
@@ -142,7 +278,7 @@ func MarkovChain(m *Miner) (blockStates map[int]int, P [][]float64) {
 			states++
 			for _, v := range n.Node.SubGraph.V {
 				if _, has := blockStates[v.Color]; !has {
-					blockStates[v.Color] = states
+					blockStates[v.Color] = append(blockStates[v.Color], states)
 					states++
 				}
 			}
@@ -156,18 +292,20 @@ func MarkovChain(m *Miner) (blockStates map[int]int, P [][]float64) {
 		groupState := groupStates[gid]
 		for nid, n := range group {
 			graphState := graphStates[nid]
-			P[groupState][graphState] = 1 + rand.Float64()
-			P[graphState][groupState] = 1 + rand.Float64()
+			P[groupState][graphState] = 1
+			P[graphState][groupState] = 1
 			for _, v := range n.Node.SubGraph.V {
-				blockState := blockStates[v.Color]
-				P[graphState][blockState] = 1 + rand.Float64()
-				P[blockState][graphState] = 1 + rand.Float64()
+				for _, blockState := range blockStates[v.Color] {
+					P[graphState][blockState] = 1
+					P[blockState][graphState] = 1
+				}
 			}
 		}
 		if gid > 0 {
 			prev := groupStates[gid - 1]
-			P[prev][groupState] = 1 + rand.Float64()
+			P[prev][groupState] = 1
 			P[groupState][prev] = 1 + rand.Float64()
+			P[groupState][prev] = 1
 		}
 	}
 	for _, row := range P {
@@ -239,6 +377,6 @@ func ExpectedHittingTime(x, y int, transitions [][]float64) float64 {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(x, y, Nc.Get(x,0))
+	// fmt.Println(x, y, Nc.Get(x,0))
 	return Nc.Get(x, 0)
 }

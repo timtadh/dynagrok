@@ -96,7 +96,9 @@ Option Flags
 				eval(o.ScoreName, func(s mine.ScoreFunc) stat.Method {
 					return func(lat *lattice.Lattice) stat.Result {
 						miner := mine.NewMiner(o.Miner, lat, s, o.Opts...)
-						return mine.LocalizeNodes(miner.Score)
+						nodes := mine.LocalizeNodes(miner.Score)
+						fmt.Println(nodes)
+						return nodes
 					}
 				}(o.Score))
 			}
