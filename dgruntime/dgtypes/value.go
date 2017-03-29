@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"hash"
+	"math"
 	"reflect"
 )
 
@@ -41,12 +42,17 @@ const (
 	Zero // nil value
 )
 
+type Reference interface {
+	IsNil() bool
+}
+
 type Value interface {
 	Kind() Kind
 	LevelHash(hash.Hash, int)
 	Value() interface{}
 	String() string
 	TypeName() string
+	Dissimilar(Value) float64
 }
 
 // {{{ IntValue
@@ -132,6 +138,14 @@ func (i *IntValue) TypeName() string {
 	return "int"
 }
 
+func (i *IntValue) Dissimilar(o Value) float64 {
+	if other, ok := o.(*IntValue); ok {
+		return math.Log(float64(i.Val-other.Val)) - math.Log(float64(math.MaxUint64))
+	} else {
+		panic("Dissimilar shoud be called on type int")
+	}
+}
+
 // }}}
 
 // {{{ StringValue
@@ -164,6 +178,29 @@ func (s *StringValue) LevelHash(h hash.Hash, i int) {
 
 func (s *StringValue) TypeName() string {
 	return "string"
+}
+
+func (s *StringValue) Dissimilar(o Value) float64 {
+	score := 0.0
+	if other, ok := o.(*StringValue); ok {
+		length := len(*s)
+		if len(*other) > len(*s) {
+			length = len(*other)
+		}
+		// TODO Perform Hamming distance
+		for i, l := range *s {
+			if i == len(*other) {
+				break
+			}
+			if l != []rune(string(*other))[i] {
+				score += 1 / float64(length)
+			}
+		}
+		score += math.Abs(float64(len(*s)-len(*other))) / float64(length)
+		return score
+	} else {
+		panic("Dissimilar should be called on type string")
+	}
 }
 
 // }}}
@@ -204,6 +241,20 @@ func (b *BoolValue) String() string {
 
 func (b *BoolValue) TypeName() string {
 	return "bool"
+}
+
+func (b *BoolValue) Dissimilar(v Value) float64 {
+	if other, ok := v.(*BoolValue); ok {
+		switch {
+		case bool(*b) && bool(*other):
+			return 0.0
+		case bool(*b) != bool(*other):
+			return 1.0
+		case !bool(*b) && !bool(*other):
+			return 0.0
+		}
+	}
+	panic("Should have been type bool")
 }
 
 // }}}
@@ -248,7 +299,7 @@ func (s *StructValue) Kind() Kind {
 }
 
 func (s *StructValue) Value() interface{} {
-	return s.Fields
+	return s.val
 }
 
 func (s *StructValue) String() string {
@@ -262,6 +313,25 @@ func (s *StructValue) String() string {
 
 func (s *StructValue) TypeName() string {
 	return s.TypName
+}
+
+func (s *StructValue) Dissimilar(v Value) float64 {
+	score := 0.0
+	if other, ok := v.(*StructValue); ok {
+		if s.TypName != other.TypName {
+			panic("Cannot compute similarity between structs of different type")
+		}
+		for i := range s.Fields {
+			if sf, ok := s.Fields[i].Val.(Reference); ok {
+				of, _ := other.Fields[i].Val.(Reference)
+				if sf.IsNil() && !of.IsNil() ||
+					!sf.IsNil() && of.IsNil() {
+					score += 1 / float64(len(s.Fields))
+				}
+			}
+		}
+	}
+	panic("Should have been type struct")
 }
 
 // }}}
@@ -315,12 +385,24 @@ func (r *ReferenceValue) TypeName() string {
 	return r.Typename
 }
 
+func (r *ReferenceValue) IsNil() bool {
+	return r.val == nil
+}
+
+func (r *ReferenceValue) Dissimilar(v Value) float64 {
+	if other, ok := v.(*ReferenceValue); ok {
+		return r.Elem.Dissimilar(other.Elem)
+	}
+	panic("Should have been ReferenceValue")
+}
+
 // }}}
 
 // {{{ ArrayValue
 type ArrayValue struct {
 	ElemType string
 	Val      []Value
+	val      interface{}
 	size     int
 }
 
@@ -332,9 +414,9 @@ func ArrayVal(i interface{}) *ArrayValue {
 	}
 	if x.Len() > 0 {
 		t := vals[0].TypeName()
-		return &ArrayValue{Val: vals, size: x.Len(), ElemType: t}
+		return &ArrayValue{Val: vals, val: i, size: x.Len(), ElemType: t}
 	} else {
-		return &ArrayValue{Val: vals, size: x.Len()}
+		return &ArrayValue{Val: vals, val: i, size: x.Len()}
 	}
 }
 
@@ -367,8 +449,34 @@ func (a *ArrayValue) String() string {
 	return str
 }
 
+func (a *ArrayValue) IsNil() bool {
+	return a.val == nil
+}
+
 func (a *ArrayValue) TypeName() string {
 	return fmt.Sprintf("[]%v", a.ElemType)
+}
+
+func (a *ArrayValue) Dissimilar(v Value) float64 {
+	score := 0.0
+	if other, ok := v.(*ArrayValue); ok {
+		length := len(a.Val)
+		if len(other.Val) > len(a.Val) {
+			length = len(other.Val)
+		}
+		// TODO Perform Hamming distance
+		for i, l := range a.Val {
+			if i == len(other.Val) {
+				break
+			}
+			if l != other.Val[i] {
+				score += 1 / float64(length)
+			}
+		}
+		score += math.Abs(float64(len(a.Val)-len(other.Val))) / float64(length)
+		return score
+	}
+	panic("Should have been array or slice type")
 }
 
 // }}}

@@ -7,9 +7,21 @@ import (
 
 type ObjectProfile []Param
 
+func (op ObjectProfile) Dissimilar(other ObjectProfile) float64 {
+	distance := 0.0
+	for param := range op {
+		distance += op[param].Dissimilar(&other[param]) / float64(len(op))
+	}
+	return distance
+}
+
 type Param struct {
 	Name string
 	Val  Value
+}
+
+func (p *Param) Dissimilar(other *Param) float64 {
+	return p.Val.Dissimilar(other.Val)
 }
 
 type FuncProfile struct {
@@ -29,8 +41,10 @@ func (tp TypeProfile) Serialize() string {
 	return b.String()
 }
 
-func (fp FuncProfile) Vector() []float64 {
-	return []float64{0}
+func UnserializeType(str string) TypeProfile {
+	var prof TypeProfile
+	json.Unmarshal([]byte(str), &prof)
+	return prof
 }
 
 func (p FuncProfile) Serialize() string {
