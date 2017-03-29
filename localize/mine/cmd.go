@@ -57,6 +57,7 @@ func NewCommand(c *cmd.Config) cmd.Runnable {
 	var o Options
 	cmp := NewCompareParser(c, &o)
 	eval := NewEvalParser(c, &o)
+	markovEval := NewMarkovEvalParser(c, &o)
 	return cmd.Concat(
 		cmd.Annotate(
 			NewOptionParser(c, &o),
@@ -70,6 +71,7 @@ func NewCommand(c *cmd.Config) cmd.Runnable {
 					cmd.Commands(map[string]cmd.Runnable{
 						"": NewRunner(c, &o),
 						eval.Name(): eval,
+						markovEval.Name(): markovEval,
 					}),
 			),
 			cmp.Name(): cmp,
@@ -199,7 +201,7 @@ func NewOptionParser(c *cmd.Config, o *Options) cmd.Runnable {
 						return nil, cmd.Errorf(1, "Localization method '%v' is not supported. (use --methods to get a list)", oa.Arg())
 					}
 				case "-b", "--binary":
-					r, err := test.NewRemote(oa.Arg(), test.MaxMegabytes(500), test.Timeout(10*time.Second), test.Config(c))
+					r, err := test.NewRemote(oa.Arg(), test.MaxMegabytes(50), test.Timeout(5*time.Second), test.Config(c))
 					if err != nil {
 						return nil, cmd.Err(1, err)
 					}

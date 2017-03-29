@@ -381,6 +381,22 @@ func (c *Clusters) Img(id, nid int) ([]byte, error) {
 	return img, nil
 }
 
+func (c *Clusters) Dotty(id, nid int) (string, error) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	cluster, has := c.clusters[id]
+	if !has {
+		return "", fmt.Errorf("Could not find cluster %v in the clusters map.", id)
+	}
+	if nid < 0 || nid >= len(cluster.Nodes) {
+		return "", fmt.Errorf("Could not find node %v in the for cluster %v.", nid, id)
+	}
+	node := cluster.Nodes[nid]
+
+	return node.Node.SubGraph.Dotty(c.lat.Labels), nil
+}
+
 func (c *Cluster) Included() bool {
 	return c.IncludedIdx >= 0
 }

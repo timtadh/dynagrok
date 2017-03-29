@@ -312,3 +312,87 @@ func (n *Node) Serialize() string {
 	return strings.Join(list, "\n")
 }
 
+func (n *Node) Dotty() string {
+	if n == nil {
+		return "digraph AVL {}"
+	}
+	type item struct {
+		n *Node
+		depth  int
+		parent int
+		side   string
+	}
+	pop := func(stack []*item) (*item, []*item) {
+		return stack[len(stack)-1], stack[:len(stack)-1]
+	}
+	lines := make([]string, 0, 10)
+	lines = append(lines, "digraph {")
+	lines = append(lines, "margin=0")
+	lines = append(lines, "node [shape=rect, margin=.01]")
+
+	levels := make(map[int][]int)
+
+	nodes := make(map[int][]string)
+	edges := make([]string, 0, 10)
+
+	stack := make([]*item, 0, 10)
+	stack = append(stack, &item{n, 0, -1, ""})
+	id := 0
+	for len(stack) > 0 {
+		var i *item
+		i, stack = pop(stack)
+		nid := id
+		id++
+
+		levels[i.depth] = append(levels[i.depth], nid)
+
+		nodes[i.depth] = append(nodes[i.depth], fmt.Sprintf("%v [label=%v];", nid, i.n.Key))
+		if i.parent >= 0 {
+			edges = append(edges, fmt.Sprintf("%v -> %v;", i.parent, nid))
+		}
+		if i.n.left == nil && i.n.right == nil {
+			// skip
+		} else if i.n.left == nil {
+			kid := id
+			id++
+			nodes[i.depth + 1] = append(nodes[i.depth + 1], fmt.Sprintf("%v [label=\"\", width=.1, height=.1, margin=0];", kid))
+			edges = append(edges,  fmt.Sprintf("%v -> %v;", nid, kid))
+			levels[i.depth + 1] = append(levels[i.depth + 1], kid)
+		} else if i.n.right == nil {
+			kid := id
+			id++
+			nodes[i.depth + 1] = append(nodes[i.depth + 1], fmt.Sprintf("%v [label=\"\", width=.1, height=.1, margin=0];", kid))
+			edges = append(edges, fmt.Sprintf("%v -> %v;", nid, kid))
+			levels[i.depth + 1] = append(levels[i.depth + 1], kid)
+		}
+		if i.n.right != nil {
+			stack = append(stack, &item{i.n.right, i.depth+1, nid, "right"})
+		}
+		if i.n.left != nil {
+			stack = append(stack, &item{i.n.left, i.depth+1, nid, "left"})
+		}
+	}
+
+
+	for depth, level := range nodes {
+		lines = append(lines, "{")
+		lines = append(lines, "rank=same;")
+		lines = append(lines, level...)
+		if len(level) <= 1 {
+			lines = append(lines, "}")
+			continue
+		}
+		ids := make([]string, 0, len(levels))
+		for _, nid := range levels[depth] {
+			ids = append(ids, fmt.Sprintf("%v", nid))
+		}
+		lines = append(lines, fmt.Sprintf("%v [style=invis];", strings.Join(ids, " -> ")))
+		lines = append(lines, "}")
+	}
+
+	lines = append(lines, edges...)
+
+	lines = append(lines, "}")
+	return strings.Join(lines, "\n")
+}
+

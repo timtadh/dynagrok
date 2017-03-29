@@ -32,31 +32,30 @@ function run {
 TARGET=/tmp/avl-expr
 BUILD=$TARGET/build
 
-## run mkdir -p $TARGET
-## run rm -r  $TARGET/build/goroot/src/dgruntime $TARGET/build/gopath
-## 
-## for ((i=1;i<=$MUTANTS;i++)); do
-    #mutdir=$TARGET/m$i
-    mutdir=$TARGET/mt
+run mkdir -p $TARGET
+run rm -r  $TARGET/build/goroot/src/dgruntime $TARGET/build/gopath
+
+for ((i=1;i<=$MUTANTS;i++)); do
+    mutdir=$TARGET/m$i
     mut=$mutdir/avl
     tests=$mutdir/tests
     oks=$mutdir/oks
     fails=$mutdir/fails
-    # run rm -r $mutdir
+    run rm -r $mutdir
     run mkdir -p $mutdir
-    ## if ! run \
-    ##      $DYNAGROK -r $goroot -d $dgpath -g $dgpath/examples \
-    ##         mutate --keep-work -w $BUILD --instrument -r $RATE \
-    ##                --only dynagrok/examples/avl \
-    ##                --mutation=branch -o $mut dynagrok/examples/avl
-    ## then
-    ##     echo "creating the $i avl mutant failed"
-    ##     exit 1
-    ## fi
-    # run cp $BUILD/mutations $mutdir/mutations
-    # run rm -r $BUILD/mutations $BUILD/gopath
-    run mkdir -p $oks/tests $oks/profiles
-    run mkdir -p $fails/tests $fails/profiles $fails/failures
+     if ! run \
+          $DYNAGROK -r $goroot -d $dgpath -g $dgpath/examples \
+             mutate --keep-work -w $BUILD --instrument -r $RATE \
+                    --only dynagrok/examples/avl \
+                    --mutation=branch -o $mut dynagrok/examples/avl
+     then
+         echo "creating the $i avl mutant failed"
+         exit 1
+     fi
+    run cp $BUILD/mutations $mutdir/mutations
+    run rm -r $BUILD/mutations $BUILD/gopath
+    run mkdir -p $oks/tests
+    run mkdir -p $fails/tests $fails/failures
     for ((t=1;t<=$TESTS;t++)); do
         output=$tests/$t
         run mkdir -p $output
@@ -65,11 +64,9 @@ BUILD=$TARGET/build
             ## the program failed
             run cp $output/dgprofile/failures $fails/failures/$t
             run cp $output/input $fails/tests/$t
-            run cp $output/dgprofile/flow-graph.txt $fails/profiles/$t.txt
         else
             ## the program succeeded
             run cp $output/input $oks/tests/$t
-            run cp $output/dgprofile/flow-graph.txt $oks/profiles/$t.txt
         fi
     done
     run rm -r $tests
@@ -82,5 +79,5 @@ BUILD=$TARGET/build
         echo "retrying"
         continue
     fi
-# done
+done
 
