@@ -1,70 +1,63 @@
 package locavore
 
 import (
-	//"github.com/mdesenfants/gokmeans"
+	"fmt"
 	"github.com/timtadh/dynagrok/dgruntime/dgtypes"
 )
 
-type Profile interface {
-	Vector() []float64
-}
-
 type Localizer struct {
-	ok        []Profile
-	fail      []Profile
-	profs     []Profile
-	bins      [][]Profile
-	centroids []Profile
+	ok      []dgtypes.Clusterable
+	fail    []dgtypes.Clusterable
+	inputs  []dgtypes.Clusterable
+	outputs []dgtypes.Clusterable
+	profs   []dgtypes.Clusterable
+	inBins  map[dgtypes.Clusterable][]dgtypes.Clusterable
+	outBins map[dgtypes.Clusterable][]dgtypes.Clusterable
 }
 
-func Localize(okf []dgtypes.FuncProfile, failf []dgtypes.FuncProfile, numbins int) {
-	var ok, fail []Profile = make([]Profile, 0), make([]Profile, 0)
+func Localize(okf []dgtypes.FuncProfile, failf []dgtypes.FuncProfile, types []dgtypes.Type, numbins int) {
+	var ok, fail []dgtypes.Clusterable = make([]dgtypes.Clusterable, 0), make([]dgtypes.Clusterable, 0)
+	var in, out []dgtypes.Clusterable = make([]dgtypes.Clusterable, 0), make([]dgtypes.Clusterable, 0)
 	for _, prof := range okf {
-		ok = append(ok, prof)
+		for _, objprof := range append(prof.In, prof.Out...) {
+			ok = append(ok, dgtypes.Clusterable(objprof))
+		}
 	}
 	for _, prof := range failf {
-		fail = append(fail, prof)
+		for _, objprof := range append(prof.In, prof.Out...) {
+			fail = append(fail, dgtypes.Clusterable(objprof))
+		}
 	}
-
-	// Step 1: Bin the profiles
-	bins := make([][]Profile, numbins)
-	for i := range bins {
-		bins[i] = make([]Profile, 0)
+	for _, prof := range append(okf, failf...) {
+		for _, objprof := range prof.In {
+			in = append(in, dgtypes.Clusterable(objprof))
+		}
+		for _, objprof := range prof.Out {
+			out = append(out, dgtypes.Clusterable(objprof))
+		}
 	}
 	profs := append(ok, fail...)
+	fmt.Printf("%v", profs)
 
-	l := Localizer{ok: ok, fail: fail, profs: profs, bins: bins}
+	// Step 1:   Bin the inputs
+	// Step 1.5: Bin the outputs
+	l := Localizer{
+		ok:      ok,
+		fail:    fail,
+		inputs:  in,
+		outputs: out,
+		profs:   profs,
+	}
 	l.bin(numbins)
-	// Step 2: Propensity scoring
-	// Step 3: Matching
+	// Step 2: {optional} Propensity scoring
+	// Step 3: Matching outputs with different outcomes, based on covariant
+	//			similarity
 	// Step 4: ??
 }
 
 func (l Localizer) bin(numbins int) {
-	//	profTable := make(map[gokmeans.Node][]Profile)
-	//	observations := make([][]gokmeans.Node, 0)
-	//
-	//	// Fill out the vector-profs map
-	//	// Fill out the observations list
-	//	for i := 0; i < len(profs); i++ {
-	//		vector := p.Vector()
-	//		if ok := profTable[vector]; ok {
-	//			profTable[vector] = append(profTable[vector], profs[i])
-	//		} else {
-	//			profTable[vector] = []Profile{profs[i]}
-	//		}
-	//		observations = append(observations, gokmeans.Node{vector})
-	//	}
-	//
-	//	if success, centroids := gokmeans.Train(observations, numbins, 50); success {
-	//		// Record the centroids
-	//		for i, centroid := range centroids {
-	//			l.centroids[i] = profTable[centroid]
-	//		}
-	//		// Record the clusters
-	//		for _, observation := range observations {
-	//			index := gokmeans.Nearest(observation, centroids)
-	//			l.bins[index] = append(l.bins[index], profTable[observation])
-	//		}
-	//	}
+	l.inBins = KMedoids(numbins, l.inputs)
+	l.outBins = KMedoids(numbins, l.outputs)
+	fmt.Printf("Some input clusters: %v", l.inBins)
+	fmt.Printf("Some output clusters: %v", l.outBins)
 }

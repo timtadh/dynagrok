@@ -57,34 +57,37 @@ type Value interface {
 
 // {{{ IntValue
 type IntValue struct {
-	kind Kind
-	Val  uint64
+	kind     Kind
+	Val      uint64
+	JSONType string
 }
+
+const intType = "IntValue"
 
 func IntVal(i interface{}) *IntValue {
 	switch x := i.(type) {
 	case int8:
-		return &IntValue{kind: Int8, Val: uint64(x)}
+		return &IntValue{kind: Int8, Val: uint64(x), JSONType: intType}
 	case uint8:
-		return &IntValue{kind: UInt8, Val: uint64(x)}
+		return &IntValue{kind: UInt8, Val: uint64(x), JSONType: intType}
 	case int16:
-		return &IntValue{kind: Int16, Val: uint64(x)}
+		return &IntValue{kind: Int16, Val: uint64(x), JSONType: intType}
 	case uint16:
-		return &IntValue{kind: UInt16, Val: uint64(x)}
+		return &IntValue{kind: UInt16, Val: uint64(x), JSONType: intType}
 	case int32:
-		return &IntValue{kind: Int32, Val: uint64(x)}
+		return &IntValue{kind: Int32, Val: uint64(x), JSONType: intType}
 	case uint32:
-		return &IntValue{kind: UInt32, Val: uint64(x)}
+		return &IntValue{kind: UInt32, Val: uint64(x), JSONType: intType}
 	case int64:
-		return &IntValue{kind: Int64, Val: uint64(x)}
+		return &IntValue{kind: Int64, Val: uint64(x), JSONType: intType}
 	case uint64:
-		return &IntValue{kind: UInt64, Val: uint64(x)}
+		return &IntValue{kind: UInt64, Val: uint64(x), JSONType: intType}
 	case int:
-		return &IntValue{kind: Int, Val: uint64(x)}
+		return &IntValue{kind: Int, Val: uint64(x), JSONType: intType}
 	case uint:
-		return &IntValue{kind: UInt, Val: uint64(x)}
+		return &IntValue{kind: UInt, Val: uint64(x), JSONType: intType}
 	case uintptr:
-		return &IntValue{kind: UIntptr, Val: uint64(x)}
+		return &IntValue{kind: UIntptr, Val: uint64(x), JSONType: intType}
 	default:
 		panic(fmt.Errorf("%v should have been an int got %T", i, i))
 	}

@@ -68,8 +68,9 @@ Option Flags
 				return nil, cmd.Errorf(2, "Could not read profiles from successful executions: %v\n%v", args[0], err)
 			}
 			defer okClose()
-			ok, fail := ParseProfiles(okFile, failFile)
-			Localize(ok, fail, binum)
+			types, ok, fail := ParseProfiles(okFile, failFile)
+			fmt.Printf("Localizing...\n")
+			Localize(ok, fail, types, binum)
 			return nil, nil
 		})
 }

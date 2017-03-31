@@ -3,16 +3,25 @@ package dgtypes
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 )
+
+type Clusterable interface {
+	Dissimilar(Clusterable) float64
+}
 
 type ObjectProfile []Param
 
-func (op ObjectProfile) Dissimilar(other ObjectProfile) float64 {
-	distance := 0.0
-	for param := range op {
-		distance += op[param].Dissimilar(&other[param]) / float64(len(op))
+func (op ObjectProfile) Dissimilar(other Clusterable) float64 {
+	if o, ok := other.(ObjectProfile); ok {
+		distance := 0.0
+		for param := range op {
+			distance += op[param].Dissimilar(&o[param]) / float64(len(op))
+		}
+		return distance
+	} else {
+		panic("expected type ObjectProfile")
 	}
-	return distance
 }
 
 type Param struct {
@@ -20,8 +29,13 @@ type Param struct {
 	Val  Value
 }
 
-func (p *Param) Dissimilar(other *Param) float64 {
-	return p.Val.Dissimilar(other.Val)
+func (p *Param) Dissimilar(other Clusterable) float64 {
+	if o, ok := other.(*Param); ok {
+		fmt.Printf("%v dissimilar from %v", *p, *o)
+		return p.Val.Dissimilar(o.Val)
+	} else {
+		panic("expected type *Param")
+	}
 }
 
 type FuncProfile struct {
@@ -56,6 +70,9 @@ func (p FuncProfile) Serialize() string {
 
 func UnserializeFunc(str string) FuncProfile {
 	var prof FuncProfile
-	json.Unmarshal([]byte(str), &prof)
+	err := json.Unmarshal([]byte(str), &prof)
+	if err != nil {
+		fmt.Errorf("Error unmarshaling FuncProfile: %v", err)
+	}
 	return prof
 }

@@ -1,6 +1,8 @@
 package locavore
 
 import (
+	"bufio"
+	"fmt"
 	"github.com/timtadh/dynagrok/dgruntime/dgtypes"
 	"io"
 	"io/ioutil"
@@ -8,23 +10,32 @@ import (
 	"strings"
 )
 
-func ParseProfiles(ok io.Reader, fail io.Reader) ([]dgtypes.FuncProfile, []dgtypes.FuncProfile) {
-	parsedOk := parseProfile(ok)
-	parsedFail := parseProfile(fail)
-	return unserialize(parsedOk), unserialize(parsedFail)
+func ParseProfiles(ok io.Reader, fail io.Reader) ([]dgtypes.Type, []dgtypes.FuncProfile, []dgtypes.FuncProfile) {
+	typesok, parsedOk := parseProfile(ok)
+	typesfail, parsedFail := parseProfile(fail)
+
+	types := append(dgtypes.UnserializeType(typesok).Types, dgtypes.UnserializeType(typesfail).Types...)
+	return types, unserializeFuncs(parsedOk), unserializeFuncs(parsedFail)
 }
 
-func parseProfile(p io.Reader) []string {
+func parseProfile(r io.Reader) (string, []string) {
+	p := bufio.NewReader(r)
+	types, err := p.ReadString('\n')
+	if err != nil {
+		log.Panic("Locavore: Error reading file")
+	}
 	content, err := ioutil.ReadAll(p)
 	if err != nil {
 		log.Panic("Locavore: Error reading file")
 	}
-	return strings.Split(string(content), "\n")
+	return types, strings.Split(string(content), "\n")
 }
 
-func unserialize(profiles []string) (profs []dgtypes.FuncProfile) {
+func unserializeFuncs(profiles []string) (profs []dgtypes.FuncProfile) {
 	for _, s := range profiles {
-		profs = append(profs, dgtypes.UnserializeFunc(s))
+		object := dgtypes.UnserializeFunc(s)
+		profs = append(profs, object)
+		fmt.Printf("Reading %v \ninto %v\n\n", s, object)
 	}
 	return profs
 }

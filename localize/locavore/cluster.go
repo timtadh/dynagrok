@@ -1,16 +1,13 @@
 package locavore
 
 import (
+	"github.com/timtadh/dynagrok/dgruntime/dgtypes"
 	"log"
 )
 
-type Clusterable interface {
-	Dissimilar(Clusterable) float64
-}
-
-func KMedoids(numClusters int, nodes []Clusterable) map[Clusterable][]Clusterable {
-	clusters := make(map[Clusterable][]Clusterable)
-	medoids := make([]Clusterable, numClusters)
+func KMedoids(numClusters int, nodes []dgtypes.Clusterable) map[dgtypes.Clusterable][]dgtypes.Clusterable {
+	clusters := make(map[dgtypes.Clusterable][]dgtypes.Clusterable)
+	medoids := make([]dgtypes.Clusterable, numClusters)
 	if len(nodes) < numClusters {
 		log.Panic("Failed to cluster with KMedoids: not enough nodes")
 	}
@@ -39,7 +36,7 @@ func KMedoids(numClusters int, nodes []Clusterable) map[Clusterable][]Clusterabl
 	return clusters
 }
 
-func totalCost(clusters map[Clusterable][]Clusterable) float64 {
+func totalCost(clusters map[dgtypes.Clusterable][]dgtypes.Clusterable) float64 {
 	var cost float64 = 0
 	for m, cluster := range clusters {
 		cost += clusterCost(m, cluster)
@@ -47,7 +44,7 @@ func totalCost(clusters map[Clusterable][]Clusterable) float64 {
 	return cost
 }
 
-func clusterCost(medoid Clusterable, nodes []Clusterable) float64 {
+func clusterCost(medoid dgtypes.Clusterable, nodes []dgtypes.Clusterable) float64 {
 	cost := 0.0
 	for _, node := range nodes {
 		cost += medoid.Dissimilar(node)
@@ -55,11 +52,11 @@ func clusterCost(medoid Clusterable, nodes []Clusterable) float64 {
 	return cost
 }
 
-func assignToMedoids(medoids []Clusterable, nodes []Clusterable) map[Clusterable][]Clusterable {
-	clusters := make(map[Clusterable][]Clusterable)
+func assignToMedoids(medoids []dgtypes.Clusterable, nodes []dgtypes.Clusterable) map[dgtypes.Clusterable][]dgtypes.Clusterable {
+	clusters := make(map[dgtypes.Clusterable][]dgtypes.Clusterable)
 
 	for _, node := range nodes {
-		var nearestMedoid Clusterable = medoids[0]
+		var nearestMedoid dgtypes.Clusterable = medoids[0]
 		var minDist float64 = node.Dissimilar(medoids[0])
 		for j := range medoids {
 			dist := node.Dissimilar(medoids[j])
@@ -71,14 +68,14 @@ func assignToMedoids(medoids []Clusterable, nodes []Clusterable) map[Clusterable
 		if _, ok := clusters[nearestMedoid]; ok {
 			clusters[nearestMedoid] = append(clusters[nearestMedoid], node)
 		} else {
-			clusters[nearestMedoid] = []Clusterable{node}
+			clusters[nearestMedoid] = []dgtypes.Clusterable{node}
 		}
 	}
 
 	return clusters
 }
 
-func updateMedoids(clusters map[Clusterable][]Clusterable, medoids []Clusterable, nodes []Clusterable) {
+func updateMedoids(clusters map[dgtypes.Clusterable][]dgtypes.Clusterable, medoids []dgtypes.Clusterable, nodes []dgtypes.Clusterable) {
 	for m, medoid := range medoids {
 		for n, node := range nodes {
 			cost := clusterCost(medoid, clusters[medoid])
@@ -93,7 +90,7 @@ func updateMedoids(clusters map[Clusterable][]Clusterable, medoids []Clusterable
 	}
 }
 
-func swapCluster(medoid Clusterable, node Clusterable, clusters map[Clusterable][]Clusterable) {
+func swapCluster(medoid dgtypes.Clusterable, node dgtypes.Clusterable, clusters map[dgtypes.Clusterable][]dgtypes.Clusterable) {
 	medGroup := clusters[medoid]
 
 	// from the list of nodes: add the medoid, remove the node
@@ -104,18 +101,18 @@ func swapCluster(medoid Clusterable, node Clusterable, clusters map[Clusterable]
 	clusters[node] = medGroup
 }
 
-func removeByValue(node Clusterable, list []Clusterable) []Clusterable {
+func removeByValue(node dgtypes.Clusterable, list []dgtypes.Clusterable) []dgtypes.Clusterable {
 	index := indexOf(node, list)
 	list[index] = list[len(list)-1]
 	list = list[:len(list)-1]
 	return list
 }
 
-func swapLists(medoid int, node int, medoids []Clusterable, nodes []Clusterable) {
+func swapLists(medoid int, node int, medoids []dgtypes.Clusterable, nodes []dgtypes.Clusterable) {
 	nodes[node], medoids[medoid] = medoids[medoid], nodes[node]
 }
 
-func indexOf(n Clusterable, o []Clusterable) int {
+func indexOf(n dgtypes.Clusterable, o []dgtypes.Clusterable) int {
 	for i := range o {
 		if o[i] == n {
 			return i
