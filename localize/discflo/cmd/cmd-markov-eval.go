@@ -83,13 +83,7 @@ Option Flags
 }
 
 func DiscfloMarkovChain(o *discflo.Options, score mine.ScoreFunc) (blockStates map[int][]int, P [][]float64, err error) {
-	sum := func(slice []float64) float64 {
-		sum := 0.0
-		for _, x := range slice {
-			sum += x
-		}
-		return sum
-	}
+	prJump := 1./10.
 	opts := o.Copy()
 	opts.Score = score
 	localizer := models.Localize(opts)
@@ -99,7 +93,7 @@ func DiscfloMarkovChain(o *discflo.Options, score mine.ScoreFunc) (blockStates m
 	}
 	groups := clusters.Blocks().Group()
 	groupStates := make(map[int]int)
-	clusterStates := make(map[int]int)
+	// clusterStates := make(map[int]int)
 	blockStates = make(map[int][]int)
 	states := 0
 	grpState := func(gid int) int {
@@ -112,16 +106,16 @@ func DiscfloMarkovChain(o *discflo.Options, score mine.ScoreFunc) (blockStates m
 			return state
 		}
 	}
-	clstrState := func(id int) int {
-		if s, has := clusterStates[id]; has {
-			return s
-		} else {
-			state := states
-			states++
-			clusterStates[id] = state
-			return state
-		}
-	}
+	// clstrState := func(id int) int {
+	// 	if s, has := clusterStates[id]; has {
+	// 		return s
+	// 	} else {
+	// 		state := states
+	// 		states++
+	// 		clusterStates[id] = state
+	// 		return state
+	// 	}
+	// }
 	blkState := func(color int) int {
 		if s, has := blockStates[color]; has {
 			return s[0]
@@ -132,15 +126,22 @@ func DiscfloMarkovChain(o *discflo.Options, score mine.ScoreFunc) (blockStates m
 			return state
 		}
 	}
+	neighbors := make(map[int]map[int]bool)
 	for gid, group := range groups {
 		grpState(gid)
 		for _, block := range group {
 			blkState(block.Color)
+			neighbors[block.Color] = make(map[int]bool)
 			for _, cluster := range block.In {
-				clstrState(cluster.Id)
+				for _, n := range cluster.Nodes {
+					for _, v := range n.Node.SubGraph.V {
+						neighbors[block.Color][v.Color] = true
+					}
+				}
 			}
 		}
 	}
+	blocks := len(blockStates)
 	P = make([][]float64, 0, states)
 	for i := 0; i < states; i++ {
 		P = append(P, make([]float64, states))
@@ -149,29 +150,23 @@ func DiscfloMarkovChain(o *discflo.Options, score mine.ScoreFunc) (blockStates m
 		gState := grpState(gid)
 		for _, block := range group {
 			bState := blkState(block.Color)
-			P[gState][bState] = 1
-			P[bState][gState] = 1
-			for _, cluster := range block.In {
-				cState := clstrState(cluster.Id)
-				P[bState][cState] = 1
-				P[cState][bState] = 1
+			P[gState][bState] = (1./2.) * 1/float64(len(group))
+			P[bState][gState] = 1 - prJump
+			for color := range neighbors[block.Color] {
+				neighbor := blkState(color)
+				P[bState][neighbor] = prJump * 1/float64(len(neighbors[block.Color]))
 			}
 		}
 		if gid > 0 {
 			prev := grpState(gid - 1)
-			P[prev][gState] = 1
-			P[gState][prev] = 1
+			P[gState][prev] = (1./2.) * float64(blocks - 1)/float64(blocks)
+			P[prev][gState] = (1./2.) * 1/float64(blocks)
 		}
 	}
-	for _, row := range P {
-		total := sum(row)
-		if total == 0 {
-			continue
-		}
-		for state := range row {
-			row[state] = row[state]/total
-		}
-	}
+	first := grpState(0)
+	last := grpState(len(groups)-1)
+	P[first][first] = (1./2.) * float64(blocks - 1)/float64(blocks)
+	P[last][last]   = (1./2.) * 1/float64(blocks)
 	return blockStates, P, nil
 }
 
