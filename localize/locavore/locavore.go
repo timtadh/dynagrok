@@ -19,12 +19,13 @@ type Localizer struct {
 
 func Localize(okf []dgtypes.FuncProfile, failf []dgtypes.FuncProfile, numbins int) {
 	var ok, fail []Profile = make([]Profile, 0), make([]Profile, 0)
-	for _, prof := range okf {
-		ok = append(ok, prof)
-	}
-	for _, prof := range failf {
-		fail = append(fail, prof)
-	}
+	panic("KOBY THIS FUNCTION IS BROKEN, I COMMENTED OUT THE LINES BELOW SO I COULD COMPILE")
+	// for _, prof := range okf {
+	// 	ok = append(ok, prof)
+	// }
+	// for _, prof := range failf {
+	// 	fail = append(fail, prof)
+	// }
 
 	// Step 1: Bin the profiles
 	bins := make([][]Profile, numbins)
