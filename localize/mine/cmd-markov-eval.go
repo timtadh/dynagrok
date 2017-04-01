@@ -3,7 +3,6 @@ package mine
 import (
 	"fmt"
 	"sort"
-	"math/rand"
 )
 
 import (
@@ -110,7 +109,7 @@ func MarkovEval(faults []*Fault, lat *lattice.Lattice, name string, colorStates 
 			count++
 			ranks[color] = float64(total) + float64(len(group))/2
 			b, fn, pos := lat.Info.Get(color)
-			if false {
+			if true {
 				fmt.Printf(
 					"    {\n\tgroup: %v, size: %d,\n\trank: %v, hitting time: %v,\n\tfn: %v (%d),\n\tpos: %v\n    }\n",
 					gid, len(group),
@@ -174,7 +173,6 @@ func RankListMarkovChain(m *Miner) (blockStates map[int][]int, P [][]float64) {
 		if gid > 0 {
 			prev := groupStates[gid - 1]
 			P[prev][groupState] = 1
-			P[groupState][prev] = 1 + rand.Float64()
 			P[groupState][prev] = 1
 		}
 	}
@@ -223,7 +221,6 @@ func RankListWithJumpsMarkovChain(m *Miner) (blockStates map[int][]int, P [][]fl
 		if gid > 0 {
 			prev := groupStates[gid - 1]
 			T[pair{prev, groupState}] = 1
-			T[pair{groupState, prev}] = 1 + rand.Float64()
 			T[pair{groupState, prev}] = 1
 		}
 	}
@@ -304,7 +301,6 @@ func DsgMarkovChain(m *Miner) (blockStates map[int][]int, P [][]float64) {
 		if gid > 0 {
 			prev := groupStates[gid - 1]
 			P[prev][groupState] = 1
-			P[groupState][prev] = 1 + rand.Float64()
 			P[groupState][prev] = 1
 		}
 	}

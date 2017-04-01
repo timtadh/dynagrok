@@ -65,6 +65,21 @@ func (b Blocks) Sort() {
 	})
 }
 
+func (b Blocks) Group() []Blocks {
+	b.Sort()
+	groups := make([]Blocks, 0, 10)
+	for _, n := range b {
+		lg := len(groups)
+		if lg > 0 && n.Score == groups[lg-1][0].Score {
+			groups[lg-1] = append(groups[lg-1], n)
+		} else {
+			groups = append(groups, make(Blocks, 0, 10))
+			groups[lg] = append(groups[lg], n)
+		}
+	}
+	return groups
+}
+
 func Localize(opts *discflo.Options) *Localization {
 	return &Localization{
 		opts: opts,
