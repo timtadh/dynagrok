@@ -31,17 +31,26 @@ Evaluate a fault localization method from ground truth
 Option Flags
     -h,--help                         Show this message
     -f,--faults=<path>                Path to a fault file.
+    -m,--max=<int>                    Maximum number of states in the chain
 `,
-		"f:",
+		"f:m:",
 		[]string{
 			"faults=",
+			"max=",
 		},
 		func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
+			max := 1000000
 			faultsPath := ""
 			for _, oa := range optargs {
 				switch oa.Opt() {
 				case "-f", "--faults":
 					faultsPath = oa.Arg()
+				case "-m", "--max":
+					var err error
+					max, err = strconv.Atoi(oa.Arg())
+					if err != nil {
+						return nil, cmd.Errorf(1, "For flag %v expected an int got %v. err: %v", oa.Opt, oa.Arg(), err)
+					}
 				}
 			}
 			if faultsPath == "" {
@@ -57,24 +66,24 @@ Option Flags
 			if o.Score == nil {
 				for name, score := range Scores {
 					m := NewMiner(o.Miner, o.Lattice, score, o.Opts...)
-					colors, P := DsgMarkovChain(m)
+					colors, P := DsgMarkovChain(max, m)
 					MarkovEval(faults, o.Lattice, "mine-dsg + "+name, colors, P)
-					colors, P = RankListMarkovChain(m)
+					colors, P = RankListMarkovChain(max, m)
 					MarkovEval(faults, o.Lattice, name, colors, P)
-					colors, P = BehaviorJumps(m)
+					colors, P = BehaviorJumps(max, m)
 					MarkovEval(faults, o.Lattice, "behavioral jumps + " + name, colors, P)
-					colors, P = SpacialJumps(m)
+					colors, P = SpacialJumps(max, m)
 					MarkovEval(faults, o.Lattice, "spacial jumps + " + name, colors, P)
 				}
 			} else {
 				m := NewMiner(o.Miner, o.Lattice, o.Score, o.Opts...)
-				colors, P := DsgMarkovChain(m)
+				colors, P := DsgMarkovChain(max, m)
 				MarkovEval(faults, o.Lattice, "mine-dsg + "+o.ScoreName, colors, P)
-				colors, P = RankListMarkovChain(m)
+				colors, P = RankListMarkovChain(max, m)
 				MarkovEval(faults, o.Lattice, o.ScoreName, colors, P)
-				colors, P = BehaviorJumps(m)
+				colors, P = BehaviorJumps(max, m)
 				MarkovEval(faults, o.Lattice, "behavioral jumps + " + o.ScoreName, colors, P)
-				colors, P = SpacialJumps(m)
+				colors, P = SpacialJumps(max, m)
 				MarkovEval(faults, o.Lattice, "spacial jumps + " + o.ScoreName, colors, P)
 			}
 			return nil, nil
@@ -171,56 +180,25 @@ func MarkovEval(faults []*Fault, lat *lattice.Lattice, name string, colorStates 
 	}
 }
 
-func RankListMarkovChain(m *Miner) (blockStates map[int][]int, P [][]float64) {
+func RankListMarkovChain(max int, m *Miner) (blockStates map[int][]int, P [][]float64) {
+	jumpPr := 0.0
 	groups := LocalizeNodes(m.Score).Group()
-	groupStates := make(map[int]int)
-	blockStates = make(map[int][]int)
-	blocks := 0
-	states := 0
-	for gid, group := range groups {
-		groupStates[gid] = states
-		states++
+	colors := make([][]int, 0, len(groups))
+	jumps := make(map[int]map[int]bool)
+	for _, group := range groups {
+		colorGroup := make([]int, 0, len(group))
 		for _, n := range group {
-			blockStates[n.Color] = append(blockStates[n.Color], states)
-			states++
-			blocks++
-		}
-	}
-	P = make([][]float64, 0, states)
-	for i := 0; i < states; i++ {
-		P = append(P, make([]float64, states))
-	}
-	for gid, group := range groups {
-		groupState := groupStates[gid]
-		for _, n := range group {
-			for _, blockState := range blockStates[n.Color] {
-				P[groupState][blockState] = (1./2.) * 1/float64(len(group))
-				P[blockState][groupState] = 1
+			if _, has := jumps[n.Color]; !has {
+				jumps[n.Color] = make(map[int]bool)
 			}
+			colorGroup = append(colorGroup, n.Color)
 		}
-		if gid > 0 {
-			prev := groupStates[gid - 1]
-			P[groupState][prev] = (1./2.) * float64(blocks - 1)/float64(blocks)
-			P[prev][groupState] = (1./2.) * 1/float64(blocks)
-		}
+		colors = append(colors, colorGroup)
 	}
-	first := groupStates[0]
-	last := groupStates[len(groups)-1]
-	P[first][first] = (1./2.) * float64(blocks - 1)/float64(blocks)
-	P[last][last]   = (1./2.) * 1/float64(blocks)
-	if false {
-		for _, row := range P {
-			cols := make([]string, 0, len(row))
-			for _, col := range row {
-				cols = append(cols, fmt.Sprintf("%.3g", col))
-			}
-			fmt.Println(">>", strings.Join(cols, ", "))
-		}
-	}
-	return blockStates, P
+	return RankListWithJumpsMarkovChain(max, colors, jumpPr, jumps)
 }
 
-func RankListWithJumpsMarkovChain(groups [][]int, prJump float64, jumps map[int]map[int]bool) (blockStates map[int][]int, P [][]float64) {
+func RankListWithJumpsMarkovChain(max int, groups [][]int, prJump float64, jumps map[int]map[int]bool) (blockStates map[int][]int, P [][]float64) {
 	groupStates := make(map[int]int)
 	blockStates = make(map[int][]int)
 	states := 0
@@ -244,11 +222,20 @@ func RankListWithJumpsMarkovChain(groups [][]int, prJump float64, jumps map[int]
 			return state
 		}
 	}
+	maxGid := -1
 	for gid, group := range groups {
+		if states >= max {
+			maxGid = gid
+			fmt.Println("warning hit max states", states, max)
+			break
+		}
 		grpState(gid)
 		for _, color := range group {
 			blkState(color)
 		}
+	}
+	if maxGid < 0 {
+		maxGid = len(groups)
 	}
 	blocks := len(blockStates)
 	P = make([][]float64, 0, states)
@@ -256,14 +243,26 @@ func RankListWithJumpsMarkovChain(groups [][]int, prJump float64, jumps map[int]
 		P = append(P, make([]float64, states))
 	}
 	for gid, group := range groups {
+		if gid >= maxGid {
+			break
+		}
 		gState := grpState(gid)
 		for _, color := range group {
 			bState := blkState(color)
 			P[gState][bState] = (1./2.) * 1/float64(len(group))
 			P[bState][gState] = 1 - prJump
+			totalJumps := 0
 			for nColor := range jumps[color] {
-				neighbor := blkState(nColor)
-				P[bState][neighbor] = prJump * 1/float64(len(jumps[color]))
+				if _, has := blockStates[nColor]; has {
+					totalJumps++
+				}
+			}
+			for nColor := range jumps[color] {
+				if neighbors, has := blockStates[nColor]; has {
+					for _, neighbor := range neighbors {
+						P[bState][neighbor] = prJump * 1/float64(totalJumps)
+					}
+				}
 			}
 		}
 		if gid > 0 {
@@ -273,13 +272,13 @@ func RankListWithJumpsMarkovChain(groups [][]int, prJump float64, jumps map[int]
 		}
 	}
 	first := grpState(0)
-	last := grpState(len(groups)-1)
+	last := grpState(maxGid-1)
 	P[first][first] = (1./2.) * float64(blocks - 1)/float64(blocks)
 	P[last][last]   = (1./2.) * 1/float64(blocks)
 	return blockStates, P
 }
 
-func BehaviorJumps(m *Miner) (blockStates map[int][]int, P [][]float64) {
+func BehaviorJumps(max int, m *Miner) (blockStates map[int][]int, P [][]float64) {
 	jumpPr := 1./10.
 	groups := LocalizeNodes(m.Score).Group()
 	colors := make([][]int, 0, len(groups))
@@ -302,10 +301,10 @@ func BehaviorJumps(m *Miner) (blockStates map[int][]int, P [][]float64) {
 		}
 		colors = append(colors, colorGroup)
 	}
-	return RankListWithJumpsMarkovChain(colors, jumpPr, jumps)
+	return RankListWithJumpsMarkovChain(max, colors, jumpPr, jumps)
 }
 
-func SpacialJumps(m *Miner) (blockStates map[int][]int, P [][]float64) {
+func SpacialJumps(max int, m *Miner) (blockStates map[int][]int, P [][]float64) {
 	jumpPr := 1./10.
 	groups := LocalizeNodes(m.Score).Group()
 	colors := make([][]int, 0, len(groups))
@@ -333,11 +332,11 @@ func SpacialJumps(m *Miner) (blockStates map[int][]int, P [][]float64) {
 			}
 		}
 	}
-	return RankListWithJumpsMarkovChain(colors, jumpPr, jumps)
+	return RankListWithJumpsMarkovChain(max, colors, jumpPr, jumps)
 }
 
 
-func DsgMarkovChain(m *Miner) (blockStates map[int][]int, P [][]float64) {
+func DsgMarkovChain(max int, m *Miner) (blockStates map[int][]int, P [][]float64) {
 	groups := m.Mine().group()
 	type graph struct {
 		gid int
@@ -349,7 +348,13 @@ func DsgMarkovChain(m *Miner) (blockStates map[int][]int, P [][]float64) {
 	graphsPerColor := make(map[int]int)
 	graphs := 0
 	states := 0
+	maxGid := -1
 	for gid, group := range groups {
+		if states >= max {
+			maxGid = gid
+			fmt.Println("warning hit max states", states, max)
+			break
+		}
 		groupStates[gid] = states
 		states++
 		for nid, n := range group {
@@ -369,11 +374,17 @@ func DsgMarkovChain(m *Miner) (blockStates map[int][]int, P [][]float64) {
 			}
 		}
 	}
+	if maxGid < 0 {
+		maxGid = len(groups)
+	}
 	P = make([][]float64, 0, states)
 	for i := 0; i < states; i++ {
 		P = append(P, make([]float64, states))
 	}
 	for gid, group := range groups {
+		if gid >= maxGid {
+			break
+		}
 		groupState := groupStates[gid]
 		for nid, n := range group {
 			graphState := graphStates[graph{gid,nid}]
@@ -397,7 +408,7 @@ func DsgMarkovChain(m *Miner) (blockStates map[int][]int, P [][]float64) {
 		}
 	}
 	first := groupStates[0]
-	last := groupStates[len(groups)-1]
+	last := groupStates[maxGid-1]
 	P[first][first] = (1./2.) * float64(graphs - 1)/float64(graphs)
 	P[last][last]   = (1./2.) * 1/float64(graphs)
 	if false {
