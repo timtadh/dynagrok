@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"encoding/json"
 	"os/exec"
+	"runtime"
 )
 
 import (
@@ -106,7 +107,7 @@ func MarkovEval(faults []*Fault, lat *lattice.Lattice, name string, colorStates 
 		}
 	}
 	scores := make(map[int]float64)
-	hittingTimes, err := PyExpectedHittingTimes(0, states, P)
+	hittingTimes, err := ParPyEHT(0, states, P)
 	if err != nil {
 		fmt.Println(err)
 		fmt.Println("falling back on go implementation of hittingTime computation")
@@ -482,6 +483,42 @@ func ExpectedHittingTime(x, y int, transitions [][]float64) float64 {
 	}
 	// fmt.Println(x, y, Nc.Get(x,0))
 	return Nc.Get(x, 0)
+}
+
+func ParPyEHT(start int, states []int, transitions [][]float64) (map[int]float64, error) {
+	cpus := runtime.NumCPU()
+	work := make([][]int, cpus)
+	for i, state := range states {
+		w := i % len(work)
+		work[w] = append(work[w], state)
+	}
+	type result struct {
+		hits map[int]float64
+		err error
+	}
+	hits := make(map[int]float64, len(states))
+	results := make(chan result)
+	for w := range work {
+		go func(mine []int) {
+			hits, err := PyExpectedHittingTimes(start, mine, transitions)
+			results<-result{hits, err}
+		}(work[w])
+	}
+	var err error
+	for i := 0; i < cpus; i++ {
+		r :=<-results
+		if r.err != nil {
+			err = r.err
+			continue
+		}
+		for state, time := range r.hits {
+			hits[state] = time
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+	return hits, nil
 }
 
 func PyExpectedHittingTimes(start int, states []int, transitions [][]float64) (map[int]float64, error) {

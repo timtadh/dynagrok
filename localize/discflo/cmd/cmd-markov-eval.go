@@ -73,8 +73,8 @@ Option Flags
 				}
 				mine.MarkovEval(faults, o.Lattice, "discflo + "+o.ScoreName, colors, P)
 				m := mine.NewMiner(o.Miner, o.Lattice, o.Score, o.Opts...)
-				// colors, P = mine.DsgMarkovChain(m)
-				// mine.MarkovEval(faults, o.Lattice, "mine-dsg + "+o.ScoreName, colors, P)
+				colors, P = mine.DsgMarkovChain(m)
+				mine.MarkovEval(faults, o.Lattice, "mine-dsg + "+o.ScoreName, colors, P)
 				colors, P = mine.RankListMarkovChain(m)
 				mine.MarkovEval(faults, o.Lattice, o.ScoreName, colors, P)
 				colors, P = mine.BehaviorJumps(m)
