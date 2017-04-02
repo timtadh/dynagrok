@@ -168,7 +168,7 @@ func MarkovEval(faults []*Fault, lat *lattice.Lattice, name string, colorStates 
 			b, fn, pos := lat.Info.Get(color)
 			if fn == f.FnName && b == f.BasicBlockId {
 				fmt.Printf(
-					"    %v {\n\trank: %v,\n\thitting time: %v,\n\tfn: %v (%d),\n\tpos: %v\n    }\n",
+					"    markov-eval %v {\n\trank: %v,\n\thitting time: %v,\n\tfn: %v (%d),\n\tpos: %v\n    }\n",
 					name,
 					ranks[color],
 					score,

@@ -12,6 +12,7 @@ import (
 import (
 	"github.com/timtadh/dynagrok/cmd"
 	"github.com/timtadh/dynagrok/localize/discflo"
+	"github.com/timtadh/dynagrok/localize/discflo/eval"
 	"github.com/timtadh/dynagrok/localize/discflo/web/models"
 	"github.com/timtadh/dynagrok/localize/mine"
 )
@@ -65,6 +66,8 @@ Option Flags
 					if err != nil {
 						return nil, cmd.Err(1, err)
 					}
+					eval.Eval(faults, o.Lattice, "Discflo + "+name, eval.Discflo(o, o.Lattice, score))
+					eval.Eval(faults, o.Lattice, name, eval.CBSFL(o, o.Lattice, score))
 					mine.MarkovEval(faults, o.Lattice, "discflo + "+name, colors, P)
 					m := mine.NewMiner(o.Miner, o.Lattice, score, o.Opts...)
 					colors, P = mine.DsgMarkovChain(max, m)
@@ -77,6 +80,8 @@ Option Flags
 					mine.MarkovEval(faults, o.Lattice, "spacial jumps + " + name, colors, P)
 				}
 			} else {
+				eval.Eval(faults, o.Lattice, "Discflo + "+o.ScoreName, eval.Discflo(o, o.Lattice, o.Score))
+				eval.Eval(faults, o.Lattice, o.ScoreName, eval.CBSFL(o, o.Lattice, o.Score))
 				colors, P, err := DiscfloMarkovChain(max, o, o.Score)
 				if err != nil {
 					return nil, cmd.Err(1, err)
