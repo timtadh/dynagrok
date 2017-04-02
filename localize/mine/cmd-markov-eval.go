@@ -272,7 +272,7 @@ func RankListWithJumpsMarkovChain(max int, groups [][]int, prJump float64, jumps
 		}
 	}
 	first := grpState(0)
-	last := grpState(maxGid-1)
+	last := grpState(len(groupStates)-1)
 	P[first][first] = (1./2.) * float64(blocks - 1)/float64(blocks)
 	P[last][last]   = (1./2.) * 1/float64(blocks)
 	return blockStates, P
