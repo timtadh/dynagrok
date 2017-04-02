@@ -1,9 +1,13 @@
 package mine
 
 import (
+	"bytes"
 	"fmt"
 	"sort"
 	"strings"
+	"strconv"
+	"encoding/json"
+	"os/exec"
 )
 
 import (
@@ -56,8 +60,10 @@ Option Flags
 					MarkovEval(faults, o.Lattice, "mine-dsg + "+name, colors, P)
 					colors, P = RankListMarkovChain(m)
 					MarkovEval(faults, o.Lattice, name, colors, P)
-					colors, P = RankListWithJumpsMarkovChain(m)
-					MarkovEval(faults, o.Lattice, "jumps + " + name, colors, P)
+					colors, P = BehaviorJumps(m)
+					MarkovEval(faults, o.Lattice, "behavioral jumps + " + name, colors, P)
+					colors, P = SpacialJumps(m)
+					MarkovEval(faults, o.Lattice, "spacial jumps + " + name, colors, P)
 				}
 			} else {
 				m := NewMiner(o.Miner, o.Lattice, o.Score, o.Opts...)
@@ -65,8 +71,10 @@ Option Flags
 				MarkovEval(faults, o.Lattice, "mine-dsg + "+o.ScoreName, colors, P)
 				colors, P = RankListMarkovChain(m)
 				MarkovEval(faults, o.Lattice, o.ScoreName, colors, P)
-				colors, P = RankListWithJumpsMarkovChain(m)
-				MarkovEval(faults, o.Lattice, "jumps + " + o.ScoreName, colors, P)
+				colors, P = BehaviorJumps(m)
+				MarkovEval(faults, o.Lattice, "behavioral jumps + " + o.ScoreName, colors, P)
+				colors, P = SpacialJumps(m)
+				MarkovEval(faults, o.Lattice, "spacial jumps + " + o.ScoreName, colors, P)
 			}
 			return nil, nil
 		})
@@ -89,14 +97,37 @@ func MarkovEval(faults []*Fault, lat *lattice.Lattice, name string, colorStates 
 		}
 		return groups
 	}
-	scores := make(map[int]float64)
 	order := make([]int, 0, len(colorStates))
-	for color, states := range colorStates {
+	states := make([]int, 0, len(colorStates))
+	for color, group := range colorStates {
 		order = append(order, color)
-		for _, state := range states {
-			hit := ExpectedHittingTime(0, state, P)
-			if min, has := scores[color]; !has || hit < min {
-				scores[color] = hit
+		for _, state := range group {
+			states = append(states, state)
+		}
+	}
+	scores := make(map[int]float64)
+	hittingTimes, err := PyExpectedHittingTimes(0, states, P)
+	if err != nil {
+		fmt.Println(err)
+		fmt.Println("falling back on go implementation of hittingTime computation")
+		for color, states := range colorStates {
+			for _, state := range states {
+				hit := ExpectedHittingTime(0, state, P)
+				if min, has := scores[color]; !has || hit < min {
+					scores[color] = hit
+				}
+			}
+		}
+	} else {
+		for color, states := range colorStates {
+			for _, state := range states {
+				hit, has := hittingTimes[state]
+				if !has {
+					continue
+				}
+				if min, has := scores[color]; !has || hit < min {
+					scores[color] = hit
+				}
 			}
 		}
 	}
@@ -188,59 +219,122 @@ func RankListMarkovChain(m *Miner) (blockStates map[int][]int, P [][]float64) {
 	return blockStates, P
 }
 
-func RankListWithJumpsMarkovChain(m *Miner) (blockStates map[int][]int, P [][]float64) {
-	jumpPr := 1./10.
-	groups := LocalizeNodes(m.Score).Group()
+func RankListWithJumpsMarkovChain(groups [][]int, prJump float64, jumps map[int]map[int]bool) (blockStates map[int][]int, P [][]float64) {
 	groupStates := make(map[int]int)
 	blockStates = make(map[int][]int)
-	blocks := 0
 	states := 0
-	for gid, group := range groups {
-		groupStates[gid] = states
-		states++
-		for _, n := range group {
-			blockStates[n.Color] = append(blockStates[n.Color], states)
+	grpState := func(gid int) int {
+		if s, has := groupStates[gid]; has {
+			return s
+		} else {
+			state := states
 			states++
-			blocks++
+			groupStates[gid] = state
+			return state
 		}
 	}
+	blkState := func(color int) int {
+		if s, has := blockStates[color]; has {
+			return s[0]
+		} else {
+			state := states
+			states++
+			blockStates[color] = append(blockStates[color], state)
+			return state
+		}
+	}
+	for gid, group := range groups {
+		grpState(gid)
+		for _, color := range group {
+			blkState(color)
+		}
+	}
+	blocks := len(blockStates)
 	P = make([][]float64, 0, states)
 	for i := 0; i < states; i++ {
 		P = append(P, make([]float64, states))
 	}
 	for gid, group := range groups {
-		groupState := groupStates[gid]
-		for _, n := range group {
-			for _, blockState := range blockStates[n.Color] {
-				P[groupState][blockState] = (1./2.) * 1/float64(len(group))
-				P[blockState][groupState] = 1. - jumpPr
-				edgesFrom := m.Lattice.Fail.EdgesFromColor[n.Color]
-				edgesTo := m.Lattice.Fail.EdgesToColor[n.Color]
-				degree := float64(len(edgesFrom) + len(edgesTo))
-				for _, e := range edgesFrom {
-					for _, targState := range blockStates[e.TargColor] {
-						P[blockState][targState] = jumpPr * (1./degree)
-					}
-				}
-				for _, e := range edgesTo {
-					for _, srcState := range blockStates[e.SrcColor] {
-						P[blockState][srcState] = jumpPr * (1./degree)
-					}
-				}
+		gState := grpState(gid)
+		for _, color := range group {
+			bState := blkState(color)
+			P[gState][bState] = (1./2.) * 1/float64(len(group))
+			P[bState][gState] = 1 - prJump
+			for nColor := range jumps[color] {
+				neighbor := blkState(nColor)
+				P[bState][neighbor] = prJump * 1/float64(len(jumps[color]))
 			}
 		}
 		if gid > 0 {
-			prev := groupStates[gid - 1]
-			P[groupState][prev] = (1./2.) * float64(blocks - 1)/float64(blocks)
-			P[prev][groupState] = (1./2.) * 1/float64(blocks)
+			prev := grpState(gid - 1)
+			P[gState][prev] = (1./2.) * float64(blocks - 1)/float64(blocks)
+			P[prev][gState] = (1./2.) * 1/float64(blocks)
 		}
 	}
-	first := groupStates[0]
-	last := groupStates[len(groups)-1]
+	first := grpState(0)
+	last := grpState(len(groups)-1)
 	P[first][first] = (1./2.) * float64(blocks - 1)/float64(blocks)
 	P[last][last]   = (1./2.) * 1/float64(blocks)
 	return blockStates, P
 }
+
+func BehaviorJumps(m *Miner) (blockStates map[int][]int, P [][]float64) {
+	jumpPr := 1./10.
+	groups := LocalizeNodes(m.Score).Group()
+	colors := make([][]int, 0, len(groups))
+	jumps := make(map[int]map[int]bool)
+	for _, group := range groups {
+		colorGroup := make([]int, 0, len(group))
+		for _, n := range group {
+			if _, has := jumps[n.Color]; !has {
+				jumps[n.Color] = make(map[int]bool)
+			}
+			colorGroup = append(colorGroup, n.Color)
+			edgesFrom := m.Lattice.Fail.EdgesFromColor[n.Color]
+			edgesTo := m.Lattice.Fail.EdgesToColor[n.Color]
+			for _, e := range edgesFrom {
+				jumps[n.Color][e.TargColor] = true
+			}
+			for _, e := range edgesTo {
+				jumps[n.Color][e.SrcColor] = true
+			}
+		}
+		colors = append(colors, colorGroup)
+	}
+	return RankListWithJumpsMarkovChain(colors, jumpPr, jumps)
+}
+
+func SpacialJumps(m *Miner) (blockStates map[int][]int, P [][]float64) {
+	jumpPr := 1./10.
+	groups := LocalizeNodes(m.Score).Group()
+	colors := make([][]int, 0, len(groups))
+	jumps := make(map[int]map[int]bool)
+	fnBlks := make(map[string][]int)
+	for _, group := range groups {
+		colorGroup := make([]int, 0, len(group))
+		for _, n := range group {
+			if _, has := jumps[n.Color]; !has {
+				jumps[n.Color] = make(map[int]bool)
+			}
+			colorGroup = append(colorGroup, n.Color)
+			_, fnName, _ := m.Lattice.Info.Get(n.Color)
+			fnBlks[fnName] = append(fnBlks[fnName], n.Color)
+		}
+		colors = append(colors, colorGroup)
+	}
+	for _, blks := range fnBlks {
+		for _, a := range blks {
+			for _, b := range blks {
+				if a == b {
+					continue
+				}
+				jumps[a][b] = true
+			}
+		}
+	}
+	return RankListWithJumpsMarkovChain(colors, jumpPr, jumps)
+}
+
 
 func DsgMarkovChain(m *Miner) (blockStates map[int][]int, P [][]float64) {
 	groups := m.Mine().group()
@@ -389,3 +483,51 @@ func ExpectedHittingTime(x, y int, transitions [][]float64) float64 {
 	// fmt.Println(x, y, Nc.Get(x,0))
 	return Nc.Get(x, 0)
 }
+
+func PyExpectedHittingTimes(start int, states []int, transitions [][]float64) (map[int]float64, error) {
+	type data struct {
+		Start int
+		States []int
+		Transitions [][]float64
+	}
+	encoded, err := json.Marshal(data{start, states, transitions})
+	if err != nil {
+		return nil, err
+	}
+	var outbuf, errbuf bytes.Buffer
+	inbuf := bytes.NewBuffer(encoded)
+	c := exec.Command("hitting-times")
+	c.Stdin = inbuf
+	c.Stdout = &outbuf
+	c.Stderr = &errbuf
+	err = c.Start()
+	if err != nil {
+		return nil, err
+	}
+	err = c.Wait()
+	if err != nil {
+		return nil, fmt.Errorf("py hitting time err: %v\n`%v`\n`%v`", err, errbuf.String(), outbuf.String())
+	}
+	stderr := errbuf.String()
+	if len(stderr) > 0 {
+		return nil, fmt.Errorf("py hitting time err: %v", stderr)
+	}
+	if !c.ProcessState.Success() {
+		return nil, fmt.Errorf("failed to have python compute hitting times: %v", outbuf.String())
+	}
+	var times map[string]float64
+	err = json.Unmarshal(outbuf.Bytes(), &times)
+	if err != nil {
+		return nil, fmt.Errorf("py hitting time err, could not unmarshall: %v\n`%v`", err, outbuf.String())
+	}
+	hits := make(map[int]float64)
+	for sState, time := range times {
+		state, err := strconv.Atoi(sState)
+		if err != nil {
+			return nil, fmt.Errorf("py hitting time err, could not unmarshall: %v\n`%v`", err, outbuf.String())
+		}
+		hits[state] = time
+	}
+	return hits, nil
+}
+
