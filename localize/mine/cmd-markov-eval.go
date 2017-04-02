@@ -1,6 +1,7 @@
 package mine
 
 import (
+	"math"
 	"bytes"
 	"fmt"
 	"sort"
@@ -141,6 +142,11 @@ func MarkovEval(faults []*Fault, lat *lattice.Lattice, name string, colorStates 
 			}
 		}
 	}
+	for color, hit := range scores {
+		if hit <= 0 {
+			scores[color] = math.Inf(1)
+		}
+	}
 	grouped := group(order, scores)
 	ranks := make(map[int]float64)
 	total := 0
@@ -151,7 +157,7 @@ func MarkovEval(faults []*Fault, lat *lattice.Lattice, name string, colorStates 
 			count++
 			ranks[color] = float64(total) + float64(len(group))/2
 			b, fn, pos := lat.Info.Get(color)
-			if false {
+			if true {
 				fmt.Printf(
 					"    {\n\tgroup: %v, size: %d,\n\trank: %v, hitting time: %v,\n\tfn: %v (%d),\n\tpos: %v\n    }\n",
 					gid, len(group),
@@ -181,6 +187,67 @@ func MarkovEval(faults []*Fault, lat *lattice.Lattice, name string, colorStates 
 }
 
 func RankListMarkovChain(max int, m *Miner) (blockStates map[int][]int, P [][]float64) {
+	groups := LocalizeNodes(m.Score).Group()
+	groupStates := make(map[int]int)
+	blockStates = make(map[int][]int)
+	blocks := 0
+	states := 0
+	for gid, group := range groups {
+		groupStates[gid] = states
+		states++
+		for _, n := range group {
+			blockStates[n.Color] = append(blockStates[n.Color], states)
+			states++
+			blocks++
+		}
+	}
+	P = make([][]float64, 0, states)
+	for i := 0; i < states; i++ {
+		P = append(P, make([]float64, states))
+	}
+	for gid, group := range groups {
+		groupState := groupStates[gid]
+		for _, n := range group {
+			for _, blockState := range blockStates[n.Color] {
+				P[groupState][blockState] = (1./2.) * 1/float64(len(group))
+				P[blockState][groupState] = 1
+			}
+		}
+		if gid > 0 {
+			prev := groupStates[gid - 1]
+			P[groupState][prev] = (1./2.) * float64(blocks - 1)/float64(blocks)
+			P[prev][groupState] = (1./2.) * 1/float64(blocks)
+		}
+	}
+	first := groupStates[0]
+	last := groupStates[len(groups)-1]
+	P[first][first] = (1./2.) * float64(blocks - 1)/float64(blocks)
+	P[last][last]   = (1./2.) * 1/float64(blocks)
+	for _, row := range P {
+		sum := 0.
+		for _, col := range row {
+			sum += col
+		}
+		if abs(1.0 - sum) > .0000001 {
+			fmt.Println(sum)
+			panic("not stochastic")
+		}
+	}
+	if false {
+		for _, row := range P {
+			cols := make([]string, 0, len(row))
+			for _, col := range row {
+				cols = append(cols, fmt.Sprintf("%.3g", col))
+			}
+			fmt.Println(">>", strings.Join(cols, ", "))
+		}
+	}
+	return blockStates, P
+}
+
+
+
+func RankListMarkovChain2(max int, m *Miner) (blockStates map[int][]int, P [][]float64) {
 	jumpPr := 0.0
 	groups := LocalizeNodes(m.Score).Group()
 	colors := make([][]int, 0, len(groups))
@@ -497,6 +564,7 @@ func ExpectedHittingTime(x, y int, transitions [][]float64) float64 {
 }
 
 func ParPyEHT(start int, states []int, transitions [][]float64) (map[int]float64, error) {
+	return nil, fmt.Errorf("disabled")
 	cpus := runtime.NumCPU()
 	work := make([][]int, cpus)
 	for i, state := range states {

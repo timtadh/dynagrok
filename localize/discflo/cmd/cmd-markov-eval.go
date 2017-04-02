@@ -80,22 +80,22 @@ Option Flags
 					mine.MarkovEval(faults, o.Lattice, "spacial jumps + " + name, colors, P)
 				}
 			} else {
-				eval.Eval(faults, o.Lattice, "Discflo + "+o.ScoreName, eval.Discflo(o, o.Lattice, o.Score))
+				// eval.Eval(faults, o.Lattice, "Discflo + "+o.ScoreName, eval.Discflo(o, o.Lattice, o.Score))
 				eval.Eval(faults, o.Lattice, o.ScoreName, eval.CBSFL(o, o.Lattice, o.Score))
-				colors, P, err := DiscfloMarkovChain(max, o, o.Score)
-				if err != nil {
-					return nil, cmd.Err(1, err)
-				}
-				mine.MarkovEval(faults, o.Lattice, "discflo + "+o.ScoreName, colors, P)
+				// colors, P, err := DiscfloMarkovChain(max, o, o.Score)
+				// if err != nil {
+				// 	return nil, cmd.Err(1, err)
+				// }
+				// mine.MarkovEval(faults, o.Lattice, "discflo + "+o.ScoreName, colors, P)
 				m := mine.NewMiner(o.Miner, o.Lattice, o.Score, o.Opts...)
-				colors, P = mine.DsgMarkovChain(max, m)
-				mine.MarkovEval(faults, o.Lattice, "mine-dsg + "+o.ScoreName, colors, P)
-				colors, P = mine.RankListMarkovChain(max, m)
+				// colors, P = mine.DsgMarkovChain(max, m)
+				// mine.MarkovEval(faults, o.Lattice, "mine-dsg + "+o.ScoreName, colors, P)
+				colors, P := mine.RankListMarkovChain(max, m)
 				mine.MarkovEval(faults, o.Lattice, o.ScoreName, colors, P)
-				colors, P = mine.BehaviorJumps(max, m)
-				mine.MarkovEval(faults, o.Lattice, "behavioral jumps + " + o.ScoreName, colors, P)
-				colors, P = mine.SpacialJumps(max, m)
-				mine.MarkovEval(faults, o.Lattice, "spacial jumps + " + o.ScoreName, colors, P)
+				// colors, P = mine.BehaviorJumps(max, m)
+				// mine.MarkovEval(faults, o.Lattice, "behavioral jumps + " + o.ScoreName, colors, P)
+				// colors, P = mine.SpacialJumps(max, m)
+				// mine.MarkovEval(faults, o.Lattice, "spacial jumps + " + o.ScoreName, colors, P)
 			}
 			return nil, nil
 		})
