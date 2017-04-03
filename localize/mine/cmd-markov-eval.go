@@ -33,15 +33,18 @@ Option Flags
     -h,--help                         Show this message
     -f,--faults=<path>                Path to a fault file.
     -m,--max=<int>                    Maximum number of states in the chain
+    -j,--jump-pr=<float64>            Probability of taking jumps in chains which have them
 `,
-		"f:m:",
+		"f:m:j:",
 		[]string{
 			"faults=",
 			"max=",
+			"jump-pr=",
 		},
 		func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
 			max := 1000000
 			faultsPath := ""
+			jumpPr := (1./10.)
 			for _, oa := range optargs {
 				switch oa.Opt() {
 				case "-f", "--faults":
@@ -51,6 +54,15 @@ Option Flags
 					max, err = strconv.Atoi(oa.Arg())
 					if err != nil {
 						return nil, cmd.Errorf(1, "For flag %v expected an int got %v. err: %v", oa.Opt, oa.Arg(), err)
+					}
+				case "-j", "--jump-pr":
+					var err error
+					jumpPr, err = strconv.ParseFloat(oa.Arg(), 64)
+					if err != nil {
+						return nil, cmd.Errorf(1, "For flag %v expected a float got %v. err: %v", oa.Opt, oa.Arg(), err)
+					}
+					if jumpPr < 0 || jumpPr >= 1 {
+						return nil, cmd.Errorf(1, "For flag %v expected a float between 0-1. got %v", oa.Opt, oa.Arg())
 					}
 				}
 			}
@@ -71,10 +83,12 @@ Option Flags
 					MarkovEval(faults, o.Lattice, "mine-dsg + "+name, colors, P)
 					colors, P = RankListMarkovChain(max, m)
 					MarkovEval(faults, o.Lattice, name, colors, P)
-					colors, P = BehaviorJumps(max, m)
-					MarkovEval(faults, o.Lattice, "behavioral jumps + " + name, colors, P)
-					colors, P = SpacialJumps(max, m)
+					colors, P = SpacialJumps(jumpPr,max, m)
 					MarkovEval(faults, o.Lattice, "spacial jumps + " + name, colors, P)
+					colors, P = BehavioralJumps(jumpPr,max, m)
+					MarkovEval(faults, o.Lattice, "behavioral jumps + " + name, colors, P)
+					colors, P = BehavioralAndSpacialJumps(jumpPr,max, m)
+					MarkovEval(faults, o.Lattice, "behavioral and spacial jumps + " + name, colors, P)
 				}
 			} else {
 				m := NewMiner(o.Miner, o.Lattice, o.Score, o.Opts...)
@@ -82,10 +96,12 @@ Option Flags
 				MarkovEval(faults, o.Lattice, "mine-dsg + "+o.ScoreName, colors, P)
 				colors, P = RankListMarkovChain(max, m)
 				MarkovEval(faults, o.Lattice, o.ScoreName, colors, P)
-				colors, P = BehaviorJumps(max, m)
-				MarkovEval(faults, o.Lattice, "behavioral jumps + " + o.ScoreName, colors, P)
-				colors, P = SpacialJumps(max, m)
+				colors, P = SpacialJumps(jumpPr,max, m)
 				MarkovEval(faults, o.Lattice, "spacial jumps + " + o.ScoreName, colors, P)
+				colors, P = BehavioralJumps(jumpPr,max, m)
+				MarkovEval(faults, o.Lattice, "behavioral jumps + " + o.ScoreName, colors, P)
+				colors, P = BehavioralAndSpacialJumps(jumpPr, max, m)
+				MarkovEval(faults, o.Lattice, "behavioral and spacial jumps + " + o.ScoreName, colors, P)
 			}
 			return nil, nil
 		})
@@ -187,7 +203,6 @@ func MarkovEval(faults []*Fault, lat *lattice.Lattice, name string, colorStates 
 }
 
 func RankListMarkovChain(max int, m *Miner) (blockStates map[int][]int, P [][]float64) {
-	jumpPr := 0.0
 	groups := LocalizeNodes(m.Score).Group()
 	colors := make([][]int, 0, len(groups))
 	jumps := make(map[int]map[int]bool)
@@ -201,7 +216,7 @@ func RankListMarkovChain(max int, m *Miner) (blockStates map[int][]int, P [][]fl
 		}
 		colors = append(colors, colorGroup)
 	}
-	return RankListWithJumpsMarkovChain(max, colors, jumpPr, jumps)
+	return RankListWithJumpsMarkovChain(max, colors, 0, jumps)
 }
 
 func RankListWithJumpsMarkovChain(max int, groups [][]int, prJump float64, jumps map[int]map[int]bool) (blockStates map[int][]int, P [][]float64) {
@@ -284,8 +299,7 @@ func RankListWithJumpsMarkovChain(max int, groups [][]int, prJump float64, jumps
 	return blockStates, P
 }
 
-func BehaviorJumps(max int, m *Miner) (blockStates map[int][]int, P [][]float64) {
-	jumpPr := 1./10.
+func BehavioralJumps(jumpPr float64, max int, m *Miner) (blockStates map[int][]int, P [][]float64) {
 	groups := LocalizeNodes(m.Score).Group()
 	colors := make([][]int, 0, len(groups))
 	jumps := make(map[int]map[int]bool)
@@ -310,8 +324,7 @@ func BehaviorJumps(max int, m *Miner) (blockStates map[int][]int, P [][]float64)
 	return RankListWithJumpsMarkovChain(max, colors, jumpPr, jumps)
 }
 
-func SpacialJumps(max int, m *Miner) (blockStates map[int][]int, P [][]float64) {
-	jumpPr := 1./10.
+func SpacialJumps(jumpPr float64, max int, m *Miner) (blockStates map[int][]int, P [][]float64) {
 	groups := LocalizeNodes(m.Score).Group()
 	colors := make([][]int, 0, len(groups))
 	jumps := make(map[int]map[int]bool)
@@ -341,6 +354,43 @@ func SpacialJumps(max int, m *Miner) (blockStates map[int][]int, P [][]float64) 
 	return RankListWithJumpsMarkovChain(max, colors, jumpPr, jumps)
 }
 
+func BehavioralAndSpacialJumps(jumpPr float64, max int, m *Miner) (blockStates map[int][]int, P [][]float64) {
+	groups := LocalizeNodes(m.Score).Group()
+	colors := make([][]int, 0, len(groups))
+	jumps := make(map[int]map[int]bool)
+	fnBlks := make(map[string][]int)
+	for _, group := range groups {
+		colorGroup := make([]int, 0, len(group))
+		for _, n := range group {
+			if _, has := jumps[n.Color]; !has {
+				jumps[n.Color] = make(map[int]bool)
+			}
+			colorGroup = append(colorGroup, n.Color)
+			_, fnName, _ := m.Lattice.Info.Get(n.Color)
+			fnBlks[fnName] = append(fnBlks[fnName], n.Color)
+			edgesFrom := m.Lattice.Fail.EdgesFromColor[n.Color]
+			edgesTo := m.Lattice.Fail.EdgesToColor[n.Color]
+			for _, e := range edgesFrom {
+				jumps[n.Color][e.TargColor] = true
+			}
+			for _, e := range edgesTo {
+				jumps[n.Color][e.SrcColor] = true
+			}
+		}
+		colors = append(colors, colorGroup)
+	}
+	for _, blks := range fnBlks {
+		for _, a := range blks {
+			for _, b := range blks {
+				if a == b {
+					continue
+				}
+				jumps[a][b] = true
+			}
+		}
+	}
+	return RankListWithJumpsMarkovChain(max, colors, jumpPr, jumps)
+}
 
 func DsgMarkovChain(max int, m *Miner) (blockStates map[int][]int, P [][]float64) {
 	groups := m.Mine().group()

@@ -29,15 +29,18 @@ Option Flags
     -h,--help                         Show this message
     -f,--faults=<path>                Path to a fault file.
     -m,--max=<int>                    Maximum number of states in the chain
+    -j,--jump-pr=<float64>            Probability of taking jumps in chains which have them
 `,
-		"f:m:",
+		"f:m:j:",
 		[]string{
 			"faults=",
 			"max=",
+			"jump-pr=",
 		},
 		func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
 			max := 1000000
 			faultsPath := ""
+			jumpPr := (1./10.)
 			for _, oa := range optargs {
 				switch oa.Opt() {
 				case "-f", "--faults":
@@ -47,6 +50,15 @@ Option Flags
 					max, err = strconv.Atoi(oa.Arg())
 					if err != nil {
 						return nil, cmd.Errorf(1, "For flag %v expected an int got %v. err: %v", oa.Opt, oa.Arg(), err)
+					}
+				case "-j", "--jump-pr":
+					var err error
+					jumpPr, err = strconv.ParseFloat(oa.Arg(), 64)
+					if err != nil {
+						return nil, cmd.Errorf(1, "For flag %v expected a float got %v. err: %v", oa.Opt, oa.Arg(), err)
+					}
+					if jumpPr < 0 || jumpPr >= 1 {
+						return nil, cmd.Errorf(1, "For flag %v expected a float between 0-1. got %v", oa.Opt, oa.Arg())
 					}
 				}
 			}
@@ -62,27 +74,29 @@ Option Flags
 			}
 			if o.Score == nil {
 				for name, score := range mine.Scores {
-					colors, P, err := DiscfloMarkovChain(max, o, score)
+					eval.Eval(faults, o.Lattice, "Discflo + "+name, eval.Discflo(o, o.Lattice, score))
+					eval.Eval(faults, o.Lattice, name, eval.CBSFL(o, o.Lattice, score))
+					colors, P, err := DiscfloMarkovChain(jumpPr, max, o, score)
 					if err != nil {
 						return nil, cmd.Err(1, err)
 					}
-					eval.Eval(faults, o.Lattice, "Discflo + "+name, eval.Discflo(o, o.Lattice, score))
-					eval.Eval(faults, o.Lattice, name, eval.CBSFL(o, o.Lattice, score))
 					mine.MarkovEval(faults, o.Lattice, "discflo + "+name, colors, P)
 					m := mine.NewMiner(o.Miner, o.Lattice, score, o.Opts...)
 					colors, P = mine.DsgMarkovChain(max, m)
 					mine.MarkovEval(faults, o.Lattice, "mine-dsg + "+name, colors, P)
 					colors, P = mine.RankListMarkovChain(max, m)
 					mine.MarkovEval(faults, o.Lattice, name, colors, P)
-					colors, P = mine.BehaviorJumps(max, m)
-					mine.MarkovEval(faults, o.Lattice, "behavioral jumps + " + name, colors, P)
-					colors, P = mine.SpacialJumps(max, m)
+					colors, P = mine.SpacialJumps(jumpPr, max, m)
 					mine.MarkovEval(faults, o.Lattice, "spacial jumps + " + name, colors, P)
+					colors, P = mine.BehavioralJumps(jumpPr, max, m)
+					mine.MarkovEval(faults, o.Lattice, "behavioral jumps + " + name, colors, P)
+					colors, P = mine.BehavioralAndSpacialJumps(jumpPr, max, m)
+					mine.MarkovEval(faults, o.Lattice, "behavioral and spacial jumps + " + name, colors, P)
 				}
 			} else {
 				eval.Eval(faults, o.Lattice, "Discflo + "+o.ScoreName, eval.Discflo(o, o.Lattice, o.Score))
 				eval.Eval(faults, o.Lattice, o.ScoreName, eval.CBSFL(o, o.Lattice, o.Score))
-				colors, P, err := DiscfloMarkovChain(max, o, o.Score)
+				colors, P, err := DiscfloMarkovChain(jumpPr, max, o, o.Score)
 				if err != nil {
 					return nil, cmd.Err(1, err)
 				}
@@ -92,17 +106,18 @@ Option Flags
 				mine.MarkovEval(faults, o.Lattice, "mine-dsg + "+o.ScoreName, colors, P)
 				colors, P = mine.RankListMarkovChain(max, m)
 				mine.MarkovEval(faults, o.Lattice, o.ScoreName, colors, P)
-				colors, P = mine.BehaviorJumps(max, m)
-				mine.MarkovEval(faults, o.Lattice, "behavioral jumps + " + o.ScoreName, colors, P)
-				colors, P = mine.SpacialJumps(max, m)
+				colors, P = mine.SpacialJumps(jumpPr, max, m)
 				mine.MarkovEval(faults, o.Lattice, "spacial jumps + " + o.ScoreName, colors, P)
+				colors, P = mine.BehavioralJumps(jumpPr, max, m)
+				mine.MarkovEval(faults, o.Lattice, "behavioral jumps + " + o.ScoreName, colors, P)
+				colors, P = mine.BehavioralAndSpacialJumps(jumpPr, max, m)
+				mine.MarkovEval(faults, o.Lattice, "behavioral and spacial jumps + " + o.ScoreName, colors, P)
 			}
 			return nil, nil
 		})
 }
 
-func DiscfloMarkovChain(max int, o *discflo.Options, score mine.ScoreFunc) (blockStates map[int][]int, P [][]float64, err error) {
-	prJump := 1./10.
+func DiscfloMarkovChain(jumpPr float64, max int, o *discflo.Options, score mine.ScoreFunc) (blockStates map[int][]int, P [][]float64, err error) {
 	opts := o.Copy()
 	opts.Score = score
 	localizer := models.Localize(opts)
@@ -128,7 +143,7 @@ func DiscfloMarkovChain(max int, o *discflo.Options, score mine.ScoreFunc) (bloc
 		}
 		colors = append(colors, colorGroup)
 	}
-	blockStates, P = mine.RankListWithJumpsMarkovChain(max, colors, prJump, neighbors)
+	blockStates, P = mine.RankListWithJumpsMarkovChain(max, colors, jumpPr, neighbors)
 	return blockStates, P, nil
 }
 
