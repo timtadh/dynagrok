@@ -1,0 +1,78 @@
+#!/usr/bin/env python2
+
+import os, sys
+import json
+import time
+
+import warnings
+warnings.filterwarnings("ignore")
+
+import numpy as np
+from scipy import sparse
+from scipy.sparse import linalg
+from scikits import umfpack
+
+
+
+
+def absorb_time(P, x, y):
+    if x == y:
+        return 0.0
+    P = P.copy()
+    for s in xrange(P.shape[0]):
+        P[y,s] = 0
+    P[y,y] = 1
+    new_order = list(range(P.shape[0]))
+    new_order.remove(y)
+    new_order.append(y)
+    P = P[:, new_order][new_order]
+    if x > y:
+        x -= 1
+    #print P
+    Q = P[0:P.shape[0]-1,0:P.shape[0]-1]
+    return _absorb_time(Q, x)
+
+def _absorb_time(Q, x):
+    I = sparse.eye(Q.shape[0], format=Q.format)
+    N = inverse(I - Q)
+    c = np.ones((N.shape[0], 1))
+    return N.dot(c)[x][0]
+
+def inverse(A):
+    # return linalg.inv(A)
+    I = sparse.eye(A.shape[0], format=A.format)
+
+    #lu = linalg.spilu(A)
+    lu = umfpack.splu(A)
+    #print >>sys.stderr, "LU",
+    return lusolve(lu, I)
+
+    # return linalg.spsolve(A, I)
+
+def lusolve(lu, B):
+    if B.shape[0] < 30000:
+        X = sparse.csc_matrix(lu.solve(B))
+    else:
+        cols = list()
+        for j in xrange(B.shape[1]):
+            #if j % 1000 == 0:
+                #print >>sys.stderr, ("X_%d" % j),
+            col = lu.solve(B[:,j])
+            cols.append(sparse.csc_matrix(col))
+        X = sparse.hstack(cols)
+    #print >>sys.stderr, "X",
+    return X
+
+
+def main():
+    d = json.load(sys.stdin)
+    start = d['Start']
+    states = d['States']
+    transitions = sparse.lil_matrix(d['Transitions'])
+    times = dict()
+    for state in states:
+        times[state] = absorb_time(transitions, start, state)
+    json.dump(times, sys.stdout)
+
+if __name__ == "__main__":
+    main()

@@ -22,6 +22,7 @@ import (
 func NewCommand(c *cmd.Config) cmd.Runnable {
 	var o discflo.Options
 	evaluate := eval.NewCommand(c, &o)
+	markovEval := NewMarkovEvalParser(c, &o)
 	web := web.NewCommand(c, &o)
 	return cmd.Concat(
 		cmd.Annotate(
@@ -38,6 +39,7 @@ func NewCommand(c *cmd.Config) cmd.Runnable {
 		cmd.Commands(map[string]cmd.Runnable{
 			"":              NewRunner(c, &o),
 			evaluate.Name(): evaluate,
+			markovEval.Name(): markovEval,
 			web.Name():      web,
 		}),
 	)

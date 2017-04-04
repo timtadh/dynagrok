@@ -198,7 +198,13 @@ func (t *Testcase) minimizeWith(lat *lattice.Lattice, sg *subgraph.SubGraph, mkC
 		}()
 		go gen(muts, mutsCh, done)
 		te, ok := <-tests
+		drain := make(chan bool)
+		go func() {
+			for range tests {}
+			drain<-true
+		}()
 		close(done)
+		<-drain
 		if !ok {
 			break
 		}

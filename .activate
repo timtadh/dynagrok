@@ -3,3 +3,4 @@ if [[ ! (":$GOPATH:" == *":$(pwd):"*) ]]; then
 export GOPATH=$(pwd):$GOPATH
 export PATH=$(pwd)/bin:$PATH
 fi
+source env/bin/activate

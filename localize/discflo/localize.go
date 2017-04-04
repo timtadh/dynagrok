@@ -134,6 +134,9 @@ func (d *discflo) clusters(db *DbScan) (Clusters, error) {
 	if len(d.tests) > 0 {
 		for i, c := range clusters {
 			if len(filtered) >= 5 && i > 5 || len(filtered) >= 2 && i > 10 || len(filtered) >= 1 && i > 15 {
+				for _, x := range clusters[i:] {
+					filtered = append(filtered, x)
+				}
 				break
 			}
 			fmt.Printf("------------ cluster %d --------------\n", i)
