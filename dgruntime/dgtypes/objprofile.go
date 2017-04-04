@@ -29,9 +29,13 @@ type Param struct {
 	Val  Value
 }
 
+func (p Param) String() string {
+	return fmt.Sprintf("{Name: %v, Val: %v}", p.Name, p.Val)
+}
+
 func (p *Param) Dissimilar(other Clusterable) float64 {
 	if o, ok := other.(*Param); ok {
-		fmt.Printf("%v dissimilar from %v", *p, *o)
+		fmt.Printf("Param: %v\n dissimilar from \nParam: %v\n", *p, *o)
 		return p.Val.Dissimilar(o.Val)
 	} else {
 		panic("expected type *Param")

@@ -5,14 +5,14 @@ import (
 	"log"
 )
 
-func KMedoids(numClusters int, nodes []dgtypes.Clusterable) map[dgtypes.Clusterable][]dgtypes.Clusterable {
-	clusters := make(map[dgtypes.Clusterable][]dgtypes.Clusterable)
+func KMedoids(numClusters int, nodes []dgtypes.Clusterable) ([][]dgtypes.Clusterable, []dgtypes.Clusterable) {
+	clusters := make([][]dgtypes.Clusterable, numClusters)
 	medoids := make([]dgtypes.Clusterable, numClusters)
 	if len(nodes) < numClusters {
 		log.Panic("Failed to cluster with KMedoids: not enough nodes")
 	}
 	if numClusters == 0 {
-		return clusters
+		return clusters, medoids
 	}
 
 	// Initial step: add initial node to the medoids list
@@ -24,22 +24,22 @@ func KMedoids(numClusters int, nodes []dgtypes.Clusterable) map[dgtypes.Clustera
 
 	// Assignment step:
 	clusters = assignToMedoids(medoids, nodes)
-	cost := totalCost(clusters)
+	cost := totalCost(clusters, medoids)
 
 	// Update step:
 	for newcost := cost - 1; newcost < cost; {
 		cost = newcost
-		updateMedoids(clusters, medoids, nodes)
-		newcost = totalCost(clusters)
+		updateMedoids(clusters, medoids)
+		newcost = totalCost(clusters, medoids)
 	}
 
-	return clusters
+	return clusters, medoids
 }
 
-func totalCost(clusters map[dgtypes.Clusterable][]dgtypes.Clusterable) float64 {
+func totalCost(clusters [][]dgtypes.Clusterable, medoids []dgtypes.Clusterable) float64 {
 	var cost float64 = 0
 	for m, cluster := range clusters {
-		cost += clusterCost(m, cluster)
+		cost += clusterCost(medoids[m], cluster)
 	}
 	return cost
 }
@@ -52,53 +52,45 @@ func clusterCost(medoid dgtypes.Clusterable, nodes []dgtypes.Clusterable) float6
 	return cost
 }
 
-func assignToMedoids(medoids []dgtypes.Clusterable, nodes []dgtypes.Clusterable) map[dgtypes.Clusterable][]dgtypes.Clusterable {
-	clusters := make(map[dgtypes.Clusterable][]dgtypes.Clusterable)
+func assignToMedoids(medoids []dgtypes.Clusterable, nodes []dgtypes.Clusterable) [][]dgtypes.Clusterable {
+	clusters := make([][]dgtypes.Clusterable, len(medoids))
+	for cluster := range clusters {
+		clusters[cluster] = make([]dgtypes.Clusterable, 0)
+	}
 
 	for _, node := range nodes {
-		var nearestMedoid dgtypes.Clusterable = medoids[0]
+		var nearestMedoid int = 0
 		var minDist float64 = node.Dissimilar(medoids[0])
 		for j := range medoids {
 			dist := node.Dissimilar(medoids[j])
 			if dist < minDist {
 				minDist = dist
-				nearestMedoid = medoids[j]
+				nearestMedoid = j
 			}
 		}
-		if _, ok := clusters[nearestMedoid]; ok {
-			clusters[nearestMedoid] = append(clusters[nearestMedoid], node)
-		} else {
-			clusters[nearestMedoid] = []dgtypes.Clusterable{node}
-		}
+		clusters[nearestMedoid] = append(clusters[nearestMedoid], node)
 	}
 
 	return clusters
 }
 
-func updateMedoids(clusters map[dgtypes.Clusterable][]dgtypes.Clusterable, medoids []dgtypes.Clusterable, nodes []dgtypes.Clusterable) {
-	for m, medoid := range medoids {
-		for n, node := range nodes {
-			cost := clusterCost(medoid, clusters[medoid])
-			swapCluster(medoid, node, clusters)
-			newcost := clusterCost(node, clusters[node])
-			if newcost >= cost {
-				swapCluster(node, medoid, clusters)
-			} else {
-				swapLists(m, n, medoids, nodes)
+func updateMedoids(clusters [][]dgtypes.Clusterable, medoids []dgtypes.Clusterable) {
+	for m := range medoids {
+		for x := range clusters {
+			for y := range clusters[x] {
+				cost := clusterCost(medoids[m], clusters[m])
+				swapCluster(m, x, y, clusters, medoids)
+				newcost := clusterCost(medoids[m], clusters[m])
+				if newcost >= cost {
+					swapCluster(m, x, y, clusters, medoids)
+				}
 			}
 		}
 	}
 }
 
-func swapCluster(medoid dgtypes.Clusterable, node dgtypes.Clusterable, clusters map[dgtypes.Clusterable][]dgtypes.Clusterable) {
-	medGroup := clusters[medoid]
-
-	// from the list of nodes: add the medoid, remove the node
-	medGroup = append(medGroup, medoid)
-	medGroup = removeByValue(node, medGroup)
-	// From the map of clusters, remove the medoid and add the node entry
-	delete(clusters, medoid)
-	clusters[node] = medGroup
+func swapCluster(m int, x int, y int, clusters [][]dgtypes.Clusterable, medoids []dgtypes.Clusterable) {
+	medoids[m], clusters[x][y] = clusters[x][y], medoids[m]
 }
 
 func removeByValue(node dgtypes.Clusterable, list []dgtypes.Clusterable) []dgtypes.Clusterable {

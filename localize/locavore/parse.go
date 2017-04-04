@@ -2,7 +2,6 @@ package locavore
 
 import (
 	"bufio"
-	"fmt"
 	"github.com/timtadh/dynagrok/dgruntime/dgtypes"
 	"io"
 	"io/ioutil"
@@ -28,14 +27,14 @@ func parseProfile(r io.Reader) (string, []string) {
 	if err != nil {
 		log.Panic("Locavore: Error reading file")
 	}
-	return types, strings.Split(string(content), "\n")
+	return types, strings.Split(strings.TrimSpace(string(content)), "\n")
 }
 
 func unserializeFuncs(profiles []string) (profs []dgtypes.FuncProfile) {
 	for _, s := range profiles {
 		object := dgtypes.UnserializeFunc(s)
 		profs = append(profs, object)
-		fmt.Printf("Reading %v \ninto %v\n\n", s, object)
 	}
+	log.Printf("%d profs: \n\t %v", len(profs), profs)
 	return profs
 }

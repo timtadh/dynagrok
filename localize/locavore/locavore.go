@@ -3,16 +3,19 @@ package locavore
 import (
 	"fmt"
 	"github.com/timtadh/dynagrok/dgruntime/dgtypes"
+	"log"
 )
 
 type Localizer struct {
-	ok      []dgtypes.Clusterable
-	fail    []dgtypes.Clusterable
-	inputs  []dgtypes.Clusterable
-	outputs []dgtypes.Clusterable
-	profs   []dgtypes.Clusterable
-	inBins  map[dgtypes.Clusterable][]dgtypes.Clusterable
-	outBins map[dgtypes.Clusterable][]dgtypes.Clusterable
+	ok         []dgtypes.Clusterable
+	fail       []dgtypes.Clusterable
+	inputs     []dgtypes.Clusterable
+	outputs    []dgtypes.Clusterable
+	profs      []dgtypes.Clusterable
+	inBins     [][]dgtypes.Clusterable
+	inMedoids  []dgtypes.Clusterable
+	outBins    [][]dgtypes.Clusterable
+	outMedoids []dgtypes.Clusterable
 }
 
 func Localize(okf []dgtypes.FuncProfile, failf []dgtypes.FuncProfile, types []dgtypes.Type, numbins int) {
@@ -37,7 +40,7 @@ func Localize(okf []dgtypes.FuncProfile, failf []dgtypes.FuncProfile, types []dg
 		}
 	}
 	profs := append(ok, fail...)
-	fmt.Printf("%v", profs)
+	log.Printf("Profiles: %v\n", profs)
 
 	// Step 1:   Bin the inputs
 	// Step 1.5: Bin the outputs
@@ -56,8 +59,8 @@ func Localize(okf []dgtypes.FuncProfile, failf []dgtypes.FuncProfile, types []dg
 }
 
 func (l Localizer) bin(numbins int) {
-	l.inBins = KMedoids(numbins, l.inputs)
-	l.outBins = KMedoids(numbins, l.outputs)
-	fmt.Printf("Some input clusters: %v", l.inBins)
-	fmt.Printf("Some output clusters: %v", l.outBins)
+	l.inBins, l.inMedoids = KMedoids(numbins, l.inputs)
+	l.outBins, l.outMedoids = KMedoids(numbins, l.outputs)
+	fmt.Printf("Some input medoids: %v\n", l.inMedoids)
+	fmt.Printf("Some input clusters: %v\n", l.inBins)
 }
