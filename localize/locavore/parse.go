@@ -35,6 +35,6 @@ func unserializeFuncs(profiles []string) (profs []dgtypes.FuncProfile) {
 		object := dgtypes.UnserializeFunc(s)
 		profs = append(profs, object)
 	}
-	log.Printf("%d profs: \n\t %v", len(profs), profs)
+	//log.Printf("%d profs: \n\t %v", len(profs), profs)
 	return profs
 }

@@ -8,11 +8,13 @@ import (
 func KMedoids(numClusters int, nodes []dgtypes.Clusterable) ([][]dgtypes.Clusterable, []dgtypes.Clusterable) {
 	clusters := make([][]dgtypes.Clusterable, numClusters)
 	medoids := make([]dgtypes.Clusterable, numClusters)
-	if len(nodes) < numClusters {
-		log.Panic("Failed to cluster with KMedoids: not enough nodes")
-	}
-	if numClusters == 0 {
+	if numClusters == 0 || len(nodes) == 0 {
+		log.Printf("No profiles to cluster")
 		return clusters, medoids
+	}
+	if len(nodes) < numClusters {
+		numClusters = len(nodes)
+		log.Printf("Setting numBins temporarily to %v", numClusters)
 	}
 
 	// Initial step: add initial node to the medoids list

@@ -89,6 +89,28 @@ func valueFromRaw(raw *json.RawMessage) (Value, error) {
 		err = json.Unmarshal(*raw, &s)
 		//fmt.Printf("Unmarshaled %v\n", s)
 		return &s, err
+	case "BoolValue":
+		var s BoolValue
+		err = json.Unmarshal(*raw, &s)
+		return &s, err
+	case "ReferenceValue":
+		var r ReferenceValue
+		json.Unmarshal(*valMap["Typename"], &r.Typename)
+		json.Unmarshal(*valMap["JSONType"], &r.JSONType)
+		r.Elem, err = valueFromRaw(valMap["Elem"])
+		return &r, err
+	case "ArrayValue":
+		var a ArrayValue
+		json.Unmarshal(*valMap["ElemType"], &a.ElemType)
+		json.Unmarshal(*valMap["JSONType"], &a.JSONType)
+		var rawVals []*json.RawMessage
+		json.Unmarshal(*valMap["Val"], &rawVals)
+		a.Val = make([]Value, len(rawVals))
+		for i := range rawVals {
+			a.Val[i], err = valueFromRaw(rawVals[i])
+		}
+		return &a, err
+
 	default:
 		return nil, nil
 	}

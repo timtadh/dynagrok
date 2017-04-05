@@ -212,11 +212,14 @@ func (s *StringValue) Dissimilar(o Value) float64 {
 // }}}
 
 // {{{ BoolValue
-type BoolValue bool
+type BoolValue struct {
+	Val      bool
+	JSONType string
+}
 
 func BoolVal(i interface{}) *BoolValue {
 	if x, ok := i.(bool); ok {
-		var b BoolValue = BoolValue(x)
+		var b BoolValue = BoolValue{Val: x, JSONType: "BoolValue"}
 		return &b
 	} else {
 		panic(fmt.Errorf("%v should have been a bool got %T", i, i))
@@ -228,7 +231,7 @@ func (b *BoolValue) Kind() Kind {
 }
 
 func (b *BoolValue) LevelHash(h hash.Hash, i int) {
-	x := bool(*b)
+	x := bool(b.Val)
 	if x {
 		h.Write([]byte("1"))
 	} else {
@@ -237,11 +240,11 @@ func (b *BoolValue) LevelHash(h hash.Hash, i int) {
 }
 
 func (b *BoolValue) Value() interface{} {
-	return b
+	return b.Val
 }
 
 func (b *BoolValue) String() string {
-	x := bool(*b)
+	x := bool(b.Val)
 	return fmt.Sprintf("%v", x)
 }
 
@@ -252,11 +255,11 @@ func (b *BoolValue) TypeName() string {
 func (b *BoolValue) Dissimilar(v Value) float64 {
 	if other, ok := v.(*BoolValue); ok {
 		switch {
-		case bool(*b) && bool(*other):
+		case bool(b.Val) && bool(other.Val):
 			return 0.0
-		case bool(*b) != bool(*other):
+		case bool(b.Val) != bool(other.Val):
 			return 1.0
-		case !bool(*b) && !bool(*other):
+		case !bool(b.Val) && !bool(other.Val):
 			return 0.0
 		}
 	}
@@ -366,6 +369,7 @@ type ReferenceValue struct {
 	Typename string
 	Elem     Value
 	kind     Kind
+	JSONType string
 }
 
 func ReferenceVal(i interface{}) *ReferenceValue {
@@ -373,10 +377,10 @@ func ReferenceVal(i interface{}) *ReferenceValue {
 	elem := NewVal(val.Elem().Interface())
 	switch val.Kind() {
 	case reflect.Ptr:
-		return &ReferenceValue{val: i, Elem: elem, kind: Pointer, Typename: "*" + elem.TypeName()}
+		return &ReferenceValue{val: i, Elem: elem, kind: Pointer, Typename: "*" + elem.TypeName(), JSONType: "ReferenceValue"}
 	case reflect.Interface:
 		// TODO determine the typename for interfaces
-		return &ReferenceValue{val: i, Elem: elem, kind: Interface, Typename: "*" + elem.TypeName()}
+		return &ReferenceValue{val: i, Elem: elem, kind: Interface, Typename: "*" + elem.TypeName(), JSONType: "ReferenceValue"}
 	default:
 		panic(fmt.Errorf("%v should be a reference, is %T", i, i))
 	}
@@ -422,6 +426,7 @@ type ArrayValue struct {
 	Val      []Value
 	val      interface{}
 	size     int
+	JSONType string
 }
 
 func ArrayVal(i interface{}) *ArrayValue {
@@ -432,9 +437,9 @@ func ArrayVal(i interface{}) *ArrayValue {
 	}
 	if x.Len() > 0 {
 		t := vals[0].TypeName()
-		return &ArrayValue{Val: vals, val: i, size: x.Len(), ElemType: t}
+		return &ArrayValue{Val: vals, val: i, size: x.Len(), ElemType: t, JSONType: "ArrayValue"}
 	} else {
-		return &ArrayValue{Val: vals, val: i, size: x.Len()}
+		return &ArrayValue{Val: vals, val: i, size: x.Len(), JSONType: "ArrayValue"}
 	}
 }
 

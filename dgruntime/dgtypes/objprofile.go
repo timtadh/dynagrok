@@ -35,7 +35,7 @@ func (p Param) String() string {
 
 func (p *Param) Dissimilar(other Clusterable) float64 {
 	if o, ok := other.(*Param); ok {
-		fmt.Printf("Param: %v\n dissimilar from \nParam: %v\n", *p, *o)
+		//		fmt.Printf("Param: %v\n dissimilar from \nParam: %v\n", *p, *o)
 		return p.Val.Dissimilar(o.Val)
 	} else {
 		panic("expected type *Param")
