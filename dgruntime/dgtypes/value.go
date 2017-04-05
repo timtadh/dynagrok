@@ -57,34 +57,37 @@ type Value interface {
 
 // {{{ IntValue
 type IntValue struct {
-	kind Kind
-	Val  uint64
+	kind     Kind
+	Val      uint64
+	JSONType string
 }
+
+const intType = "IntValue"
 
 func IntVal(i interface{}) *IntValue {
 	switch x := i.(type) {
 	case int8:
-		return &IntValue{kind: Int8, Val: uint64(x)}
+		return &IntValue{kind: Int8, Val: uint64(x), JSONType: intType}
 	case uint8:
-		return &IntValue{kind: UInt8, Val: uint64(x)}
+		return &IntValue{kind: UInt8, Val: uint64(x), JSONType: intType}
 	case int16:
-		return &IntValue{kind: Int16, Val: uint64(x)}
+		return &IntValue{kind: Int16, Val: uint64(x), JSONType: intType}
 	case uint16:
-		return &IntValue{kind: UInt16, Val: uint64(x)}
+		return &IntValue{kind: UInt16, Val: uint64(x), JSONType: intType}
 	case int32:
-		return &IntValue{kind: Int32, Val: uint64(x)}
+		return &IntValue{kind: Int32, Val: uint64(x), JSONType: intType}
 	case uint32:
-		return &IntValue{kind: UInt32, Val: uint64(x)}
+		return &IntValue{kind: UInt32, Val: uint64(x), JSONType: intType}
 	case int64:
-		return &IntValue{kind: Int64, Val: uint64(x)}
+		return &IntValue{kind: Int64, Val: uint64(x), JSONType: intType}
 	case uint64:
-		return &IntValue{kind: UInt64, Val: uint64(x)}
+		return &IntValue{kind: UInt64, Val: uint64(x), JSONType: intType}
 	case int:
-		return &IntValue{kind: Int, Val: uint64(x)}
+		return &IntValue{kind: Int, Val: uint64(x), JSONType: intType}
 	case uint:
-		return &IntValue{kind: UInt, Val: uint64(x)}
+		return &IntValue{kind: UInt, Val: uint64(x), JSONType: intType}
 	case uintptr:
-		return &IntValue{kind: UIntptr, Val: uint64(x)}
+		return &IntValue{kind: UIntptr, Val: uint64(x), JSONType: intType}
 	default:
 		panic(fmt.Errorf("%v should have been an int got %T", i, i))
 	}
@@ -131,7 +134,7 @@ func (i *IntValue) Value() interface{} {
 }
 
 func (i *IntValue) String() string {
-	return fmt.Sprintf("%v", i.Value())
+	return fmt.Sprintf("%d", i.Val)
 }
 
 func (i *IntValue) TypeName() string {
@@ -149,11 +152,14 @@ func (i *IntValue) Dissimilar(o Value) float64 {
 // }}}
 
 // {{{ StringValue
-type StringValue string
+type StringValue struct {
+	Val      string
+	JSONType string
+}
 
 func StringVal(i interface{}) *StringValue {
 	if x, ok := i.(string); ok {
-		var s StringValue = StringValue(x)
+		var s StringValue = StringValue{Val: x, JSONType: "StringValue"}
 		return &s
 	} else {
 		panic(fmt.Errorf("%v should have been a string got %T", i, i))
@@ -165,11 +171,11 @@ func (s *StringValue) Kind() Kind {
 }
 
 func (s *StringValue) Value() interface{} {
-	return s
+	return s.Val
 }
 
 func (s *StringValue) String() string {
-	return string(*s)
+	return s.Val
 }
 
 func (s *StringValue) LevelHash(h hash.Hash, i int) {
@@ -183,20 +189,20 @@ func (s *StringValue) TypeName() string {
 func (s *StringValue) Dissimilar(o Value) float64 {
 	score := 0.0
 	if other, ok := o.(*StringValue); ok {
-		length := len(*s)
-		if len(*other) > len(*s) {
-			length = len(*other)
+		length := len(s.Val)
+		if len(other.Val) > len(s.Val) {
+			length = len(other.Val)
 		}
 		// TODO Perform Hamming distance
-		for i, l := range *s {
-			if i == len(*other) {
+		for i, l := range s.Val {
+			if i == len(other.Val) {
 				break
 			}
-			if l != []rune(string(*other))[i] {
+			if l != []rune(other.Val)[i] {
 				score += 1 / float64(length)
 			}
 		}
-		score += math.Abs(float64(len(*s)-len(*other))) / float64(length)
+		score += math.Abs(float64(len(s.Val)-len(other.Val))) / float64(length)
 		return score
 	} else {
 		panic("Dissimilar should be called on type string")
@@ -206,11 +212,14 @@ func (s *StringValue) Dissimilar(o Value) float64 {
 // }}}
 
 // {{{ BoolValue
-type BoolValue bool
+type BoolValue struct {
+	Val      bool
+	JSONType string
+}
 
 func BoolVal(i interface{}) *BoolValue {
 	if x, ok := i.(bool); ok {
-		var b BoolValue = BoolValue(x)
+		var b BoolValue = BoolValue{Val: x, JSONType: "BoolValue"}
 		return &b
 	} else {
 		panic(fmt.Errorf("%v should have been a bool got %T", i, i))
@@ -222,7 +231,7 @@ func (b *BoolValue) Kind() Kind {
 }
 
 func (b *BoolValue) LevelHash(h hash.Hash, i int) {
-	x := bool(*b)
+	x := bool(b.Val)
 	if x {
 		h.Write([]byte("1"))
 	} else {
@@ -231,11 +240,11 @@ func (b *BoolValue) LevelHash(h hash.Hash, i int) {
 }
 
 func (b *BoolValue) Value() interface{} {
-	return b
+	return b.Val
 }
 
 func (b *BoolValue) String() string {
-	x := bool(*b)
+	x := bool(b.Val)
 	return fmt.Sprintf("%v", x)
 }
 
@@ -246,11 +255,11 @@ func (b *BoolValue) TypeName() string {
 func (b *BoolValue) Dissimilar(v Value) float64 {
 	if other, ok := v.(*BoolValue); ok {
 		switch {
-		case bool(*b) && bool(*other):
+		case bool(b.Val) && bool(other.Val):
 			return 0.0
-		case bool(*b) != bool(*other):
+		case bool(b.Val) != bool(other.Val):
 			return 1.0
-		case !bool(*b) && !bool(*other):
+		case !bool(b.Val) && !bool(other.Val):
 			return 0.0
 		}
 	}
@@ -261,9 +270,10 @@ func (b *BoolValue) Dissimilar(v Value) float64 {
 
 // {{{ StructValue
 type StructValue struct {
-	TypName string
-	Fields  []Field
-	val     interface{}
+	TypName  string
+	Fields   []Field
+	val      interface{}
+	JSONType string
 }
 
 func StructVal(i interface{}) *StructValue {
@@ -285,7 +295,7 @@ func StructVal(i interface{}) *StructValue {
 				Val: nil})
 		}
 	}
-	return &StructValue{TypName: vType.Name(), Fields: fields, val: i}
+	return &StructValue{TypName: vType.Name(), Fields: fields, val: i, JSONType: "StructValue"}
 }
 
 func (s *StructValue) LevelHash(h hash.Hash, n int) {
@@ -303,11 +313,17 @@ func (s *StructValue) Value() interface{} {
 }
 
 func (s *StructValue) String() string {
-	str := fmt.Sprintf("struct %v {", s.TypeName)
-	for _, f := range s.Fields {
-		str = fmt.Sprintf("%s, %s", str, f.Val.String())
+	if len(s.Fields) == 0 {
+		return fmt.Sprintf("struct %v{}", s.TypeName())
 	}
-	str = fmt.Sprintf("%s}")
+	str := fmt.Sprintf("struct %v {%s", s.TypeName(), s.Fields[0].String())
+	for i, f := range s.Fields {
+		if i == 0 {
+			continue
+		}
+		str = fmt.Sprintf("%s, %s", str, f.String())
+	}
+	str = fmt.Sprintf("%s}", str)
 	return str
 }
 
@@ -330,6 +346,7 @@ func (s *StructValue) Dissimilar(v Value) float64 {
 				}
 			}
 		}
+		return score
 	}
 	panic("Should have been type struct")
 }
@@ -342,12 +359,17 @@ type Field struct {
 	exported bool
 }
 
+func (f Field) String() string {
+	return fmt.Sprintf("%v: %v", f.Name, f.Val)
+}
+
 // {{{ ReferenceValue
 type ReferenceValue struct {
 	val      interface{}
 	Typename string
 	Elem     Value
 	kind     Kind
+	JSONType string
 }
 
 func ReferenceVal(i interface{}) *ReferenceValue {
@@ -355,10 +377,10 @@ func ReferenceVal(i interface{}) *ReferenceValue {
 	elem := NewVal(val.Elem().Interface())
 	switch val.Kind() {
 	case reflect.Ptr:
-		return &ReferenceValue{val: i, Elem: elem, kind: Pointer, Typename: "*" + elem.TypeName()}
+		return &ReferenceValue{val: i, Elem: elem, kind: Pointer, Typename: "*" + elem.TypeName(), JSONType: "ReferenceValue"}
 	case reflect.Interface:
 		// TODO determine the typename for interfaces
-		return &ReferenceValue{val: i, Elem: elem, kind: Interface, Typename: "*" + elem.TypeName()}
+		return &ReferenceValue{val: i, Elem: elem, kind: Interface, Typename: "*" + elem.TypeName(), JSONType: "ReferenceValue"}
 	default:
 		panic(fmt.Errorf("%v should be a reference, is %T", i, i))
 	}
@@ -404,6 +426,7 @@ type ArrayValue struct {
 	Val      []Value
 	val      interface{}
 	size     int
+	JSONType string
 }
 
 func ArrayVal(i interface{}) *ArrayValue {
@@ -414,9 +437,9 @@ func ArrayVal(i interface{}) *ArrayValue {
 	}
 	if x.Len() > 0 {
 		t := vals[0].TypeName()
-		return &ArrayValue{Val: vals, val: i, size: x.Len(), ElemType: t}
+		return &ArrayValue{Val: vals, val: i, size: x.Len(), ElemType: t, JSONType: "ArrayValue"}
 	} else {
-		return &ArrayValue{Val: vals, val: i, size: x.Len()}
+		return &ArrayValue{Val: vals, val: i, size: x.Len(), JSONType: "ArrayValue"}
 	}
 }
 
