@@ -9,13 +9,19 @@ import (
 	"github.com/timtadh/data-structures/heap"
 )
 
+import (
+	"github.com/timtadh/dynagrok/localize/lattice"
+)
+
 type branchBound struct {
 	k int
+	debug bool
 }
 
-func BranchAndBound(k int) TopMiner {
+func BranchAndBound(k int, debug bool) TopMiner {
 	return &branchBound{
 		k: k,
+		debug: debug,
 	}
 }
 
@@ -24,49 +30,7 @@ func (b *branchBound) Mine(m *Miner) SearchNodes {
 }
 
 func (b *branchBound) MineFrom(m *Miner, start *SearchNode) SearchNodes {
-	pop := func(stack []*SearchNode) ([]*SearchNode, *SearchNode) {
-		return stack[:len(stack)-1], stack[len(stack)-1]
-	}
-	insert := func(sorted []*SearchNode, item *SearchNode) []*SearchNode {
-		i := 0
-		for ; i < len(sorted); i++ {
-			a := item.Node.SubGraph
-			b := sorted[i].Node.SubGraph
-			if item.Score > sorted[i].Score {
-				break
-			} else if a.SubgraphOf(b) {
-				return sorted
-			}
-		}
-		sorted = sorted[:len(sorted)+1]
-		for j := len(sorted) - 1; j > 0; j-- {
-			if j == i {
-				sorted[i] = item
-				break
-			}
-			sorted[j] = sorted[j-1]
-		}
-		if i == 0 {
-			sorted[i] = item
-		}
-		return sorted
-	}
-	priority := func(n *SearchNode) (int, *SearchNode) {
-		return int(100000 * n.Score), n
-	}
-	checkMax := func(max []*SearchNode, cur *SearchNode) []*SearchNode {
-		if len(max) < b.k {
-			return insert(max, cur)
-		} else if cur.Score > max[len(max)-1].Score {
-			max, _ = pop(max)
-			return insert(max, cur)
-		} else if cur.Score == max[len(max)-1].Score && rand.Float64() > .5 {
-			max, _ = pop(max)
-			return insert(max, cur)
-		}
-		return max
-	}
-	max := make([]*SearchNode, 0, b.k)
+	best := heap.NewMinHeap(b.k)
 	queue := heap.NewMaxHeap(m.MaxEdges * 2)
 	queue.Push(priority(start))
 	seen := make(map[string]bool)
@@ -81,29 +45,68 @@ func (b *branchBound) MineFrom(m *Miner, start *SearchNode) SearchNodes {
 			continue
 		}
 		seen[label] = true
-		if true && len(max) > 0 {
-			errors.Logf("DEBUG", "\n\t\t\tcur %v %v (%v - %v) %v %v", queue.Size(), len(max), max[0].Score, max[len(max)-1].Score, m.Score.Max(cur.Node), cur)
+		if b.debug {
+			errors.Logf("DEBUG", "\n\t\t\tcur %v %v %v", queue.Size(), best.Size(), cur)
 		}
 		if cur.Node.SubGraph != nil && len(cur.Node.SubGraph.E) >= m.MaxEdges {
-			max = checkMax(max, cur)
+			checkMax(best, b.k, cur)
 			continue
 		}
 		kids, err := cur.Node.Children()
 		if err != nil {
 			panic(err)
 		}
-		filtered := filterKids(m.MinFails, m, cur.Score, kids)
-		for _, kid := range filtered {
+		scored := scoreKids(m.MinFails, m, kids)
+		for _, kid := range scored {
 			klabel := string(kid.Node.SubGraph.Label())
-			if len(max) < b.k || m.Score.Max(kid.Node) >= max[len(max)-1].Score {
+			if best.Size() < b.k || m.Score.Max(kid.Node) > best.Peek().(*SearchNode).Score {
 				if !seen[klabel] {
 					queue.Push(priority(kid))
 				}
 			}
 		}
-		if len(filtered) <= 0 && cur.Node.SubGraph != nil && len(cur.Node.SubGraph.E) >= m.MinEdges {
-			max = checkMax(max, cur)
+		if cur.Node.SubGraph != nil && len(cur.Node.SubGraph.E) >= m.MinEdges {
+			checkMax(best, b.k, cur)
 		}
 	}
-	return SliceToNodes(max)
+	return SliceToNodes(pqToSlice(best))
+}
+
+func scoreKids(minFailSup int, m *Miner, kids []*lattice.Node) []*SearchNode {
+	entries := make([]*SearchNode, 0, len(kids))
+	for _, kid := range kids {
+		if kid.FIS() < minFailSup {
+			continue
+		}
+		kidScore := m.Score.Score(kid)
+		entries = append(entries, NewSearchNode(kid, kidScore))
+	}
+	return entries
+}
+
+func priority(n *SearchNode) (int, *SearchNode) {
+	return int(100000 * n.Score), n
+}
+
+func checkMax(best *heap.Heap, k int, cur *SearchNode) {
+	if cur.Node.SubGraph == nil {
+		return
+	}
+	if best.Size() < k {
+		best.Push(priority(cur))
+	} else if cur.Score > best.Peek().(*SearchNode).Score {
+		best.Pop()
+		best.Push(priority(cur))
+	} else if cur.Score == best.Peek().(*SearchNode).Score && rand.Float64() > .5 {
+		best.Pop()
+		best.Push(priority(cur))
+	}
+}
+
+func pqToSlice(best *heap.Heap) []*SearchNode {
+	max := make([]*SearchNode, 0, best.Size())
+	for best.Size() > 0 {
+		max = append(max, best.Pop().(*SearchNode))
+	}
+	return max
 }
