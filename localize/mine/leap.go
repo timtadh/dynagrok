@@ -170,7 +170,7 @@ mainLoop:
 		hadKid := false
 		for _, kid := range filteredKids {
 			klabel := string(kid.Node.SubGraph.Label())
-			if best.Size() < l.k || m.Score.Max(kid.Node) >= best.Peek().(*SearchNode).Score {
+			if best.Size() < l.k || m.Score.Max(kid.Node) > best.Peek().(*SearchNode).Score {
 				hadKid = true
 				if !seen[klabel] {
 					queue.Push(priority(kid))

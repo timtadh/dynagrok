@@ -56,16 +56,18 @@ func (b *branchBound) MineFrom(m *Miner, start *SearchNode) SearchNodes {
 		if err != nil {
 			panic(err)
 		}
-		scored := scoreKids(m.MinFails, m, kids)
+		hadKid := false
+		scored := filterKids(m.MinFails, m, cur.Score, kids)
 		for _, kid := range scored {
 			klabel := string(kid.Node.SubGraph.Label())
 			if best.Size() < b.k || m.Score.Max(kid.Node) > best.Peek().(*SearchNode).Score {
+				hadKid = true
 				if !seen[klabel] {
 					queue.Push(priority(kid))
 				}
 			}
 		}
-		if cur.Node.SubGraph != nil && len(cur.Node.SubGraph.E) >= m.MinEdges {
+		if !hadKid && cur.Node.SubGraph != nil && len(cur.Node.SubGraph.E) >= m.MinEdges {
 			checkMax(best, b.k, cur)
 		}
 	}
