@@ -13,13 +13,21 @@ import (
 )
 
 type swrw struct {
-	seen map[string]bool
+	sampleNonMax bool
 }
 
-func ScoreWeightedRandomWalk() Walker {
-	return &swrw{
-		seen: make(map[string]bool),
+type SWRWOpt func(*swrw)
+
+func SWRWSampleNonMax(s *swrw) {
+	s.sampleNonMax = true
+}
+
+func ScoreWeightedRandomWalk(opts ...SWRWOpt) Walker {
+	s := &swrw{}
+	for _, opt := range opts {
+		opt(s)
 	}
+	return s
 }
 
 func (w *swrw) Walk(m *Miner) *SearchNode {
@@ -37,19 +45,17 @@ func (w *swrw) WalkFrom(m *Miner, start *SearchNode) *SearchNode {
 		if false {
 			errors.Logf("DEBUG", "cur %v", cur)
 		}
-		var label string
-		if cur.Node.SubGraph != nil {
-			label = string(cur.Node.SubGraph.Label())
-		}
 		if cur.Node.SubGraph != nil && len(cur.Node.SubGraph.E) >= m.MaxEdges {
 			break
 		}
-		if w.seen[label] && rand.Float64() < 1/(float64(m.MaxEdges)) {
+		if rand.Float64() < 1/(float64(m.MaxEdges)) {
 			prev = start
 			cur = start
 			continue
 		}
-		w.seen[label] = true
+		if w.sampleNonMax && rand.Float64() < 1/float64(m.MaxEdges) {
+			break
+		}
 		kids, err := cur.Node.Children()
 		if err != nil {
 			panic(err)
@@ -68,7 +74,7 @@ func abs(a float64) float64 {
 }
 
 func filterKids(minFailSup int, m *Miner, parentScore float64, kids []*lattice.Node) []*SearchNode {
-	var epsilon float64 = 0
+	var epsilon float64 = 1e-17
 	entries := make([]*SearchNode, 0, len(kids))
 	for _, kid := range kids {
 		if kid.FIS() < minFailSup {
@@ -78,7 +84,7 @@ func filterKids(minFailSup int, m *Miner, parentScore float64, kids []*lattice.N
 		_, prf := FailureProbability(m.Lattice, kid)
 		_, pro := OkProbability(m.Lattice, kid)
 		// errors.Logf("DEBUG", "kid %v %v", kidScore, kid)
-		if (abs(parentScore-kidScore) <= epsilon && abs(1-prf/(pro+prf)) <= epsilon) || kidScore > parentScore {
+		if (kidScore == parentScore && abs(1-prf/(pro+prf)) <= epsilon) || kidScore > parentScore {
 			entries = append(entries, NewSearchNode(kid, kidScore))
 		}
 	}
@@ -115,7 +121,7 @@ func weights(slice []*SearchNode) []float64 {
 		if weights[i] < 0 {
 			panic("weight < 0")
 		}
-		weights[i] = w + .001
+		weights[i] = w + 1e-8
 	}
 	return weights
 }
