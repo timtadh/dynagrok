@@ -32,6 +32,8 @@ func (l *leap) MineFrom(m *Miner, start *SearchNode) SearchNodes {
 		s := int(p * F)
 		if s < 1 {
 			return 1
+		} else if s < m.MinFails {
+			return m.MinFails
 		}
 		return s
 	}
@@ -43,23 +45,31 @@ func (l *leap) MineFrom(m *Miner, start *SearchNode) SearchNodes {
 	}
 	p := 1.0
 	max := newSLeap(l.k, l.sigma, sup(p), SLeapDebug(l.debug)).mineFrom(m, start)
+	// max := WalkingTopColors(
+	// 	ScoreWeightedRandomWalk(),
+	// 	PercentOfColors(1), WalksPerColor(10))(m).Slice()
+	// if len(max) > l.k {
+	// 	max = max[:l.k]
+	// }
 	prev := -1000.0
 	cur := sum(max)
-	for sup(p) >= m.MinFails && abs(cur - prev) > .01 {
-		if true && len(max) > 0 {
-			errors.Logf("DEBUG", "cur %v (%v - %v) |%v - %v| = %v", len(max), max[0].Score, max[len(max)-1].Score, prev, cur, abs(prev - cur))
+	if true {
+		for sup(p) > m.MinFails && abs(cur - prev) > .01 {
+			if true && len(max) > 0 {
+				errors.Logf("DEBUG", "cur %v %v (%v - %v) |%v - %v| = %v", sup(p), len(max), max[0].Score, max[len(max)-1].Score, prev, cur, abs(prev - cur))
+			}
+			p /= 2
+			max = newSLeap(l.k, l.sigma, sup(p), startMax(max)).mineFrom(m, start)
+			prev = cur
+			cur = sum(max)
 		}
-		p /= 2
-		max = newSLeap(l.k, l.sigma, sup(p), startMax(max)).mineFrom(m, start)
-		prev = cur
-		cur = sum(max)
 	}
 	if true && len(max) > 0 {
-		errors.Logf("DEBUG", "cur %v (%v - %v) |%v - %v| = %v", len(max), max[0].Score, max[len(max)-1].Score, prev, cur, abs(prev - cur))
+		errors.Logf("DEBUG", "(done) cur %v %v (%v - %v) |%v - %v| = %v", sup(p), len(max), max[0].Score, max[len(max)-1].Score, prev, cur, abs(prev - cur))
 	}
 	max = newSLeap(l.k, 0, m.MinFails, startMax(max)).mineFrom(m, start)
 	if true && len(max) > 0 {
-		errors.Logf("DEBUG", "cur %v (%v - %v) |%v - %v| = %v", len(max), max[0].Score, max[len(max)-1].Score, prev, cur, abs(prev - cur))
+		errors.Logf("DEBUG", "(final) cur %v %v (%v - %v) |%v - %v| = %v", sup(p), len(max), max[0].Score, max[len(max)-1].Score, prev, cur, abs(prev - cur))
 	}
 	return SliceToNodes(max)
 }
