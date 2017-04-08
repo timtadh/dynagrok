@@ -1,6 +1,11 @@
 package mine
 
 import (
+	"runtime"
+	"sync"
+)
+
+import (
 	"github.com/timtadh/data-structures/errors"
 )
 
@@ -160,6 +165,92 @@ func WalkingTopColors(walker Walker, opts ...TopColorOpt) MinerFunc {
 			count++
 			if o.debug >= 1 {
 				errors.Logf("DEBUG", "found %d/%v %d/%d %d/%d %d %v", groups, o.minGroups, i, total, w, o.walksPerColor, count, n)
+			}
+			return n, sni
+		}
+		return sni
+	}
+}
+
+
+func ParTopColors(walker Walker, opts ...TopColorOpt) MinerFunc {
+	o := &topColorOpts{
+		percentOfColors: .0625,
+		walksPerColor:   2,
+		minGroups:       2,
+		skipSeenColors:  false,
+		debug:           0,
+	}
+	for _, opt := range opts {
+		opt(o)
+	}
+	gen := func(m *Miner, wg *sync.WaitGroup, out chan<- int, nodes chan *SearchNode) {
+		locations := LocalizeNodes(m.Score)
+		total := int(o.percentOfColors * float64(len(locations)))
+		if total < 10 {
+			total = 10
+		}
+		if total > len(locations) {
+			total = len(locations)
+		}
+		prevScore := -1e27
+		groups := 0
+		for i := 0; i < len(locations) && (i < total || groups < o.minGroups); i++ {
+			l := locations[i]
+			for w := 0; w < o.walksPerColor; w++ {
+				out<-l.Color
+			}
+			if prevScore-l.Score > .0001 {
+				groups++
+			}
+			prevScore = l.Score
+		}
+		close(out)
+		wg.Wait()
+		close(nodes)
+	}
+	work := func(m *Miner, wg *sync.WaitGroup, in <-chan int, out chan<-*SearchNode) {
+		for color := range in {
+			out<-walker.WalkFromColor(m, color)
+		}
+		wg.Done()
+	}
+	return func(m *Miner) (sni SearchNodes) {
+		var wg sync.WaitGroup
+		colors := make(chan int)
+		nodes := make(chan *SearchNode)
+		wg.Add(runtime.NumCPU())
+		for i := 0; i < runtime.NumCPU(); i++ {
+			go work(m, &wg, colors, nodes)
+		}
+		go gen(m, &wg, colors, nodes)
+		added := make(map[string]bool)
+		count := 0
+		i := 0
+		w := 0
+		sni = func() (*SearchNode, SearchNodes) {
+		start:
+			n, ok :=<-nodes
+			if !ok {
+				return nil, nil
+			}
+			if n.Node.SubGraph == nil || len(n.Node.SubGraph.E) < m.MinEdges {
+				if o.debug >= 3 {
+					errors.Logf("DEBUG", "skipped %d %d/%d %d no edges", i, w, o.walksPerColor, count)
+				}
+				goto start
+			}
+			label := string(n.Node.SubGraph.Label())
+			if added[label] {
+				if o.debug >= 3 {
+					errors.Logf("DEBUG", "skipped %d %d/%d %d previously seen", i, w, o.walksPerColor, count)
+				}
+				goto start
+			}
+			added[label] = true
+			count++
+			if o.debug >= 1 {
+				errors.Logf("DEBUG", "found %d %d/%d %d %v", i, w, o.walksPerColor, count, n)
 			}
 			return n, sni
 		}

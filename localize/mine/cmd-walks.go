@@ -101,7 +101,8 @@ Option Flags
 					opts = append(opts, WTCDebugLevel(d))
 				}
 			}
-			o.Miner = WalkingTopColors(wo.walker, opts...)
+			// o.Miner = WalkingTopColors(wo.walker, opts...)
+			o.Miner = ParTopColors(wo.walker, opts...)
 			o.MinerName += " walk-top-colors"
 			return args, nil
 		})
