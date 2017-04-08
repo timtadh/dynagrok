@@ -1,8 +1,10 @@
 // Copyright 2010 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
+//
+// edited by Tim Henderson (tim.tadh@gmail.com) 2017
 
-package html
+package main
 
 import (
 	"bufio"
@@ -19,7 +21,29 @@ import (
 	"testing"
 
 	"dynagrok/examples/html"
+	"dynagrok/examples/html/atom"
 )
+
+
+func main() {
+	r := bufio.NewReader(os.Stdin)
+	for i := 0; ; i++ {
+		text, want, context, err := readParseTest(r)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			panic(err)
+		}
+
+		err = testParseCase(text, want, context)
+
+		if err != nil {
+			panic(fmt.Errorf("test #%d %q, %s", i, text, err))
+		}
+	}
+}
+
 
 // readParseTest reads a single test case from r.
 func readParseTest(r *bufio.Reader) (text, want, context string, err error) {
@@ -106,7 +130,7 @@ func dumpIndent(w io.Writer, level int) {
 	}
 }
 
-type sortedAttributes []Attribute
+type sortedAttributes []html.Attribute
 
 func (a sortedAttributes) Len() int {
 	return len(a)
@@ -123,14 +147,14 @@ func (a sortedAttributes) Swap(i, j int) {
 	a[i], a[j] = a[j], a[i]
 }
 
-func dumpLevel(w io.Writer, n *Node, level int) error {
+func dumpLevel(w io.Writer, n *html.Node, level int) error {
 	dumpIndent(w, level)
 	switch n.Type {
-	case ErrorNode:
-		return errors.New("unexpected ErrorNode")
-	case DocumentNode:
-		return errors.New("unexpected DocumentNode")
-	case ElementNode:
+	case html.ErrorNode:
+		return errors.New("unexpected html.ErrorNode")
+	case html.DocumentNode:
+		return errors.New("unexpected html.DocumentNode")
+	case html.ElementNode:
 		if n.Namespace != "" {
 			fmt.Fprintf(w, "<%s %s>", n.Namespace, n.Data)
 		} else {
@@ -147,11 +171,11 @@ func dumpLevel(w io.Writer, n *Node, level int) error {
 				fmt.Fprintf(w, `%s="%s"`, a.Key, a.Val)
 			}
 		}
-	case TextNode:
+	case html.TextNode:
 		fmt.Fprintf(w, `"%s"`, n.Data)
-	case CommentNode:
+	case html.CommentNode:
 		fmt.Fprintf(w, "<!-- %s -->", n.Data)
-	case DoctypeNode:
+	case html.DoctypeNode:
 		fmt.Fprintf(w, "<!DOCTYPE %s", n.Data)
 		if n.Attr != nil {
 			var p, s string
@@ -169,8 +193,6 @@ func dumpLevel(w io.Writer, n *Node, level int) error {
 			}
 		}
 		io.WriteString(w, ">")
-	case scopeMarkerNode:
-		return errors.New("unexpected scopeMarkerNode")
 	default:
 		return errors.New("unknown node type")
 	}
@@ -183,7 +205,7 @@ func dumpLevel(w io.Writer, n *Node, level int) error {
 	return nil
 }
 
-func dump(n *Node) (string, error) {
+func dump(n *html.Node) (string, error) {
 	if n == nil || n.FirstChild == nil {
 		return "", nil
 	}
@@ -245,32 +267,28 @@ func testParseCase(text, want, context string) (err error) {
 		}
 	}()
 
-	var doc *Node
+	var doc *html.Node
 	if context == "" {
-		doc, err = Parse(strings.NewReader(text))
+		doc, err = html.Parse(strings.NewReader(text))
 		if err != nil {
 			return err
 		}
 	} else {
-		contextNode := &Node{
-			Type:     ElementNode,
+		contextNode := &html.Node{
+			Type:     html.ElementNode,
 			DataAtom: atom.Lookup([]byte(context)),
 			Data:     context,
 		}
-		nodes, err := ParseFragment(strings.NewReader(text), contextNode)
+		nodes, err := html.ParseFragment(strings.NewReader(text), contextNode)
 		if err != nil {
 			return err
 		}
-		doc = &Node{
-			Type: DocumentNode,
+		doc = &html.Node{
+			Type: html.DocumentNode,
 		}
 		for _, n := range nodes {
 			doc.AppendChild(n)
 		}
-	}
-
-	if err := checkTreeConsistency(doc); err != nil {
-		return err
 	}
 
 	got, err := dump(doc)
@@ -289,9 +307,9 @@ func testParseCase(text, want, context string) (err error) {
 	// Check that rendering and re-parsing results in an identical tree.
 	pr, pw := io.Pipe()
 	go func() {
-		pw.CloseWithError(Render(pw, doc))
+		pw.CloseWithError(html.Render(pw, doc))
 	}()
-	doc1, err := Parse(pr)
+	doc1, err := html.Parse(pr)
 	if err != nil {
 		return err
 	}
@@ -362,12 +380,12 @@ var renderTestBlacklist = map[string]bool{
 
 func TestNodeConsistency(t *testing.T) {
 	// inconsistentNode is a Node whose DataAtom and Data do not agree.
-	inconsistentNode := &Node{
-		Type:     ElementNode,
+	inconsistentNode := &html.Node{
+		Type:     html.ElementNode,
 		DataAtom: atom.Frameset,
 		Data:     "table",
 	}
-	_, err := ParseFragment(strings.NewReader("<p>hello</p>"), inconsistentNode)
+	_, err := html.ParseFragment(strings.NewReader("<p>hello</p>"), inconsistentNode)
 	if err == nil {
 		t.Errorf("got nil error, want non-nil")
 	}
@@ -383,6 +401,7 @@ func BenchmarkParser(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		Parse(bytes.NewBuffer(buf))
+		html.Parse(bytes.NewBuffer(buf))
 	}
 }
+
