@@ -198,6 +198,9 @@ func ParTopColors(walker Walker, opts ...TopColorOpt) MinerFunc {
 		for i := 0; i < len(locations) && (i < total || groups < o.minGroups); i++ {
 			l := locations[i]
 			for w := 0; w < o.walksPerColor; w++ {
+				if o.debug >= 1 {
+					errors.Logf("DEBUG", "sending (%d/%d) (%d/%d) (%d/%d) %d", groups, o.minGroups, i, total, w, o.walksPerColor, l.Color)
+				}
 				out<-l.Color
 			}
 			if prevScore-l.Score > .0001 {
@@ -226,8 +229,6 @@ func ParTopColors(walker Walker, opts ...TopColorOpt) MinerFunc {
 		go gen(m, &wg, colors, nodes)
 		added := make(map[string]bool)
 		count := 0
-		i := 0
-		w := 0
 		sni = func() (*SearchNode, SearchNodes) {
 		start:
 			n, ok :=<-nodes
@@ -236,21 +237,21 @@ func ParTopColors(walker Walker, opts ...TopColorOpt) MinerFunc {
 			}
 			if n.Node.SubGraph == nil || len(n.Node.SubGraph.E) < m.MinEdges {
 				if o.debug >= 3 {
-					errors.Logf("DEBUG", "skipped %d %d/%d %d no edges", i, w, o.walksPerColor, count)
+					errors.Logf("DEBUG", "skipped %d no edges", count)
 				}
 				goto start
 			}
 			label := string(n.Node.SubGraph.Label())
 			if added[label] {
 				if o.debug >= 3 {
-					errors.Logf("DEBUG", "skipped %d %d/%d %d previously seen", i, w, o.walksPerColor, count)
+					errors.Logf("DEBUG", "skipped %d previously seen", count)
 				}
 				goto start
 			}
 			added[label] = true
 			count++
 			if o.debug >= 1 {
-				errors.Logf("DEBUG", "found %d %d/%d %d %v", i, w, o.walksPerColor, count, n)
+				errors.Logf("DEBUG", "found %d %v", count, n)
 			}
 			return n, sni
 		}
