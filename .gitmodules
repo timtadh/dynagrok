@@ -62,3 +62,12 @@
 [submodule "examples/src/github.com/shurcooL/sanitized_anchor_name"]
 	path = examples/src/github.com/shurcooL/sanitized_anchor_name
 	url = git@github.com:shurcooL/sanitized_anchor_name
+[submodule "examples/src/robertkrimen/otto"]
+	path = examples/src/robertkrimen/otto
+	url = git@github.com:robertkrimen/otto.git
+[submodule "examples/src/github.com/robertkrimen/otto"]
+	path = examples/src/github.com/robertkrimen/otto
+	url = git@github.com:robertkrimen/otto.git
+[submodule "examples/src/gopkg.in/sourcemap.v1"]
+	path = examples/src/gopkg.in/sourcemap.v1
+	url = https://gopkg.in/sourcemap.v1

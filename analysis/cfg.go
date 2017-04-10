@@ -190,26 +190,6 @@ func (c *CFG) visitStmts(stmts *[]ast.Stmt, blk *Block) *Block {
 //
 func (c *CFG) visitStmt(i int, body *[]ast.Stmt, s *ast.Stmt, blk *Block) *Block {
 	switch stmt := (*s).(type) {
-	case *ast.BadStmt:
-		blk.Add(s)
-	case *ast.DeclStmt:
-		blk.Add(s)
-	case *ast.EmptyStmt:
-		blk.Add(s)
-	case *ast.ExprStmt:
-		blk.Add(s)
-	case *ast.SendStmt:
-		blk.Add(s)
-	case *ast.IncDecStmt:
-		blk.Add(s)
-	case *ast.AssignStmt:
-		blk.Add(s)
-	case *ast.GoStmt:
-		blk.Add(s)
-	case *ast.DeferStmt:
-		blk.Add(s)
-	case *ast.ReturnStmt:
-		blk.Add(s)
 	case *ast.LabeledStmt:
 		blk = c.visitLabeledStmt(i, body, s, blk)
 	case *ast.BranchStmt:
@@ -233,7 +213,33 @@ func (c *CFG) visitStmt(i int, body *[]ast.Stmt, s *ast.Stmt, blk *Block) *Block
 	case *ast.CommClause:
 		panic(fmt.Errorf("Unexpected comm clause %T %v", stmt, stmt))
 	default:
-		panic(fmt.Errorf("unexpected node %T", stmt))
+		if blk == nil {
+			blk = c.addBlock(body, i)
+		}
+		switch stmt := (*s).(type) {
+		case *ast.BadStmt:
+			blk.Add(s)
+		case *ast.DeclStmt:
+			blk.Add(s)
+		case *ast.EmptyStmt:
+			blk.Add(s)
+		case *ast.ExprStmt:
+			blk.Add(s)
+		case *ast.SendStmt:
+			blk.Add(s)
+		case *ast.IncDecStmt:
+			blk.Add(s)
+		case *ast.AssignStmt:
+			blk.Add(s)
+		case *ast.GoStmt:
+			blk.Add(s)
+		case *ast.DeferStmt:
+			blk.Add(s)
+		case *ast.ReturnStmt:
+			blk.Add(s)
+		default:
+			panic(fmt.Errorf("unexpected node %T", stmt))
+		}
 	}
 	return blk
 }
