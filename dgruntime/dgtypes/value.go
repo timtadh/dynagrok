@@ -143,7 +143,10 @@ func (i *IntValue) TypeName() string {
 
 func (i *IntValue) Dissimilar(o Value) float64 {
 	if other, ok := o.(*IntValue); ok {
-		return math.Log(float64(i.Val-other.Val)) - math.Log(float64(math.MaxUint64))
+		score := math.Abs(math.Abs(float64(i.Val-other.Val)) / (math.Abs(float64(math.MaxUint64))))
+		//score := math.Abs(math.Log(math.Abs(float64(i.Val-other.Val))) - math.Log(math.Abs(float64(math.MaxUint64))))
+		//fmt.Printf("Dis(%v, %v) = %v", i, other, score)
+		return score
 	} else {
 		panic("Dissimilar shoud be called on type int")
 	}
@@ -344,6 +347,8 @@ func (s *StructValue) Dissimilar(v Value) float64 {
 					!sf.IsNil() && of.IsNil() {
 					score += 1 / float64(len(s.Fields))
 				}
+			} else {
+				score += s.Fields[i].Val.Dissimilar(other.Fields[i].Val) / float64(len(s.Fields))
 			}
 		}
 		return score
