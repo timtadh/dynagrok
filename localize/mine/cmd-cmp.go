@@ -17,17 +17,28 @@ import (
 
 func NewCompareParser(c *cmd.Config, o *Options) cmd.Runnable {
 	var o1, o2 Options
-	var wo walkOpts
-	bb := NewBranchAndBoundParser(c, &o1)
-	sleap := NewSLeapParser(c, &o1)
-	leap := NewLeapParser(c, &o1)
-	urw := NewURWParser(c, &o2, &wo)
-	swrw := NewSWRWParser(c, &o2, &wo)
-	walks := NewWalksParser(c, &o2, &wo)
-	topColors := NewWalkTopColorsParser(c, &o2, &wo)
-	walkTypes := cmd.Commands(map[string]cmd.Runnable{
-		walks.Name():     walks,
-		topColors.Name(): topColors,
+	var wo1, wo2 walkOpts
+	bb1 := NewBranchAndBoundParser(c, &o1)
+	sleap1 := NewSLeapParser(c, &o1)
+	leap1 := NewLeapParser(c, &o1)
+	urw1 := NewURWParser(c, &o1, &wo1)
+	swrw1 := NewSWRWParser(c, &o1, &wo1)
+	walks1 := NewWalksParser(c, &o1, &wo1)
+	topColors1 := NewWalkTopColorsParser(c, &o1, &wo1)
+	walkTypes1 := cmd.Commands(map[string]cmd.Runnable{
+		walks1.Name():     walks1,
+		topColors1.Name(): topColors1,
+	})
+	bb2 := NewBranchAndBoundParser(c, &o2)
+	sleap2 := NewSLeapParser(c, &o2)
+	leap2 := NewLeapParser(c, &o2)
+	urw2 := NewURWParser(c, &o2, &wo2)
+	swrw2 := NewSWRWParser(c, &o2, &wo2)
+	walks2 := NewWalksParser(c, &o2, &wo2)
+	topColors2 := NewWalkTopColorsParser(c, &o2, &wo2)
+	walkTypes2 := cmd.Commands(map[string]cmd.Runnable{
+		walks2.Name():     walks2,
+		topColors2.Name(): topColors2,
 	})
 	return cmd.Concat(
 		cmd.Cmd(
@@ -47,13 +58,18 @@ Option Flags
 			return args, nil
 		}),
 		cmd.Commands(map[string]cmd.Runnable{
-			bb.Name(): bb,
-			sleap.Name(): sleap,
-			leap.Name(): leap,
+			bb1.Name(): bb1,
+			sleap1.Name(): sleap1,
+			leap1.Name(): leap1,
+			urw1.Name():   cmd.Concat(urw1, walkTypes1),
+			swrw1.Name():  cmd.Concat(swrw1, walkTypes1),
 		}),
 		cmd.Commands(map[string]cmd.Runnable{
-			urw.Name():   cmd.Concat(urw, walkTypes),
-			swrw.Name():  cmd.Concat(swrw, walkTypes),
+			bb2.Name(): bb2,
+			sleap2.Name(): sleap2,
+			leap2.Name(): leap2,
+			urw2.Name():   cmd.Concat(urw2, walkTypes2),
+			swrw2.Name():  cmd.Concat(swrw2, walkTypes2),
 		}),
 		cmd.BareCmd(
 		func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {

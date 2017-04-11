@@ -50,3 +50,24 @@
 [submodule "examples/src/github.com/timtadh/lexmachine"]
 	path = examples/src/github.com/timtadh/lexmachine
 	url = git@github.com:timtadh/lexmachine
+[submodule "examples/src/github.com/russross/blackfriday"]
+	path = examples/src/github.com/russross/blackfriday
+	url = git@github.com:russross/blackfriday.git
+[submodule "examples/src/github.com/microcosm-cc/bluemonday"]
+	path = examples/src/github.com/microcosm-cc/bluemonday
+	url = git@github.com:microcosm-cc/bluemonday.git
+[submodule "examples/src/golang.org/x/net"]
+	path = examples/src/golang.org/x/net
+	url = git@github.com:golang/net
+[submodule "examples/src/github.com/shurcooL/sanitized_anchor_name"]
+	path = examples/src/github.com/shurcooL/sanitized_anchor_name
+	url = git@github.com:shurcooL/sanitized_anchor_name
+[submodule "examples/src/robertkrimen/otto"]
+	path = examples/src/robertkrimen/otto
+	url = git@github.com:robertkrimen/otto.git
+[submodule "examples/src/github.com/robertkrimen/otto"]
+	path = examples/src/github.com/robertkrimen/otto
+	url = git@github.com:robertkrimen/otto.git
+[submodule "examples/src/gopkg.in/sourcemap.v1"]
+	path = examples/src/gopkg.in/sourcemap.v1
+	url = https://gopkg.in/sourcemap.v1

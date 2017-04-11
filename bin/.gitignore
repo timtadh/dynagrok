@@ -4,4 +4,6 @@
 !mutate-compile
 !compiler-experiment
 !map-experiment
+!html-experiment
+!otto-experiment
 !hitting-times

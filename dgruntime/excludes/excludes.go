@@ -6,6 +6,7 @@ import (
 
 var excludedPackages = map[string]bool{
 	"fmt":             true,
+	"net":             true,
 	"log":             true,
 	"runtime":         true,
 	"strings":         true,

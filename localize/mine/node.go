@@ -30,6 +30,13 @@ func (s *SearchNode) String() string {
 	return fmt.Sprintf("%6.5v %v", s.Score, s.Node)
 }
 
+func (it SearchNodes) Slice() (nodes []*SearchNode) {
+	for n, next := it(); next != nil; n, next = next() {
+		nodes = append(nodes, n)
+	}
+	return nodes
+}
+
 func SliceToNodes(slice []*SearchNode) (sni SearchNodes) {
 	i := 0
 	sni = func() (*SearchNode, SearchNodes) {

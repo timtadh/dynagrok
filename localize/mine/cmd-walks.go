@@ -23,9 +23,9 @@ func NewWalksParser(c *cmd.Config, o *Options, wo *walkOpts) cmd.Runnable {
 		`
 Option Flags
     -h,--help                         Show this message
-    -w,--walks=<int>                  Number of walks to take
+    -w,-k,--walks=<int>                  Number of walks to take
 `,
-		"w:",
+		"w:k:",
 		[]string{
 			"walks=",
 		},
@@ -33,7 +33,7 @@ Option Flags
 			walks := 10
 			for _, oa := range optargs {
 				switch oa.Opt() {
-				case "-w", "--walks":
+				case "-w", "-k", "--walks":
 					w, err := strconv.Atoi(oa.Arg())
 					if err != nil {
 						return nil, cmd.Errorf(1, "Could not parse arg to `%v` expected an int (got %v). err: %v", oa.Opt(), oa.Arg(), err)
@@ -101,7 +101,8 @@ Option Flags
 					opts = append(opts, WTCDebugLevel(d))
 				}
 			}
-			o.Miner = WalkingTopColors(wo.walker, opts...)
+			// o.Miner = WalkingTopColors(wo.walker, opts...)
+			o.Miner = ParTopColors(wo.walker, opts...)
 			o.MinerName += " walk-top-colors"
 			return args, nil
 		})
@@ -131,11 +132,21 @@ func NewSWRWParser(c *cmd.Config, o *Options, wo *walkOpts) cmd.Runnable {
 		`
 Option Flags
     -h,--help                         Show this message
+    --sample-non-maximal              Allow sampling of non-maximal subgraphs
 `,
 		"",
-		[]string{},
+		[]string{
+			"sample-non-maximal",
+		},
 		func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
-			wo.walker = ScoreWeightedRandomWalk()
+			opts := make([]SWRWOpt, 0, 10)
+			for _, oa := range optargs {
+				switch oa.Opt() {
+				case "--sample-non-maximal":
+					opts = append(opts, SWRWSampleNonMax)
+				}
+			}
+			wo.walker = ScoreWeightedRandomWalk(opts...)
 			o.MinerName += "swrw"
 			return args, nil
 		})

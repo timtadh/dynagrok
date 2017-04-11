@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"io/ioutil"
 )
 
 import (
@@ -9,16 +11,13 @@ import (
 	"github.com/timtadh/combos"
 )
 
-var text = `
-digraph g {
-	a [label="wizard"]
-	a -> b [weight=.23];
-}
-`
-
 func main() {
+	bytes, err := ioutil.ReadAll(os.Stdin)
+	if err != nil {
+		panic(err)
+	}
 	p := newParser()
-	err := dot.StreamParse([]byte(text), p)
+	err = dot.StreamParse(bytes, p)
 	if err != nil {
 		panic(err)
 	}

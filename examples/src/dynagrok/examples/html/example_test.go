@@ -10,7 +10,7 @@ import (
 	"log"
 	"strings"
 
-	"golang.org/x/net/html"
+	"dynagrok/examples/html"
 )
 
 func ExampleParse() {
