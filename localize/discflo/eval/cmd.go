@@ -96,7 +96,7 @@ func CBSFL(o *discflo.Options, lat *lattice.Lattice, s mine.ScoreFunc) [][]Color
 	return groups
 }
 
-func Eval(faults []*mine.Fault, lat *lattice.Lattice, name string, groups [][]ColorScore) {
+func Eval(faults []*mine.Fault, lat *lattice.Lattice, name string, groups [][]ColorScore) (results mine.EvalResults) {
 	for _, f := range faults {
 		sum := 0
 		for gid, group := range groups {
@@ -112,9 +112,24 @@ func Eval(faults []*mine.Fault, lat *lattice.Lattice, name string, groups [][]Co
 						bbid,
 						pos,
 					)
+					r := &mine.RankListEvalResult{
+						MethodName: "CBSFL",
+						ScoreName: name,
+						RankScore: float64(sum)+float64(len(group))/2,
+						Suspiciousness: cs.Score,
+						LocalizedFault: f,
+						Loc: &mine.Location{
+							Color: cs.Color,
+							BasicBlockId: bbid,
+							FnName: fnName,
+							Position: pos,
+						},
+					}
+					results = append(results, r)
 				}
 			}
 			sum += len(group)
 		}
 	}
+	return results
 }

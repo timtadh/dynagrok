@@ -112,8 +112,8 @@ type RankListEvalResult struct {
 	ScoreName   string
 	RankScore   float64
 	Suspiciousness       float64
-	loc         *Location
-	fault       *Fault
+	Loc         *Location
+	LocalizedFault       *Fault
 }
 
 func (r *RankListEvalResult) Method() string {
@@ -137,10 +137,10 @@ func (r *RankListEvalResult) RawScore() float64 {
 }
 
 func (r *RankListEvalResult) Fault() *Fault {
-	return r.fault
+	return r.LocalizedFault
 }
 
 func (r *RankListEvalResult) Location() *Location {
-	return r.loc
+	return r.Loc
 }
 
