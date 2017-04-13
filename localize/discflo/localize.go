@@ -14,12 +14,11 @@ import (
 import (
 	"github.com/timtadh/dynagrok/localize/lattice/subgraph"
 	"github.com/timtadh/dynagrok/localize/mine"
-	"github.com/timtadh/dynagrok/localize/stat"
 	"github.com/timtadh/dynagrok/localize/test"
 )
 
 type Location struct {
-	stat.Location
+	*mine.ScoredLocation
 	Clusters []*Cluster
 }
 
@@ -29,10 +28,10 @@ func (l *Location) ShortString() string {
 
 type Result []Location
 
-func (r Result) StatResult() stat.Result {
-	result := make(stat.Result, 0, len(r))
+func (r Result) ScoredLocations() mine.ScoredLocations {
+	result := make(mine.ScoredLocations, 0, len(r))
 	for _, l := range r {
-		result = append(result, l.Location)
+		result = append(result, l.ScoredLocation)
 	}
 	return result
 }
@@ -268,11 +267,13 @@ func RankColors(m *mine.Miner, colors map[int][]*Cluster) Result {
 	for color, clusters := range colors {
 		bbid, fnName, pos := m.Lattice.Info.Get(color)
 		result = append(result, Location{
-			stat.Location{
-				color,
-				pos,
-				fnName,
-				bbid,
+			&mine.ScoredLocation{
+				mine.Location{
+					Color: color,
+					Position: pos,
+					FnName: fnName,
+					BasicBlockId: bbid,
+				},
 				ScoreColor(m, color, clusters),
 			},
 			clusters,
@@ -282,17 +283,19 @@ func RankColors(m *mine.Miner, colors map[int][]*Cluster) Result {
 	return result
 }
 
-func RankNodes(m *mine.Miner, sg *subgraph.SubGraph) stat.Result {
-	result := make(stat.Result, 0, len(sg.V))
+func RankNodes(m *mine.Miner, sg *subgraph.SubGraph) mine.ScoredLocations {
+	result := make(mine.ScoredLocations, 0, len(sg.V))
 	for i := range sg.V {
 		color := sg.V[i].Color
 		n := mine.ColorNode(m.Lattice, m.Score, color)
 		bbid, fnName, pos := m.Lattice.Info.Get(color)
-		result = append(result, stat.Location{
-			color,
-			pos,
-			fnName,
-			bbid,
+		result = append(result, &mine.ScoredLocation{
+			mine.Location{
+				Color: color,
+				Position: pos,
+				FnName: fnName,
+				BasicBlockId: bbid,
+			},
 			n.Score,
 		})
 	}

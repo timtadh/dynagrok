@@ -13,13 +13,14 @@ import (
 import (
 	"github.com/timtadh/dynagrok/cmd"
 	"github.com/timtadh/dynagrok/localize/lattice"
+	"github.com/timtadh/dynagrok/localize/mine"
 )
 
 type Options struct {
 	FailsPath  string
 	OksPath    string
-	Method     Method
-	MethodName string
+	Score      mine.ScoreFunc
+	ScoreName  string
 	OutputPath string
 }
 
@@ -51,8 +52,8 @@ Option Flags
     -h,--help                         Show this message
     -o,--output=<path>                Output file to create
                                       (defaults to standard output)
-    -m,--method=<method>              Statistical method to use
-    --methods                         List localization methods available
+    -s,--score=<score>              Statistical method to use
+    --scores                         List localization methods available
 `,
 		"o:w:m:",
 		[]string{
@@ -65,20 +66,24 @@ Option Flags
 				switch oa.Opt() {
 				case "-o", "--output":
 					o.OutputPath = oa.Arg()
-				case "-m", "--method":
-					if m, has := Methods[oa.Arg()]; has {
-						fmt.Println("using method", oa.Arg())
-						o.Method = m
-						o.MethodName = oa.Arg()
+				case "--scores":
+					fmt.Println("\nNames of Suspicousness Scores (and Abbrevations):")
+					for name, abbrvs := range mine.ScoreNames {
+						fmt.Printf("  - %v : [%v]\n", name, strings.Join(abbrvs, ", "))
+					}
+					return nil, cmd.Errorf(0, "")
+				case "-s", "--score":
+					name := oa.Arg()
+					if n, has := mine.ScoreAbbrvs[oa.Arg()]; has {
+						name = n
+					}
+					if m, has := mine.Scores[name]; has {
+						fmt.Println("using method", name)
+						o.Score = m
+						o.ScoreName = name
 					} else {
 						return nil, cmd.Errorf(1, "Localization method '%v' is not supported. (use --methods to get a list)", oa.Arg())
 					}
-				case "--methods":
-					fmt.Println("Statisical Localization Methods:")
-					for k, _ := range Methods {
-						fmt.Println("  -", k)
-					}
-					return nil, nil
 				}
 			}
 			if len(args) < 2 {
@@ -93,8 +98,8 @@ Option Flags
 func NewRunner(c *cmd.Config, o *Options) cmd.Runnable {
 	return cmd.BareCmd(
 		func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
-			if o.Method == nil {
-				return nil, cmd.Errorf(2, "Expected a localization method (flag -m)")
+			if o.Score == nil {
+				return nil, cmd.Errorf(2, "Expected a localization method (flag -s)")
 			}
 			ouf := os.Stdout
 			if o.OutputPath != "" {
@@ -109,7 +114,8 @@ func NewRunner(c *cmd.Config, o *Options) cmd.Runnable {
 			if err != nil {
 				return nil, cmd.Err(2, err)
 			}
-			fmt.Fprintln(ouf, o.Method(l))
+			miner := mine.NewMiner(nil, l, o.Score)
+			fmt.Fprintln(ouf, mine.LocalizeNodes(miner.Score))
 			return args, nil
 		})
 }

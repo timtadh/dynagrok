@@ -13,7 +13,6 @@ import (
 	"github.com/timtadh/dynagrok/localize/discflo"
 	"github.com/timtadh/dynagrok/localize/lattice"
 	"github.com/timtadh/dynagrok/localize/mine"
-	"github.com/timtadh/dynagrok/localize/stat"
 )
 
 type ColorScore struct {
@@ -67,20 +66,6 @@ Option Flags
 		})
 }
 
-func Group(results stat.Result) []stat.Result {
-	groups := make([]stat.Result, 0, 10)
-	for _, r := range results {
-		lg := len(groups)
-		if lg > 0 && r.Score == groups[lg-1][0].Score {
-			groups[lg-1] = append(groups[lg-1], r)
-		} else {
-			groups = append(groups, make(stat.Result, 0, 10))
-			groups[lg] = append(groups[lg], r)
-		}
-	}
-	return groups
-}
-
 func Discflo(o *discflo.Options, lat *lattice.Lattice, s mine.ScoreFunc) [][]ColorScore {
 	miner := mine.NewMiner(o.Miner, lat, s, o.Opts...)
 	c, err := discflo.Localizer(o)(miner)
@@ -88,7 +73,7 @@ func Discflo(o *discflo.Options, lat *lattice.Lattice, s mine.ScoreFunc) [][]Col
 		panic(err)
 	}
 	groups := make([][]ColorScore, 0, 10)
-	for _, group := range c.RankColors(miner).StatResult().Group() {
+	for _, group := range c.RankColors(miner).ScoredLocations().Group() {
 		colorGroup := make([]ColorScore, 0, len(group))
 		for _, n := range group {
 			colorGroup = append(colorGroup, ColorScore{n.Color, n.Score})
@@ -100,7 +85,6 @@ func Discflo(o *discflo.Options, lat *lattice.Lattice, s mine.ScoreFunc) [][]Col
 
 func CBSFL(o *discflo.Options, lat *lattice.Lattice, s mine.ScoreFunc) [][]ColorScore {
 	miner := mine.NewMiner(o.Miner, lat, s, o.Opts...)
-	mine.LocalizeNodes(miner.Score)
 	groups := make([][]ColorScore, 0, 10)
 	for _, group := range mine.LocalizeNodes(miner.Score).Group() {
 		colorGroup := make([]ColorScore, 0, len(group))

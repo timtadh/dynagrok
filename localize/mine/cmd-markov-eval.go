@@ -107,7 +107,8 @@ Option Flags
 		})
 }
 
-func MarkovEval(faults []*Fault, lat *lattice.Lattice, name string, colorStates map[int][]int, P [][]float64) {
+
+func MarkovEval(faults []*Fault, lat *lattice.Lattice, name string, colorStates map[int][]int, P [][]float64) (results EvalResults) {
 	group := func(order []int, scores map[int]float64) [][]int {
 		sort.Slice(order, func(i, j int) bool {
 			return scores[order[i]] < scores[order[j]]
@@ -196,10 +197,24 @@ func MarkovEval(faults []*Fault, lat *lattice.Lattice, name string, colorStates 
 					score,
 					fn, b, pos,
 				)
+				r := &MarkovEvalResult{
+					ScoreName: name,
+					HT_Rank: ranks[color],
+					HittingTime: score,
+					fault: f,
+					loc: &Location{
+						Color: color,
+						BasicBlockId: b,
+						FnName: fn,
+						Position: pos,
+					},
+				}
+				results = append(results, r)
 				break
 			}
 		}
 	}
+	return results
 }
 
 func RankListMarkovChain(max int, m *Miner) (blockStates map[int][]int, P [][]float64) {

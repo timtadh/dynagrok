@@ -114,7 +114,7 @@ func NewRunner(c *cmd.Config, o *discflo.Options) cmd.Runnable {
 			}
 			result := clusters.RankColors(miner)
 			fmt.Println(result)
-			fmt.Println(result.StatResult())
+			fmt.Println(result.ScoredLocations())
 			return nil, nil
 		})
 }

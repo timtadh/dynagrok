@@ -6,7 +6,6 @@ import (
 
 import (
 	"github.com/timtadh/dynagrok/localize/lattice"
-	"github.com/timtadh/dynagrok/localize/stat"
 )
 
 type ScoreFunc func(prF, prFandNode, prO, prOandNode float64) float64
@@ -111,17 +110,19 @@ func MinOkProbability(o *MinerConfig, lat *lattice.Lattice, n *lattice.Node) (mi
 	return totalEdgeAndVertexOkPr(lat, n) / largest
 }
 
-func LocalizeNodes(score *Score) stat.Result {
+func LocalizeNodes(score *Score) ScoredLocations {
 	lat := score.lat
-	result := make(stat.Result, 0, len(lat.Fail.ColorIndex))
+	result := make(ScoredLocations, 0, len(lat.Fail.ColorIndex))
 	for color, _ := range lat.Fail.ColorIndex {
 		n := ColorNode(lat, score, color)
 		bbid, fnName, pos := lat.Info.Get(color)
-		result = append(result, stat.Location{
-			color,
-			pos,
-			fnName,
-			bbid,
+		result = append(result, &ScoredLocation{
+			Location{
+				Color: color,
+				Position: pos,
+				FnName: fnName,
+				BasicBlockId: bbid,
+			},
 			n.Score,
 		})
 	}

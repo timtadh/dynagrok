@@ -14,7 +14,6 @@ import (
 	"github.com/timtadh/dynagrok/localize/discflo"
 	"github.com/timtadh/dynagrok/localize/lattice"
 	"github.com/timtadh/dynagrok/localize/mine"
-	"github.com/timtadh/dynagrok/localize/stat"
 	"github.com/timtadh/dynagrok/localize/test"
 )
 
@@ -55,7 +54,7 @@ type Cluster struct {
 type Blocks []*Block
 
 type Block struct {
-	stat.Location
+	mine.ScoredLocation
 	In []*Cluster
 }
 
@@ -209,12 +208,14 @@ func (c *Clusters) Blocks() Blocks {
 		bbid, fnName, pos := c.lat.Info.Get(color)
 		blocks = append(blocks, &Block{
 			In: clusters,
-			Location: stat.Location{
-				Score:        discflo.ScoreColor(c.miner, color, c.AsDiscflo(clusters)),
-				Color:        color,
-				Position:     pos,
-				FnName:       fnName,
-				BasicBlockId: bbid,
+			ScoredLocation: mine.ScoredLocation{
+				mine.Location{
+					Color:        color,
+					Position:     pos,
+					FnName:       fnName,
+					BasicBlockId: bbid,
+				},
+				discflo.ScoreColor(c.miner, color, c.AsDiscflo(clusters)),
 			},
 		})
 	}
