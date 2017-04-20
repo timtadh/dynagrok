@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"bytes"
 	"go/ast"
@@ -88,6 +89,29 @@ func (c *CFG) String() string {
 		blocks = append(blocks, b.String())
 	}
 	return fmt.Sprintf("fn %v\n%v", c.Name, strings.Join(blocks, "\n\n"))
+}
+
+func (c *CFG) Dotty() string {
+	nodes := make([]string, 0, len(c.Blocks))
+	edges := make([]string, 0, len(c.Blocks))
+	for _, b := range c.Blocks {
+		label := strconv.Quote(b.DotLabel())
+		label = strings.Replace(label, "\\n", "\\l", -1)
+		nodes = append(nodes, fmt.Sprintf("n%d [label=%v]", b.Id, label))
+		for _, f := range b.Next {
+			if f.Block != nil {
+				edges = append(edges, fmt.Sprintf("n%d -> n%d [label=%v]", b.Id, f.Block.Id, strconv.Quote(f.DotLabel())))
+			}
+		}
+	}
+	return fmt.Sprintf(`digraph %v {
+rankdir=LR
+label=%v
+labelloc=top
+node [shape="rect", labeljust=l]
+%v
+%v
+}`, strconv.Quote(c.Name), strconv.Quote(c.Name), strings.Join(nodes, "\n"), strings.Join(edges, "\n"))
 }
 
 func (c *CFG) nptr(n ast.Node) uintptr {
@@ -837,6 +861,51 @@ func (b *Block) String() string {
 	return fmt.Sprintf("Block %v%v%v\n\tNext: %v\n\tPrev: %v", b.Id, name, stmts, next, prev)
 }
 
+func (b *Block) DotLabel() string {
+	insts := make([]string, 0, len(b.Stmts))
+	insts = append(insts, fmt.Sprintf("blk-%v", b.Id+1))
+	for _, s := range b.Stmts {
+		switch stmt := (*s).(type) {
+		default:
+			n := fmt.Sprintf("%v", FmtNode(b.FSet, stmt))
+			insts = append(insts, n)
+		case *ast.IfStmt:
+			insts = append(insts, fmt.Sprintf("if %v", FmtNode(b.FSet, stmt.Cond)))
+		case *ast.ForStmt:
+			cond := ""
+			if stmt.Cond != nil {
+				cond = " " + FmtNode(b.FSet, stmt.Cond)
+			}
+			insts = append(insts, fmt.Sprintf("for%v", cond))
+		case *ast.SelectStmt:
+			insts = append(insts, fmt.Sprintf("select"))
+		case *ast.SwitchStmt:
+			tag := ""
+			if stmt.Tag != nil {
+				tag = " " + FmtNode(b.FSet, stmt.Tag)
+			}
+			insts = append(insts, fmt.Sprintf("switch%v", tag))
+		case *ast.TypeSwitchStmt:
+			insts = append(insts, fmt.Sprintf("type-switch %v", FmtNode(b.FSet, stmt.Assign)))
+		case *ast.RangeStmt:
+			kv := ""
+			if stmt.Key != nil {
+				kv = FmtNode(b.FSet, stmt.Key)
+			}
+			if stmt.Value != nil {
+				kv += ", " + FmtNode(b.FSet, stmt.Value)
+			}
+			if kv != "" {
+				kv += " := "
+			}
+			x := FmtNode(b.FSet, stmt.X)
+			insts = append(insts, fmt.Sprintf("for %vrange %v", kv, x))
+		}
+	}
+	stmts := strings.Join(insts, "\n")
+	return fmt.Sprintf("%v\n", stmts)
+}
+
 func (f *Flow) String() string {
 	comm := ""
 	if f.Comm != nil {
@@ -855,6 +924,26 @@ func (f *Flow) String() string {
 		when = fmt.Sprintf(" on %v", f.Type)
 	}
 	return fmt.Sprintf("(goto %v%v%v%v)", f.Block.Id, when, comm, cases)
+}
+
+func (f *Flow) DotLabel() string {
+	comm := ""
+	if f.Comm != nil {
+		comm = fmt.Sprintf("on comm: %v", FmtNode(f.FSet, *f.Comm))
+	}
+	cases := ""
+	if f.Cases != nil {
+		parts := make([]string, 0, len(*f.Cases))
+		for _, c := range *f.Cases {
+			parts = append(parts, FmtNode(f.FSet, c))
+		}
+		cases = "on cases: " + strings.Join(parts, ", ")
+	}
+	when := ""
+	if f.Type != Unconditional {
+		when = fmt.Sprintf("on %v", f.Type)
+	}
+	return fmt.Sprintf("%v%v%v", when, comm, cases)
 }
 
 func (t FlowType) String() string {

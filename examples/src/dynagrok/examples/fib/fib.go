@@ -5,7 +5,6 @@ func main() {
 	for i := 10; i >= -2; i-- {
 		println(fib(i))
 	}
-	println("done")
 }
 
 func fib(x int) int {

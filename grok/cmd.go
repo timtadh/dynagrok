@@ -43,7 +43,6 @@ Option Flags
 			return nil, cmd.Usage(r, 5, "Expected one package name got %v", args)
 		}
 		pkgName := args[0]
-		fmt.Println("grokking", pkgName)
 		program, err := cmd.LoadPkg(c, pkgName)
 		if err != nil {
 			return nil, cmd.Usage(r, 6, err.Error())
@@ -73,7 +72,7 @@ Option Flags
 						return errors.Errorf("unexpected type %T", x)
 					}
 					cfg := analysis.BuildCFG(program.Fset, fnName, fn, body)
-					fmt.Println(cfg)
+					fmt.Println(cfg.Dotty())
 					return nil
 				})
 				if err != nil {
