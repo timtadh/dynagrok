@@ -24,7 +24,6 @@ import (
 	"dynagrok/examples/html/atom"
 )
 
-
 func main() {
 	r := bufio.NewReader(os.Stdin)
 	for i := 0; ; i++ {
@@ -43,7 +42,6 @@ func main() {
 		}
 	}
 }
-
 
 // readParseTest reads a single test case from r.
 func readParseTest(r *bufio.Reader) (text, want, context string, err error) {
@@ -404,4 +402,3 @@ func BenchmarkParser(b *testing.B) {
 		html.Parse(bytes.NewBuffer(buf))
 	}
 }
-

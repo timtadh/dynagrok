@@ -1,8 +1,8 @@
 package main
 
 import (
-	"os"
 	"io/ioutil"
+	"os"
 )
 
 import (

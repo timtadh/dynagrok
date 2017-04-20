@@ -19,11 +19,11 @@ func loopFac(x int) int {
 		f = f * i
 	}
 	foo := make(chan int, 1)
-	foo<-1
+	foo <- 1
 	select {
 	case y := <-foo:
 		println(y)
-	case foo<-x:
+	case foo <- x:
 		println(x)
 	default:
 		println("wiz")
@@ -63,7 +63,7 @@ func rangeEx(x int) {
 		print(i)
 		print(":")
 		print(c)
-		if i + 1 < len(l) {
+		if i+1 < len(l) {
 			print(", ")
 		}
 	}
@@ -72,7 +72,7 @@ func rangeEx(x int) {
 
 func typeSwitch(x interface{}) {
 	switch x.(type) {
-	case uint,float64:
+	case uint, float64:
 		println("is uint or float64")
 	case int:
 		println("is int")

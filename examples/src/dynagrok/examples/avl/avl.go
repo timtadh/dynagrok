@@ -1,13 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
-	"bufio"
-	"strings"
 	"strconv"
+	"strings"
 )
-
 
 func main() {
 	t := New()
@@ -74,7 +73,9 @@ func cmd(t *Avl, cmd string, args []string) {
 	}
 }
 
-func verify(v interface{ Verify() bool }) {
+func verify(v interface {
+	Verify() bool
+}) {
 	if !v.Verify() {
 		panic(fmt.Errorf("Bad %v", v))
 	}
@@ -139,4 +140,3 @@ func (a *Avl) String() string {
 	}
 	return fmt.Sprintf("(%v _ _)", s)
 }
-

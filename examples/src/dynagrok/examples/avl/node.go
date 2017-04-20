@@ -1,17 +1,17 @@
 package main
 
 import (
-	"os"
 	"fmt"
+	"os"
 	"strings"
 )
 
 const maxSep = 2
 
 type Node struct {
-	Key, Value int
+	Key, Value  int
 	left, right *Node
-	height int
+	height      int
 }
 
 func max(a, b int) int {
@@ -30,8 +30,8 @@ func abs(a int) int {
 
 func NewNode(k, v int) *Node {
 	return &Node{
-		Key: k,
-		Value: v,
+		Key:    k,
+		Value:  v,
 		height: 1,
 	}
 }
@@ -56,14 +56,14 @@ func (n *Node) Verify() bool {
 		fmt.Fprintln(os.Stderr, "right:", n.right, n.right.Height())
 		return false
 	}
-	if n.height != max(n.right.Height(), n.left.Height()) + 1 {
+	if n.height != max(n.right.Height(), n.left.Height())+1 {
 		fmt.Fprintln(os.Stderr, "bad height")
 		fmt.Fprintln(os.Stderr, "tree:", n)
 		fmt.Fprintln(os.Stderr, "left:", n.left, n.left.Height())
 		fmt.Fprintln(os.Stderr, "right:", n.right, n.right.Height())
 		return false
 	}
-	if abs(n.right.Height() - n.left.Height()) >= maxSep {
+	if abs(n.right.Height()-n.left.Height()) >= maxSep {
 		fmt.Fprintln(os.Stderr, "bad")
 		fmt.Fprintln(os.Stderr, "tree:", n)
 		fmt.Fprintln(os.Stderr, "left:", n.left, n.left.Height())
@@ -85,7 +85,7 @@ func (n *Node) Has(k int) bool {
 		return false
 	} else if k == n.Key {
 		return true
-	} else if (k < n.Key) {
+	} else if k < n.Key {
 		return n.left.Has(k)
 	} else {
 		return n.right.Has(k)
@@ -179,8 +179,8 @@ func (n *Node) remove() *Node {
 			r = n.left.rightmostDescendent()
 		}
 		n = n.Remove(r.Key)
-		r.left = n.left;
-		r.right = n.right;
+		r.left = n.left
+		r.right = n.right
 		r.height = max(r.left.Height(), r.right.Height()) + 1
 		return r.balance()
 	}
@@ -190,7 +190,7 @@ func (n *Node) balance() *Node {
 	if n == nil {
 		return nil
 	}
-	if abs(n.left.Height() - n.right.Height()) < maxSep {
+	if abs(n.left.Height()-n.right.Height()) < maxSep {
 		return n
 	} else if n.left.Height() < n.right.Height() {
 		return n.rotateLeft()
@@ -251,8 +251,8 @@ func (n *Node) String() string {
 	if n == nil {
 		return ""
 	}
-	left := n.left.String();
-	right := n.right.String();
+	left := n.left.String()
+	right := n.right.String()
 	if left == "" && right == "" {
 		return fmt.Sprintf("%v", n.Key)
 	} else if left == "" {
@@ -269,7 +269,7 @@ func (n *Node) Serialize() string {
 		return ""
 	}
 	type item struct {
-		n *Node
+		n     *Node
 		depth int
 	}
 	pop := func(stack []*item) (*item, []*item) {
@@ -296,10 +296,10 @@ func (n *Node) Serialize() string {
 			kids += "-"
 		}
 		if c.n.right != nil {
-			stack = append(stack, &item{c.n.right, c.depth+1})
+			stack = append(stack, &item{c.n.right, c.depth + 1})
 		}
 		if c.n.left != nil {
-			stack = append(stack, &item{c.n.left, c.depth+1})
+			stack = append(stack, &item{c.n.left, c.depth + 1})
 		}
 		list = append(list, fmt.Sprintf(
 			"%v:%v:%v:%v",
@@ -317,7 +317,7 @@ func (n *Node) Dotty() string {
 		return "digraph AVL {}"
 	}
 	type item struct {
-		n *Node
+		n      *Node
 		depth  int
 		parent int
 		side   string
@@ -355,24 +355,23 @@ func (n *Node) Dotty() string {
 		} else if i.n.left == nil {
 			kid := id
 			id++
-			nodes[i.depth + 1] = append(nodes[i.depth + 1], fmt.Sprintf("%v [label=\"\", width=.1, height=.1, margin=0];", kid))
-			edges = append(edges,  fmt.Sprintf("%v -> %v;", nid, kid))
-			levels[i.depth + 1] = append(levels[i.depth + 1], kid)
+			nodes[i.depth+1] = append(nodes[i.depth+1], fmt.Sprintf("%v [label=\"\", width=.1, height=.1, margin=0];", kid))
+			edges = append(edges, fmt.Sprintf("%v -> %v;", nid, kid))
+			levels[i.depth+1] = append(levels[i.depth+1], kid)
 		} else if i.n.right == nil {
 			kid := id
 			id++
-			nodes[i.depth + 1] = append(nodes[i.depth + 1], fmt.Sprintf("%v [label=\"\", width=.1, height=.1, margin=0];", kid))
+			nodes[i.depth+1] = append(nodes[i.depth+1], fmt.Sprintf("%v [label=\"\", width=.1, height=.1, margin=0];", kid))
 			edges = append(edges, fmt.Sprintf("%v -> %v;", nid, kid))
-			levels[i.depth + 1] = append(levels[i.depth + 1], kid)
+			levels[i.depth+1] = append(levels[i.depth+1], kid)
 		}
 		if i.n.right != nil {
-			stack = append(stack, &item{i.n.right, i.depth+1, nid, "right"})
+			stack = append(stack, &item{i.n.right, i.depth + 1, nid, "right"})
 		}
 		if i.n.left != nil {
-			stack = append(stack, &item{i.n.left, i.depth+1, nid, "left"})
+			stack = append(stack, &item{i.n.left, i.depth + 1, nid, "left"})
 		}
 	}
-
 
 	for depth, level := range nodes {
 		lines = append(lines, "{")
@@ -395,4 +394,3 @@ func (n *Node) Dotty() string {
 	lines = append(lines, "}")
 	return strings.Join(lines, "\n")
 }
-

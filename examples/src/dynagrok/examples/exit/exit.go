@@ -7,13 +7,14 @@ import (
 func main() {
 	println(fac(5))
 	x := 0
-	a:
-		print("wizard\n")
-		if x > 0 {
-			goto c
-		}
-		goto b
-	b: {
+a:
+	print("wizard\n")
+	if x > 0 {
+		goto c
+	}
+	goto b
+b:
+	{
 		print("wooze\n")
 		x++
 		goto a
@@ -21,19 +22,23 @@ func main() {
 		if x := true; x {
 			println("never!")
 			goto c
-			for r := x; ; { println(r) }
+			for r := x; ; {
+				println(r)
+			}
 			goto a
-			switch {}
+			switch {
+			}
 			select {}
 			var f interface{} = 1
-			switch f.(type){}
+			switch f.(type) {
+			}
 		}
 		println("what up")
 	}
-	c:
-		if true {
-			os.Exit(5)
-		}
+c:
+	if true {
+		os.Exit(5)
+	}
 }
 
 func fac(x int) int {
@@ -42,4 +47,3 @@ func fac(x int) int {
 	}
 	return x * fac(x-1)
 }
-
