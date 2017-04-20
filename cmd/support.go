@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	"os"
 	"fmt"
 	"go/build"
+	"os"
 )
 
 import (
@@ -43,4 +43,3 @@ func LoadPkg(c *Config, pkg string) (*loader.Program, error) {
 	conf.Import(pkg)
 	return conf.Load()
 }
-

@@ -15,7 +15,7 @@ func Exprs(stmt ast.Stmt, do func(ast.Expr)) {
 // A stmtVisitor visits ast.Nodes which are statements or expressions.
 // it executes its "do" function on certain of them
 type exprVisitor struct {
-	do  func(ast.Expr)
+	do func(ast.Expr)
 }
 
 // Visit executes the visitor's function onto selector statements

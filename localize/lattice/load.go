@@ -5,8 +5,6 @@ import (
 	"io"
 )
 
-import ()
-
 import (
 	"github.com/timtadh/dynagrok/cmd"
 	"github.com/timtadh/dynagrok/localize/lattice/digraph"

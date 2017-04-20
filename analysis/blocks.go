@@ -6,8 +6,6 @@ import (
 	"strings"
 )
 
-import ()
-
 type block []ast.Stmt
 
 func (blk *block) String() string {

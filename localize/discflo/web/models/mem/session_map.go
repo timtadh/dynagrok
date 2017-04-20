@@ -5,8 +5,6 @@ import (
 	"sync"
 )
 
-import ()
-
 import (
 	"github.com/timtadh/dynagrok/localize/discflo/web/models"
 )

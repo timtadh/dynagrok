@@ -29,4 +29,3 @@ func (v *Views) Dotty(c *Context) error {
 	_, err = c.rw.Write([]byte(bytes))
 	return err
 }
-

@@ -5,8 +5,6 @@ import (
 	"strconv"
 )
 
-import ()
-
 func inSlice(length int) func(idx int) bool {
 	return func(idx int) bool {
 		return idx >= 0 && idx < length
@@ -82,4 +80,3 @@ func (v *Views) GenerateTest(c *Context) error {
 		Original:  string(original),
 	})
 }
-

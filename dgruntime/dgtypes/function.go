@@ -13,8 +13,8 @@ type FuncCall struct {
 }
 
 func NewFunction(fc *FuncCall) *Function {
-	f := &Function {
-		Name: fc.Name,
+	f := &Function{
+		Name:   fc.Name,
 		FuncPc: fc.FuncPc,
 	}
 	f.Update(fc)
@@ -34,4 +34,3 @@ func (f *Function) Update(fc *FuncCall) {
 	}
 	f.Calls += 1
 }
-

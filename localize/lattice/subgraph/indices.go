@@ -1,7 +1,5 @@
 package subgraph
 
-import ()
-
 import (
 	"github.com/timtadh/dynagrok/localize/lattice/digraph"
 )

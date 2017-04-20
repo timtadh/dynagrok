@@ -4,8 +4,6 @@ import (
 	"go/ast"
 )
 
-import ()
-
 // Find all the exprs in the statement
 func Exprs(stmt ast.Stmt, do func(ast.Expr) error) error {
 	v := &exprVisitor{
@@ -71,7 +69,7 @@ func blkExprs(n ast.Node, do func(ast.Expr)) {
 // A stmtVisitor visits ast.Nodes which are statements or expressions.
 // it executes its "do" function on certain of them
 type blkExprVisitor struct {
-	do  func(ast.Expr)
+	do func(ast.Expr)
 }
 
 // Visit executes the visitor's function onto selector statements

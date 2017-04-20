@@ -1,7 +1,5 @@
 package test
 
-import ()
-
 type Mutant struct {
 	Test *Testcase
 	I, J int

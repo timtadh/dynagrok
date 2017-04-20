@@ -113,16 +113,16 @@ func Eval(faults []*mine.Fault, lat *lattice.Lattice, name string, groups [][]Co
 						pos,
 					)
 					r := &mine.RankListEvalResult{
-						MethodName: "CBSFL",
-						ScoreName: name,
-						RankScore: float64(sum)+float64(len(group))/2,
+						MethodName:     "CBSFL",
+						ScoreName:      name,
+						RankScore:      float64(sum) + float64(len(group))/2,
 						Suspiciousness: cs.Score,
 						LocalizedFault: f,
 						Loc: &mine.Location{
-							Color: cs.Color,
+							Color:        cs.Color,
 							BasicBlockId: bbid,
-							FnName: fnName,
-							Position: pos,
+							FnName:       fnName,
+							Position:     pos,
 						},
 					}
 					results = append(results, r)

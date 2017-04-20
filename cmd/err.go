@@ -4,9 +4,8 @@ import (
 	"fmt"
 )
 
-
 type Error struct {
-	Err error
+	Err      error
 	ExitCode int
 }
 
@@ -37,5 +36,3 @@ func (c *Error) Error() string {
 func (c *Error) String() string {
 	return c.Err.Error()
 }
-
-

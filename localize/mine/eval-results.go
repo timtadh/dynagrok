@@ -2,8 +2,8 @@ package mine
 
 import (
 	"fmt"
-	"strings"
 	"sort"
+	"strings"
 )
 
 type Location struct {
@@ -60,10 +60,10 @@ func (r ScoredLocations) Sort() {
 type EvalResults []EvalResult
 
 type EvalResult interface {
-	Method() string // fault localization method: eg. CBSFL, SBBFL, DISCFLO
-	Score() string // name of score used: Precision, RF1
-	Eval() string // evaluation method used: Ranked List, Markov Chain, Chain + Behavior Jumps, etc...
-	Rank() float64 // the rank score or equivalent
+	Method() string    // fault localization method: eg. CBSFL, SBBFL, DISCFLO
+	Score() string     // name of score used: Precision, RF1
+	Eval() string      // evaluation method used: Ranked List, Markov Chain, Chain + Behavior Jumps, etc...
+	Rank() float64     // the rank score or equivalent
 	RawScore() float64 // the raw score given to this location
 	Fault() *Fault
 	Location() *Location
@@ -108,12 +108,12 @@ func (r *MarkovEvalResult) Location() *Location {
 }
 
 type RankListEvalResult struct {
-	MethodName  string
-	ScoreName   string
-	RankScore   float64
-	Suspiciousness       float64
-	Loc         *Location
-	LocalizedFault       *Fault
+	MethodName     string
+	ScoreName      string
+	RankScore      float64
+	Suspiciousness float64
+	Loc            *Location
+	LocalizedFault *Fault
 }
 
 func (r *RankListEvalResult) Method() string {
@@ -143,4 +143,3 @@ func (r *RankListEvalResult) Fault() *Fault {
 func (r *RankListEvalResult) Location() *Location {
 	return r.Loc
 }
-

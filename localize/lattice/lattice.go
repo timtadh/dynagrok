@@ -1,7 +1,5 @@
 package lattice
 
-import ()
-
 import (
 	"github.com/timtadh/data-structures/errors"
 )

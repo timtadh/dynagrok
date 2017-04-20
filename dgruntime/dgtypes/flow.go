@@ -7,12 +7,12 @@ import (
 type Flow []BlkEntrance
 
 type FlowEdge struct {
-	Src BlkEntrance
+	Src  BlkEntrance
 	Targ BlkEntrance
 }
 
 type BlkEntrance struct {
-	In uintptr
+	In           uintptr
 	BasicBlockId int
 }
 

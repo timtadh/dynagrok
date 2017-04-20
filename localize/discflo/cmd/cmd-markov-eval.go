@@ -17,7 +17,6 @@ import (
 	"github.com/timtadh/dynagrok/localize/mine"
 )
 
-
 func NewMarkovEvalParser(c *cmd.Config, o *discflo.Options) cmd.Runnable {
 	return cmd.Cmd(
 		"markov-eval",
@@ -40,7 +39,7 @@ Option Flags
 		func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
 			max := 1000000
 			faultsPath := ""
-			jumpPr := (1./10.)
+			jumpPr := (1. / 10.)
 			for _, oa := range optargs {
 				switch oa.Opt() {
 				case "-f", "--faults":
@@ -87,11 +86,11 @@ Option Flags
 					colors, P = mine.RankListMarkovChain(max, m)
 					mine.MarkovEval(faults, o.Lattice, name, colors, P)
 					colors, P = mine.SpacialJumps(jumpPr, max, m)
-					mine.MarkovEval(faults, o.Lattice, "spacial jumps + " + name, colors, P)
+					mine.MarkovEval(faults, o.Lattice, "spacial jumps + "+name, colors, P)
 					colors, P = mine.BehavioralJumps(jumpPr, max, m)
-					mine.MarkovEval(faults, o.Lattice, "behavioral jumps + " + name, colors, P)
+					mine.MarkovEval(faults, o.Lattice, "behavioral jumps + "+name, colors, P)
 					colors, P = mine.BehavioralAndSpacialJumps(jumpPr, max, m)
-					mine.MarkovEval(faults, o.Lattice, "behavioral and spacial jumps + " + name, colors, P)
+					mine.MarkovEval(faults, o.Lattice, "behavioral and spacial jumps + "+name, colors, P)
 				}
 			} else {
 				eval.Eval(faults, o.Lattice, "Discflo + "+o.ScoreName, eval.Discflo(o, o.Lattice, o.Score))
@@ -107,11 +106,11 @@ Option Flags
 				colors, P = mine.RankListMarkovChain(max, m)
 				mine.MarkovEval(faults, o.Lattice, o.ScoreName, colors, P)
 				colors, P = mine.SpacialJumps(jumpPr, max, m)
-				mine.MarkovEval(faults, o.Lattice, "spacial jumps + " + o.ScoreName, colors, P)
+				mine.MarkovEval(faults, o.Lattice, "spacial jumps + "+o.ScoreName, colors, P)
 				colors, P = mine.BehavioralJumps(jumpPr, max, m)
-				mine.MarkovEval(faults, o.Lattice, "behavioral jumps + " + o.ScoreName, colors, P)
+				mine.MarkovEval(faults, o.Lattice, "behavioral jumps + "+o.ScoreName, colors, P)
 				colors, P = mine.BehavioralAndSpacialJumps(jumpPr, max, m)
-				mine.MarkovEval(faults, o.Lattice, "behavioral and spacial jumps + " + o.ScoreName, colors, P)
+				mine.MarkovEval(faults, o.Lattice, "behavioral and spacial jumps + "+o.ScoreName, colors, P)
 			}
 			return nil, nil
 		})
@@ -146,5 +145,3 @@ func DiscfloMarkovChain(jumpPr float64, max int, o *discflo.Options, score mine.
 	blockStates, P = mine.RankListWithJumpsMarkovChain(max, colors, jumpPr, neighbors)
 	return blockStates, P, nil
 }
-
-

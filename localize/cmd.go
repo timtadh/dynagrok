@@ -1,7 +1,5 @@
 package localize
 
-import ()
-
 import (
 	"github.com/timtadh/getopt"
 )
@@ -10,8 +8,8 @@ import (
 	"github.com/timtadh/dynagrok/cmd"
 	discflo "github.com/timtadh/dynagrok/localize/discflo/cmd"
 	"github.com/timtadh/dynagrok/localize/locavore"
-	"github.com/timtadh/dynagrok/localize/stat"
 	"github.com/timtadh/dynagrok/localize/mine"
+	"github.com/timtadh/dynagrok/localize/stat"
 )
 
 func NewCommand(c *cmd.Config) cmd.Runnable {

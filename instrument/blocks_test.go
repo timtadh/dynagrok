@@ -1,11 +1,12 @@
 package instrument
 
 import (
-	"github.com/timtadh/data-structures/test"
 	"go/ast"
 	"go/parser"
 	"go/token"
 	"testing"
+
+	"github.com/timtadh/data-structures/test"
 )
 
 func TestSanity(x *testing.T) {

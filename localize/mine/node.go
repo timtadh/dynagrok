@@ -15,7 +15,7 @@ type SearchNodes func() (*SearchNode, SearchNodes)
 type SearchNode struct {
 	Node  *lattice.Node
 	Score float64
-	Tests  map[int]*test.Testcase
+	Tests map[int]*test.Testcase
 }
 
 func NewSearchNode(n *lattice.Node, score float64) *SearchNode {

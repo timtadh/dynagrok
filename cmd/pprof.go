@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"os"
 	"fmt"
+	"os"
 	"os/signal"
 	"runtime/pprof"
 	"syscall"
@@ -31,10 +31,9 @@ func CPUProfile(output string) (func(), *Error) {
 		errors.Logf("DEBUG", "closed cpu profile, err: %v", err)
 	}
 	go func() {
-		sig:=<-sigs
+		sig := <-sigs
 		cleanup()
 		panic(fmt.Errorf("caught signal: %v", sig))
 	}()
 	return cleanup, nil
 }
-
