@@ -2,6 +2,7 @@ package eval
 
 import (
 	"fmt"
+	"strconv"
 )
 
 import (
@@ -11,14 +12,9 @@ import (
 import (
 	"github.com/timtadh/dynagrok/cmd"
 	"github.com/timtadh/dynagrok/localize/discflo"
-	"github.com/timtadh/dynagrok/localize/lattice"
+	"github.com/timtadh/dynagrok/localize/eval"
 	"github.com/timtadh/dynagrok/localize/mine"
 )
-
-type ColorScore struct {
-	Color int
-	Score float64
-}
 
 func NewCommand(c *cmd.Config, o *discflo.Options) cmd.Runnable {
 	return cmd.Cmd(
@@ -30,18 +26,42 @@ Evaluate a fault localization method from ground truth
 Option Flags
     -h,--help                         Show this message
     -f,--faults=<path>                Path to a fault file.
+    -m,--max=<int>                    Maximum number of states in the chain
+    -j,--jump-prs=<float64>           Probability of taking jumps in chains which have them
 `,
-		"f:",
+		"f:m:j:",
 		[]string{
 			"faults=",
+			"max=",
+			"jump-prs=",
 		},
 		func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
+			max := 1000000
 			faultsPath := ""
+			jumpPrs := []float64{}
 			for _, oa := range optargs {
 				switch oa.Opt() {
 				case "-f", "--faults":
 					faultsPath = oa.Arg()
+				case "-m", "--max":
+					var err error
+					max, err = strconv.Atoi(oa.Arg())
+					if err != nil {
+						return nil, cmd.Errorf(1, "For flag %v expected an int got %v. err: %v", oa.Opt, oa.Arg(), err)
+					}
+				case "-j", "--jump-pr":
+					jumpPr, err := strconv.ParseFloat(oa.Arg(), 64)
+					if err != nil {
+						return nil, cmd.Errorf(1, "For flag %v expected a float got %v. err: %v", oa.Opt, oa.Arg(), err)
+					}
+					if jumpPr < 0 || jumpPr >= 1 {
+						return nil, cmd.Errorf(1, "For flag %v expected a float between 0-1. got %v", oa.Opt, oa.Arg())
+					}
+					jumpPrs = append(jumpPrs, jumpPr)
 				}
+			}
+			if len(jumpPrs) <= 0 {
+				jumpPrs = append(jumpPrs, (1. / 10.))
 			}
 			if faultsPath == "" {
 				return nil, cmd.Errorf(1, "You must supply the `-f` flag and give a path to the faults")
@@ -50,86 +70,58 @@ Option Flags
 			if err != nil {
 				return nil, cmd.Err(1, err)
 			}
+			fmt.Println("max", max)
 			for _, f := range faults {
 				fmt.Println(f)
 			}
-			if o.Score == nil {
-				for name, score := range mine.Scores {
-					Eval(faults, o.Lattice, "Discflo + "+name, Discflo(o, o.Lattice, score))
-					Eval(faults, o.Lattice, name, CBSFL(o, o.Lattice, score))
+			for _, jumpPr := range jumpPrs {
+				results, err := eval.Evaluate(faults, o, o.Score, "RankList", "DISCFLO", o.ScoreName, "", max, jumpPr)
+				if err != nil {
+					return nil, cmd.Err(1, err)
 				}
-			} else {
-				Eval(faults, o.Lattice, "Discflo + "+o.ScoreName, Discflo(o, o.Lattice, o.Score))
-				Eval(faults, o.Lattice, o.ScoreName, CBSFL(o, o.Lattice, o.Score))
+				fmt.Println(results)
 			}
+			// if o.Score == nil {
+			// 	for name, score := range mine.Scores {
+			// 		eval.Eval(faults, o.Lattice, "Discflo + "+name, eval.Discflo(o, o.Lattice, score))
+			// 		eval.Eval(faults, o.Lattice, name, eval.CBSFL(o, o.Lattice, score))
+			// 		colors, P, err := DiscfloMarkovChain(jumpPr, max, o, score)
+			// 		if err != nil {
+			// 			return nil, cmd.Err(1, err)
+			// 		}
+			// 		mine.MarkovEval(faults, o.Lattice, "discflo + "+name, colors, P)
+			// 		m := mine.NewMiner(o.Miner, o.Lattice, score, o.Opts...)
+			// 		colors, P = mine.DsgMarkovChain(max, m)
+			// 		mine.MarkovEval(faults, o.Lattice, "mine-dsg + "+name, colors, P)
+			// 		colors, P = mine.RankListMarkovChain(max, m)
+			// 		mine.MarkovEval(faults, o.Lattice, name, colors, P)
+			// 		colors, P = mine.SpacialJumps(jumpPr, max, m)
+			// 		mine.MarkovEval(faults, o.Lattice, "spacial jumps + "+name, colors, P)
+			// 		colors, P = mine.BehavioralJumps(jumpPr, max, m)
+			// 		mine.MarkovEval(faults, o.Lattice, "behavioral jumps + "+name, colors, P)
+			// 		colors, P = mine.BehavioralAndSpacialJumps(jumpPr, max, m)
+			// 		mine.MarkovEval(faults, o.Lattice, "behavioral and spacial jumps + "+name, colors, P)
+			// 	}
+			// } else {
+			// 	eval.Eval(faults, o.Lattice, "Discflo + "+o.ScoreName, eval.Discflo(o, o.Lattice, o.Score))
+			// 	eval.Eval(faults, o.Lattice, o.ScoreName, eval.CBSFL(o, o.Lattice, o.Score))
+			// 	colors, P, err := DiscfloMarkovChain(jumpPr, max, o, o.Score)
+			// 	if err != nil {
+			// 		return nil, cmd.Err(1, err)
+			// 	}
+			// 	mine.MarkovEval(faults, o.Lattice, "discflo + "+o.ScoreName, colors, P)
+			// 	m := mine.NewMiner(o.Miner, o.Lattice, o.Score, o.Opts...)
+			// 	colors, P = mine.DsgMarkovChain(max, m)
+			// 	mine.MarkovEval(faults, o.Lattice, "mine-dsg + "+o.ScoreName, colors, P)
+			// 	colors, P = mine.RankListMarkovChain(max, m)
+			// 	mine.MarkovEval(faults, o.Lattice, o.ScoreName, colors, P)
+			// 	colors, P = mine.SpacialJumps(jumpPr, max, m)
+			// 	mine.MarkovEval(faults, o.Lattice, "spacial jumps + "+o.ScoreName, colors, P)
+			// 	colors, P = mine.BehavioralJumps(jumpPr, max, m)
+			// 	mine.MarkovEval(faults, o.Lattice, "behavioral jumps + "+o.ScoreName, colors, P)
+			// 	colors, P = mine.BehavioralAndSpacialJumps(jumpPr, max, m)
+			// 	mine.MarkovEval(faults, o.Lattice, "behavioral and spacial jumps + "+o.ScoreName, colors, P)
+			// }
 			return nil, nil
 		})
-}
-
-func Discflo(o *discflo.Options, lat *lattice.Lattice, s mine.ScoreFunc) [][]ColorScore {
-	miner := mine.NewMiner(o.Miner, lat, s, o.Opts...)
-	c, err := discflo.Localizer(o)(miner)
-	if err != nil {
-		panic(err)
-	}
-	groups := make([][]ColorScore, 0, 10)
-	for _, group := range c.RankColors(miner).ScoredLocations().Group() {
-		colorGroup := make([]ColorScore, 0, len(group))
-		for _, n := range group {
-			colorGroup = append(colorGroup, ColorScore{n.Color, n.Score})
-		}
-		groups = append(groups, colorGroup)
-	}
-	return groups
-}
-
-func CBSFL(o *discflo.Options, lat *lattice.Lattice, s mine.ScoreFunc) [][]ColorScore {
-	miner := mine.NewMiner(o.Miner, lat, s, o.Opts...)
-	groups := make([][]ColorScore, 0, 10)
-	for _, group := range mine.LocalizeNodes(miner.Score).Group() {
-		colorGroup := make([]ColorScore, 0, len(group))
-		for _, n := range group {
-			colorGroup = append(colorGroup, ColorScore{n.Color, n.Score})
-		}
-		groups = append(groups, colorGroup)
-	}
-	return groups
-}
-
-func Eval(faults []*mine.Fault, lat *lattice.Lattice, name string, groups [][]ColorScore) (results mine.EvalResults) {
-	for _, f := range faults {
-		sum := 0
-		for gid, group := range groups {
-			for _, cs := range group {
-				bbid, fnName, pos := lat.Info.Get(cs.Color)
-				if fnName == f.FnName && bbid == f.BasicBlockId {
-					fmt.Printf(
-						"    %v {\n        rank: %v, gid: %v, group-size: %v\n        score: %v,\n        fn: %v (%d),\n        pos: %v\n    }\n",
-						name,
-						float64(sum)+float64(len(group))/2, gid, len(group),
-						cs.Score,
-						fnName,
-						bbid,
-						pos,
-					)
-					r := &mine.RankListEvalResult{
-						MethodName:     "CBSFL",
-						ScoreName:      name,
-						RankScore:      float64(sum) + float64(len(group))/2,
-						Suspiciousness: cs.Score,
-						LocalizedFault: f,
-						Loc: &mine.Location{
-							Color:        cs.Color,
-							BasicBlockId: bbid,
-							FnName:       fnName,
-							Position:     pos,
-						},
-					}
-					results = append(results, r)
-				}
-			}
-			sum += len(group)
-		}
-	}
-	return results
 }
