@@ -2,6 +2,8 @@ package eval
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"strconv"
 	"strings"
 
@@ -21,6 +23,7 @@ Evaluate a fault localization method from ground truth
 
 Option Flags
     -h,--help                         Show this message
+    -o,output=<path>                  Place to write CSV of evaluation
     -f,--faults=<path>                Path to a fault file.
     --max=<int>                       Maximum number of states in the chain
     -j,--jump-prs=<float64>           Probability of taking jumps in chains which have them
@@ -28,23 +31,25 @@ Option Flags
     -e,--eval-method=<eval-method>
 
 Methods
-	DISCFLO
-	SBBFL
-	CBSFL
+    DISCFLO
+    SBBFL
+    CBSFL
 
 Eval Methods
-	RankList
-	Markov
+    RankList
+    Markov
 `,
-		"f:j:m:e:",
+		"f:o:j:m:e:",
 		[]string{
 			"faults=",
+			"output=",
 			"max=",
 			"jump-prs=",
 			"method=",
 			"eval-method=",
 		},
 		func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
+			outputPath := ""
 			methods := make([]string, 0, 10)
 			evalMethods := make([]string, 0, 10)
 			max := 100
@@ -54,6 +59,8 @@ Eval Methods
 				switch oa.Opt() {
 				case "-f", "--faults":
 					faultsPath = oa.Arg()
+				case "-o", "--output":
+					outputPath = oa.Arg()
 				case "-m", "--method":
 					for _, part := range strings.Split(oa.Arg(), ",") {
 						methods = append(methods, strings.TrimSpace(part))
@@ -123,48 +130,16 @@ Eval Methods
 					}
 				}
 			}
-			fmt.Println(results)
-			// if o.Score == nil {
-			// 	for name, score := range mine.Scores {
-			// 		eval.Eval(faults, o.Lattice, "Discflo + "+name, eval.Discflo(o, o.Lattice, score))
-			// 		eval.Eval(faults, o.Lattice, name, eval.CBSFL(o, o.Lattice, score))
-			// 		colors, P, err := DiscfloMarkovChain(jumpPr, max, o, score)
-			// 		if err != nil {
-			// 			return nil, cmd.Err(1, err)
-			// 		}
-			// 		mine.MarkovEval(faults, o.Lattice, "discflo + "+name, colors, P)
-			// 		m := mine.NewMiner(o.Miner, o.Lattice, score, o.Opts...)
-			// 		colors, P = mine.DsgMarkovChain(max, m)
-			// 		mine.MarkovEval(faults, o.Lattice, "mine-dsg + "+name, colors, P)
-			// 		colors, P = mine.RankListMarkovChain(max, m)
-			// 		mine.MarkovEval(faults, o.Lattice, name, colors, P)
-			// 		colors, P = mine.SpacialJumps(jumpPr, max, m)
-			// 		mine.MarkovEval(faults, o.Lattice, "spacial jumps + "+name, colors, P)
-			// 		colors, P = mine.BehavioralJumps(jumpPr, max, m)
-			// 		mine.MarkovEval(faults, o.Lattice, "behavioral jumps + "+name, colors, P)
-			// 		colors, P = mine.BehavioralAndSpacialJumps(jumpPr, max, m)
-			// 		mine.MarkovEval(faults, o.Lattice, "behavioral and spacial jumps + "+name, colors, P)
-			// 	}
-			// } else {
-			// 	eval.Eval(faults, o.Lattice, "Discflo + "+o.ScoreName, eval.Discflo(o, o.Lattice, o.Score))
-			// 	eval.Eval(faults, o.Lattice, o.ScoreName, eval.CBSFL(o, o.Lattice, o.Score))
-			// 	colors, P, err := DiscfloMarkovChain(jumpPr, max, o, o.Score)
-			// 	if err != nil {
-			// 		return nil, cmd.Err(1, err)
-			// 	}
-			// 	mine.MarkovEval(faults, o.Lattice, "discflo + "+o.ScoreName, colors, P)
-			// 	m := mine.NewMiner(o.Miner, o.Lattice, o.Score, o.Opts...)
-			// 	colors, P = mine.DsgMarkovChain(max, m)
-			// 	mine.MarkovEval(faults, o.Lattice, "mine-dsg + "+o.ScoreName, colors, P)
-			// 	colors, P = mine.RankListMarkovChain(max, m)
-			// 	mine.MarkovEval(faults, o.Lattice, o.ScoreName, colors, P)
-			// 	colors, P = mine.SpacialJumps(jumpPr, max, m)
-			// 	mine.MarkovEval(faults, o.Lattice, "spacial jumps + "+o.ScoreName, colors, P)
-			// 	colors, P = mine.BehavioralJumps(jumpPr, max, m)
-			// 	mine.MarkovEval(faults, o.Lattice, "behavioral jumps + "+o.ScoreName, colors, P)
-			// 	colors, P = mine.BehavioralAndSpacialJumps(jumpPr, max, m)
-			// 	mine.MarkovEval(faults, o.Lattice, "behavioral and spacial jumps + "+o.ScoreName, colors, P)
-			// }
+			var output io.Writer = os.Stdout
+			if outputPath != "" {
+				f, err := os.Create(outputPath)
+				if err != nil {
+					return nil, cmd.Err(1, err)
+				}
+				defer f.Close()
+				output = f
+			}
+			fmt.Fprintln(output, results)
 			return nil, nil
 		})
 }
