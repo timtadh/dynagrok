@@ -6,24 +6,17 @@ import (
 	"log"
 )
 
-type Localizer struct {
-	ok      []dgtypes.Clusterable
-	fail    []dgtypes.Clusterable
-	inputs  []dgtypes.Clusterable
-	outputs []dgtypes.Clusterable
-	profs   []dgtypes.Clusterable
-}
-
 type CausalEstimator struct {
-	ok         []dgtypes.Clusterable
-	fail       []dgtypes.Clusterable
-	inputs     []dgtypes.Clusterable
-	outputs    []dgtypes.Clusterable
+	ok   []dgtypes.Clusterable
+	fail []dgtypes.Clusterable
+	//inputs     []dgtypes.Clusterable
+	//outputs    []dgtypes.Clusterable
 	profs      []dgtypes.Clusterable
 	inBins     [][]dgtypes.Clusterable
 	inMedoids  []dgtypes.Clusterable
 	outBins    [][]dgtypes.Clusterable
 	outMedoids []dgtypes.Clusterable
+	simMatrix  [][]float64
 }
 
 type Individual struct {
@@ -65,7 +58,7 @@ func CausalEffect(okf dgtypes.FuncProfile, failf dgtypes.FuncProfile, numbins in
 		}
 	}
 	profs := append(ok, fail...)
-	if len(profs) == 0 {
+	if len(profs) < 3 {
 		log.Printf("Skipping profiles of %v (not enough data)...\n", okf.FuncName)
 		return
 	}
@@ -77,14 +70,21 @@ func CausalEffect(okf dgtypes.FuncProfile, failf dgtypes.FuncProfile, numbins in
 	C := CausalEstimator{
 		ok:    ok,
 		fail:  fail,
-		profs: append(ok, fail...),
+		profs: profs,
 	}
 	C.bin(numbins)
 	// Step 2: {optional} Propensity scoring
 	// Step 3: Matching outputs with different outcomes, based on covariant
 	//	similarity
+	log.Printf("Matching profiles of %v...\n", okf.FuncName)
 	C.match()
-
+	log.Printf("Matrix of causal-effect pairs for %v...\n", okf.FuncName)
+	for r := range C.simMatrix {
+		for c := range C.simMatrix[r] {
+			fmt.Printf("%.3f ", C.simMatrix[r][c])
+		}
+		fmt.Println("")
+	}
 	// Step 4: ??
 }
 
@@ -99,8 +99,15 @@ func (c *CausalEstimator) bin(numbins int) {
 			panic("Expected *Individual")
 		})
 	c.outBins, c.outMedoids = KMedoids(numbins, c.profs)
-	fmt.Printf("Some input medoids: %v\n", c.inMedoids)
-	fmt.Printf("Some input clusters: %v\n", c.inBins)
+	log.Printf("Adding medoids to their respective clusters...")
+	for i, j := range c.inMedoids {
+		c.inBins[i] = append(c.inBins[i], j)
+	}
+	for i, j := range c.outMedoids {
+		c.outBins[i] = append(c.inBins[i], j)
+	}
+	fmt.Printf("%v ouput medoids: %v\n", len(c.outMedoids), c.outMedoids)
+	fmt.Printf("%v output clusters: %v\n", len(c.outBins), c.outBins)
 }
 
 func (c *CausalEstimator) match() {
@@ -108,12 +115,14 @@ func (c *CausalEstimator) match() {
 	// Computer pairwise Causal Effects for each treatment
 	// TODO : Compute only one triangle of this matrix
 	// TODO : Store this somewhere
+	c.simMatrix = make([][]float64, len(c.outMedoids))
 	for treatment1 := range c.outMedoids {
+		c.simMatrix[treatment1] = make([]float64, len(c.outMedoids))
 		for treatment2 := range c.outMedoids {
-			if treatment1 == treatment2 {
+			if treatment1 >= treatment2 {
 				continue
 			} else {
-				c.pairwiseMatch(treatment1, treatment2)
+				c.simMatrix[treatment1][treatment2] = c.pairwiseMatch(treatment1, treatment2)
 			}
 		}
 	}
@@ -124,10 +133,10 @@ func (c *CausalEstimator) match() {
 // and c.outMedoids
 func (c *CausalEstimator) pairwiseMatch(t1, t2 int) float64 {
 	effect := 0.0
-	for _, i := range c.outputs {
+	for _, i := range c.profs {
 		y1 := c.outcome(t1, c.mCov(i, t1))
 		y2 := c.outcome(t1, c.mCov(i, t2))
-		effect = (y1 - y2) / float64(len(c.outputs))
+		effect += (y1 - y2) / float64(len(c.profs))
 	}
 	return effect
 }
