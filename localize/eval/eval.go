@@ -23,7 +23,22 @@ import (
 	"github.com/timtadh/dynagrok/localize/mine"
 )
 
-func Evaluate(faults []*mine.Fault, o *discflo.Options, score mine.ScoreFunc, evalName, methodName, scoreName, chainName string, maxStates int, jumpPr float64) (EvalResults, error) {
+var Chains = map[string][]string{
+	"CBSFL": []string{
+		"Ranked-List",
+		"Spacial-Jumps",
+		"Behavioral-Jumps",
+		"Behavioral+Spacial-Jumps",
+	},
+	"DISCFLO": []string{
+		"DF-Jumps",
+	},
+	"SBBFL": []string{
+		"SB-List",
+	},
+}
+
+func Evaluate(faults []*mine.Fault, o *discflo.Options, score mine.ScoreFunc, evalName, methodName, scoreName, chainName string, maxStates int, jumpPrs []float64) (EvalResults, error) {
 	m := mine.NewMiner(o.Miner, o.Lattice, score, o.Opts...)
 	switch evalName {
 	case "RankList":
@@ -38,34 +53,46 @@ func Evaluate(faults []*mine.Fault, o *discflo.Options, score mine.ScoreFunc, ev
 		}
 		return RankListEval(faults, o.Lattice, methodName, scoreName, groups), nil
 	case "Markov":
-		var colors map[int][]int
-		var P [][]float64
-		switch methodName {
-		case "CBSFL":
-			switch chainName {
-			case "Ranked-List":
-				colors, P = RankListMarkovChain(maxStates, m)
-			case "Spacial-Jumps":
-				colors, P = SpacialJumps(jumpPr, maxStates, m)
-			case "Behavioral-Jumps":
-				colors, P = BehavioralJumps(jumpPr, maxStates, m)
-			case "Behavioral+Spacial-Jumps":
-				colors, P = BehavioralAndSpacialJumps(jumpPr, maxStates, m)
+		results := make(EvalResults, 0, 10)
+		for _, jumpPr := range jumpPrs {
+			var colors map[int][]int
+			var P [][]float64
+			jumpChain := chainName
+			switch methodName {
+			case "CBSFL":
+				switch chainName {
+				case "Ranked-List":
+					colors, P = RankListMarkovChain(maxStates, m)
+					return MarkovEval(faults, o.Lattice, methodName, scoreName, chainName, colors, P), nil
+				case "Spacial-Jumps":
+					colors, P = SpacialJumps(jumpPr, maxStates, m)
+					jumpChain = fmt.Sprintf("%v(%g)", chainName, jumpPr)
+				case "Behavioral-Jumps":
+					colors, P = BehavioralJumps(jumpPr, maxStates, m)
+					jumpChain = fmt.Sprintf("%v(%g)", chainName, jumpPr)
+				case "Behavioral+Spacial-Jumps":
+					colors, P = BehavioralAndSpacialJumps(jumpPr, maxStates, m)
+					jumpChain = fmt.Sprintf("%v(%g)", chainName, jumpPr)
+				default:
+					return nil, fmt.Errorf("no chain named %v", methodName)
+				}
+			case "SBBFL":
+				colors, P = DsgMarkovChain(maxStates, m)
+				return MarkovEval(faults, o.Lattice, methodName, scoreName, chainName, colors, P), nil
+			case "DISCFLO":
+				var err error
+				colors, P, err = DiscfloMarkovChain(jumpPr, maxStates, o, score)
+				if err != nil {
+					return nil, err
+				}
+				jumpChain = fmt.Sprintf("%v(%g)", chainName, jumpPr)
 			default:
-				return nil, fmt.Errorf("no chain named %v", methodName)
+				return nil, fmt.Errorf("no localization method named %v for eval method %v", methodName, evalName)
 			}
-		case "SBBFL":
-			colors, P = DsgMarkovChain(maxStates, m)
-		case "DISCFLO":
-			var err error
-			colors, P, err = DiscfloMarkovChain(jumpPr, maxStates, o, score)
-			if err != nil {
-				return nil, err
-			}
-		default:
-			return nil, fmt.Errorf("no localization method named %v for eval method %v", methodName, evalName)
+			r := MarkovEval(faults, o.Lattice, methodName, scoreName, jumpChain, colors, P)
+			results = append(results, r...)
 		}
-		return MarkovEval(faults, o.Lattice, methodName, scoreName, chainName, colors, P), nil
+		return results, nil
 	default:
 		return nil, fmt.Errorf("no evaluation method named %v", evalName)
 	}
@@ -226,13 +253,13 @@ func MarkovEval(faults []*mine.Fault, lat *lattice.Lattice, methodName, scoreNam
 		for color, score := range scores {
 			b, fn, pos := lat.Info.Get(color)
 			if fn == f.FnName && b == f.BasicBlockId {
-				// fmt.Printf(
-				// 	"    markov-eval %v {\n        rank: %v,\n        hitting time: %v,\n        fn: %v (%d),\n        pos: %v\n    }\n",
-				// 	scoreName,
-				// 	ranks[color],
-				// 	score,
-				// 	fn, b, pos,
-				// )
+				fmt.Printf(
+					"    %v + %v + Markov%v {\n        rank: %v,\n        hitting time: %v,\n        fn: %v (%d),\n        pos: %v\n    }\n",
+					methodName, scoreName, chainName,
+					ranks[color],
+					score,
+					fn, b, pos,
+				)
 				r := &MarkovEvalResult{
 					MethodName:  methodName,
 					ScoreName:   scoreName,

@@ -11,14 +11,14 @@ type EvalResults []EvalResult
 
 func (results EvalResults) String() string {
 	parts := make([]string, 0, len(results))
-	parts = append(parts, "FL Method, Score, Eval Method, Rank, Raw Score, Location")
+	parts = append(parts, "Rank, FL Method, Score, Eval Method, Raw Score, Location")
 	for _, result := range results {
 		parts = append(parts,
 			fmt.Sprintf("%v, %v, %v, %v, %v, %v",
+				result.Rank(),
 				result.Method(),
 				result.Score(),
 				result.Eval(),
-				result.Rank(),
 				result.RawScore(),
 				result.Location(),
 			),
@@ -56,7 +56,7 @@ func (r *MarkovEvalResult) Score() string {
 }
 
 func (r *MarkovEvalResult) Eval() string {
-	return "Markov +" + r.ChainName
+	return "Markov + " + r.ChainName
 }
 
 func (r *MarkovEvalResult) Rank() float64 {
