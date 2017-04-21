@@ -9,12 +9,12 @@ import (
 func KMedoidsFunc(numClusters int, nodes []dgtypes.Clusterable, f func(dgtypes.Clusterable, dgtypes.Clusterable) float64) ([][]dgtypes.Clusterable, []dgtypes.Clusterable) {
 	clusters := make([][]dgtypes.Clusterable, 0, numClusters)
 	medoids := make([]dgtypes.Clusterable, 0, numClusters)
-	if numClusters == 0 || len(nodes) == 0 {
+	if numClusters == 0 || len(nodes) < 3 {
 		log.Printf("No profiles to cluster")
 		return clusters, medoids
 	}
 	if len(nodes) < numClusters {
-		numClusters = len(nodes)
+		numClusters = len(nodes) / 2
 		log.Printf("Setting numBins temporarily to %v", numClusters)
 	}
 
