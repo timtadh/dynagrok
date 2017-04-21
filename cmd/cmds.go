@@ -9,7 +9,6 @@ import (
 	"github.com/timtadh/getopt"
 )
 
-
 type Runnable interface {
 	Run(argv []string) ([]string, *Error)
 	ShortOpts() string
@@ -22,12 +21,12 @@ type Runnable interface {
 type Action func(r Runnable, argv []string, optargs []getopt.OptArg) ([]string, *Error)
 
 type Command struct {
-	Action Action
+	Action    Action
 	shortOpts string
-	longOpts []string
-	name string
-	shortMsg string
-	message string
+	longOpts  []string
+	name      string
+	shortMsg  string
+	message   string
 }
 
 type Annotation struct {
@@ -42,7 +41,7 @@ type Sequence struct {
 }
 
 type Partial struct {
-	name string
+	name    string
 	runners []Runnable
 }
 
@@ -52,12 +51,12 @@ type Alternatives struct {
 
 func Cmd(name, shortMsg, msg, shortOpts string, longOpts []string, act Action) Runnable {
 	return &Command{
-		Action: act,
+		Action:    act,
 		shortOpts: shortOpts,
-		longOpts: longOpts,
-		name: strings.TrimSpace(name),
-		shortMsg: strings.TrimSpace(shortMsg),
-		message: strings.TrimSpace(msg),
+		longOpts:  longOpts,
+		name:      strings.TrimSpace(name),
+		shortMsg:  strings.TrimSpace(shortMsg),
+		message:   strings.TrimSpace(msg),
 	}
 }
 
@@ -85,7 +84,7 @@ func Annotate(r Runnable, name, beforeShort, afterShort, before, after string) R
 // also gets to parse the left over arguments.
 func Join(name string, runners ...Runnable) Runnable {
 	return &Partial{
-		name: name,
+		name:    name,
 		runners: runners,
 	}
 }
@@ -108,7 +107,7 @@ func Commands(runners map[string]Runnable) Runnable {
 func BareCmd(act Action) Runnable {
 	return &Command{
 		Action: act,
-		name: "<unnamed-action>",
+		name:   "<unnamed-action>",
 	}
 }
 
@@ -426,5 +425,3 @@ func noindent(s string) string {
 	}
 	return strings.Join(nlines, "\n")
 }
-
-

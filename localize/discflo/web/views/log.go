@@ -6,8 +6,6 @@ import (
 	"time"
 )
 
-import ()
-
 type loggingRW struct {
 	rw    http.ResponseWriter
 	total int

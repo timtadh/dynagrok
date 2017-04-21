@@ -1,8 +1,9 @@
 package locavore
 
 import (
-	"github.com/timtadh/dynagrok/dgruntime/dgtypes"
 	"log"
+
+	"github.com/timtadh/dynagrok/dgruntime/dgtypes"
 )
 
 func KMedoidsFunc(numClusters int, nodes []dgtypes.Clusterable, f func(dgtypes.Clusterable, dgtypes.Clusterable) float64) ([][]dgtypes.Clusterable, []dgtypes.Clusterable) {

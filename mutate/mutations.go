@@ -1,15 +1,15 @@
 package mutate
 
 import (
+	"encoding/json"
 	"fmt"
-	"strings"
 	"go/ast"
+	"go/parser"
 	"go/token"
 	"go/types"
-	"go/parser"
 	"math/rand"
 	"strconv"
-	"encoding/json"
+	"strings"
 )
 
 import (
@@ -17,10 +17,8 @@ import (
 	"golang.org/x/tools/go/ast/astutil"
 )
 
-import ()
-
-var MutationTypes = map[string]bool {
-	(BranchMutation{}).Type(): true,
+var MutationTypes = map[string]bool{
+	(BranchMutation{}).Type():    true,
 	(IncrementMutation{}).Type(): true,
 }
 
@@ -33,11 +31,11 @@ type Mutation interface {
 }
 
 type ExportedMut struct {
-	Type string
-	Mutation string
-	FnName string
+	Type         string
+	Mutation     string
+	FnName       string
 	BasicBlockId int
-	SrcPosition token.Position
+	SrcPosition  token.Position
 }
 
 func (e *ExportedMut) AsJson() []byte {
@@ -50,7 +48,7 @@ func (e *ExportedMut) AsJson() []byte {
 
 func (e *ExportedMut) String() string {
 	return fmt.Sprintf(
-`mutation {
+		`mutation {
     type: %v
     change: %v
     file: %v
@@ -64,7 +62,7 @@ func (e *ExportedMut) String() string {
 func LoadExportedMut(bits []byte) (*ExportedMut, error) {
 	var e ExportedMut
 	err := json.Unmarshal(bits, &e)
-	if err != nil{
+	if err != nil {
 		return nil, err
 	}
 	return &e, nil
@@ -142,20 +140,20 @@ func srange(size int) []int {
 
 type BranchMutation struct {
 	mutator *mutator
-	cond *ast.Expr
-	p    token.Position
+	cond    *ast.Expr
+	p       token.Position
 	fileAst *ast.File
-	fnName string
-	bbid int
+	fnName  string
+	bbid    int
 }
 
 func (m *BranchMutation) Export() *ExportedMut {
 	return &ExportedMut{
-		Type: m.Type(),
-		Mutation: m.String(),
-		FnName: m.fnName,
+		Type:         m.Type(),
+		Mutation:     m.String(),
+		FnName:       m.fnName,
 		BasicBlockId: m.bbid,
-		SrcPosition: m.SrcPosition(),
+		SrcPosition:  m.SrcPosition(),
 	}
 }
 
@@ -184,18 +182,17 @@ func (m *BranchMutation) mutate() ast.Expr {
 	}
 	astutil.AddImport(m.mutator.program.Fset, m.fileAst, "dgruntime")
 	return &ast.BinaryExpr{
-		X: failReport,
-		Y: m.negate(),
-		Op: token.LAND,
+		X:     failReport,
+		Y:     m.negate(),
+		Op:    token.LAND,
 		OpPos: pos,
 	}
 }
 
-
 func (m *BranchMutation) negate() ast.Expr {
 	return &ast.UnaryExpr{
-		Op: token.NOT,
-		X: *m.cond,
+		Op:    token.NOT,
+		X:     *m.cond,
 		OpPos: (*m.cond).Pos(),
 	}
 }
@@ -207,17 +204,17 @@ type IncrementMutation struct {
 	p       token.Position
 	kind    types.BasicKind
 	fileAst *ast.File
-	fnName string
-	bbid int
+	fnName  string
+	bbid    int
 }
 
 func (m *IncrementMutation) Export() *ExportedMut {
 	return &ExportedMut{
-		Type: m.Type(),
-		Mutation: m.String(),
-		FnName: m.fnName,
+		Type:         m.Type(),
+		Mutation:     m.String(),
+		FnName:       m.fnName,
 		BasicBlockId: m.bbid,
-		SrcPosition: m.SrcPosition(),
+		SrcPosition:  m.SrcPosition(),
 	}
 }
 
@@ -242,18 +239,30 @@ func (m *IncrementMutation) mutate() ast.Expr {
 	if m.tokType == token.INT {
 		var cast string
 		switch m.kind {
-		case types.Int:    cast = "int"
-		case types.Int8:   cast = "int8"
-		case types.Int16:  cast = "int16"
-		case types.Int32:  cast = "int32"
-		case types.Int64:  cast = "int64"
-		case types.Uint:   cast = "uint"
-		case types.Uint8:  cast = "uint8"
-		case types.Uint16: cast = "uint16"
-		case types.Uint32: cast = "uint32"
-		case types.Uint64: cast = "uint64"
-		case types.UntypedInt: cast = "uint64"
-		case types.Uintptr: cast = "uintptr"
+		case types.Int:
+			cast = "int"
+		case types.Int8:
+			cast = "int8"
+		case types.Int16:
+			cast = "int16"
+		case types.Int32:
+			cast = "int32"
+		case types.Int64:
+			cast = "int64"
+		case types.Uint:
+			cast = "uint"
+		case types.Uint8:
+			cast = "uint8"
+		case types.Uint16:
+			cast = "uint16"
+		case types.Uint32:
+			cast = "uint32"
+		case types.Uint64:
+			cast = "uint64"
+		case types.UntypedInt:
+			cast = "uint64"
+		case types.Uintptr:
+			cast = "uintptr"
 		default:
 			panic(fmt.Errorf("unexpected kind %v", m.kind))
 		}
@@ -261,8 +270,10 @@ func (m *IncrementMutation) mutate() ast.Expr {
 	} else if m.tokType == token.FLOAT {
 		var cast string
 		switch m.kind {
-		case types.Float32: cast = "float32"
-		case types.Float64: cast = "float64"
+		case types.Float32:
+			cast = "float32"
+		case types.Float64:
+			cast = "float64"
 		default:
 			panic(fmt.Errorf("unexpected kind %v", m.kind))
 		}
@@ -277,9 +288,9 @@ func (m *IncrementMutation) mutate() ast.Expr {
 	}
 	astutil.AddImport(m.mutator.program.Fset, m.fileAst, "dgruntime")
 	return &ast.BinaryExpr{
-		X: m.increment(),
-		Y: failReport,
-		Op: token.ADD,
+		X:     m.increment(),
+		Y:     failReport,
+		Op:    token.ADD,
 		OpPos: pos,
 	}
 }
@@ -290,10 +301,10 @@ func (m *IncrementMutation) increment() ast.Expr {
 		X: (*m.expr),
 		Y: &ast.BasicLit{
 			ValuePos: pos,
-			Kind: m.tokType,
-			Value: "1",
+			Kind:     m.tokType,
+			Value:    "1",
 		},
-		Op: token.ADD,
+		Op:    token.ADD,
 		OpPos: pos,
 	}
 }

@@ -17,8 +17,6 @@ import (
 	"sort"
 	"strings"
 	"testing"
-
-	"dynagrok/examples/html"
 )
 
 // readParseTest reads a single test case from r.

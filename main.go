@@ -19,7 +19,7 @@ import (
 )
 
 func main() {
-	fmt.Println(os.Args)
+	fmt.Fprintln(os.Stderr, os.Args)
 	var config cmd.Config
 	var cleanup func()
 	main := NewMain(&config, &cleanup)

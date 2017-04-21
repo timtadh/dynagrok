@@ -1,11 +1,9 @@
 package main
 
-
 func main() {
 	for i := 10; i >= -2; i-- {
 		println(fib(i))
 	}
-	println("done")
 }
 
 func fib(x int) int {
@@ -23,7 +21,7 @@ func fib(x int) int {
 // func main() {
 // 	println(fibLoop(5))
 // }
-// 
+//
 // func fibLoop(x int) int {
 // 	p := 0
 // 	c := 1

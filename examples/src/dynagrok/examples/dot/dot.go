@@ -2,13 +2,13 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"io/ioutil"
+	"os"
 )
 
 import (
-	"github.com/timtadh/dot"
 	"github.com/timtadh/combos"
+	"github.com/timtadh/dot"
 )
 
 func main() {

@@ -2,8 +2,9 @@ package locavore
 
 import (
 	"fmt"
-	"github.com/timtadh/dynagrok/dgruntime/dgtypes"
 	"log"
+
+	"github.com/timtadh/dynagrok/dgruntime/dgtypes"
 )
 
 type CausalEstimator struct {

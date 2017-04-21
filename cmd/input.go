@@ -1,12 +1,12 @@
 package cmd
 
 import (
+	"compress/gzip"
 	"io"
 	"io/ioutil"
-	"path/filepath"
 	"os"
+	"path/filepath"
 	"strings"
-	"compress/gzip"
 )
 
 func Inputs(paths []string) (reader io.Reader, closeall func(), err error) {

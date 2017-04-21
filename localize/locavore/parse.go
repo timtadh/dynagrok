@@ -2,11 +2,12 @@ package locavore
 
 import (
 	"bufio"
-	"github.com/timtadh/dynagrok/dgruntime/dgtypes"
 	"io"
 	"io/ioutil"
 	"log"
 	"strings"
+
+	"github.com/timtadh/dynagrok/dgruntime/dgtypes"
 )
 
 func ParseProfiles(ok io.Reader, fail io.Reader) ([]dgtypes.Type, []dgtypes.FuncProfile, []dgtypes.FuncProfile) {

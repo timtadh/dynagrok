@@ -4,8 +4,6 @@ import (
 	"go/ast"
 )
 
-import ()
-
 // Find all the exprs in the statement
 func ContainsPanic(stmt ast.Stmt) bool {
 	panics := false
@@ -43,4 +41,3 @@ func ContainsOsExit(stmt ast.Stmt) bool {
 	}
 	return exits
 }
-

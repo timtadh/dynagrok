@@ -167,4 +167,3 @@ func LoadFaults(path string) ([]*Fault, error) {
 	}
 	return failures, nil
 }
-

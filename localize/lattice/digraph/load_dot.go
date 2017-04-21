@@ -13,8 +13,6 @@ import (
 	"github.com/timtadh/dot"
 )
 
-import ()
-
 type VertexAttrs map[int]map[string]interface{}
 
 type DotLoader struct {

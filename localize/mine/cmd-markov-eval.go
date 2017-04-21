@@ -1,15 +1,15 @@
 package mine
 
 import (
-	"math"
 	"bytes"
-	"fmt"
-	"sort"
-	"strings"
-	"strconv"
 	"encoding/json"
+	"fmt"
+	"math"
 	"os/exec"
 	"runtime"
+	"sort"
+	"strconv"
+	"strings"
 )
 
 import (
@@ -44,7 +44,7 @@ Option Flags
 		func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
 			max := 1000000
 			faultsPath := ""
-			jumpPr := (1./10.)
+			jumpPr := (1. / 10.)
 			for _, oa := range optargs {
 				switch oa.Opt() {
 				case "-f", "--faults":
@@ -83,12 +83,12 @@ Option Flags
 					MarkovEval(faults, o.Lattice, "mine-dsg + "+name, colors, P)
 					colors, P = RankListMarkovChain(max, m)
 					MarkovEval(faults, o.Lattice, name, colors, P)
-					colors, P = SpacialJumps(jumpPr,max, m)
-					MarkovEval(faults, o.Lattice, "spacial jumps + " + name, colors, P)
-					colors, P = BehavioralJumps(jumpPr,max, m)
-					MarkovEval(faults, o.Lattice, "behavioral jumps + " + name, colors, P)
-					colors, P = BehavioralAndSpacialJumps(jumpPr,max, m)
-					MarkovEval(faults, o.Lattice, "behavioral and spacial jumps + " + name, colors, P)
+					colors, P = SpacialJumps(jumpPr, max, m)
+					MarkovEval(faults, o.Lattice, "spacial jumps + "+name, colors, P)
+					colors, P = BehavioralJumps(jumpPr, max, m)
+					MarkovEval(faults, o.Lattice, "behavioral jumps + "+name, colors, P)
+					colors, P = BehavioralAndSpacialJumps(jumpPr, max, m)
+					MarkovEval(faults, o.Lattice, "behavioral and spacial jumps + "+name, colors, P)
 				}
 			} else {
 				m := NewMiner(o.Miner, o.Lattice, o.Score, o.Opts...)
@@ -96,17 +96,16 @@ Option Flags
 				MarkovEval(faults, o.Lattice, "mine-dsg + "+o.ScoreName, colors, P)
 				colors, P = RankListMarkovChain(max, m)
 				MarkovEval(faults, o.Lattice, o.ScoreName, colors, P)
-				colors, P = SpacialJumps(jumpPr,max, m)
-				MarkovEval(faults, o.Lattice, "spacial jumps + " + o.ScoreName, colors, P)
-				colors, P = BehavioralJumps(jumpPr,max, m)
-				MarkovEval(faults, o.Lattice, "behavioral jumps + " + o.ScoreName, colors, P)
+				colors, P = SpacialJumps(jumpPr, max, m)
+				MarkovEval(faults, o.Lattice, "spacial jumps + "+o.ScoreName, colors, P)
+				colors, P = BehavioralJumps(jumpPr, max, m)
+				MarkovEval(faults, o.Lattice, "behavioral jumps + "+o.ScoreName, colors, P)
 				colors, P = BehavioralAndSpacialJumps(jumpPr, max, m)
-				MarkovEval(faults, o.Lattice, "behavioral and spacial jumps + " + o.ScoreName, colors, P)
+				MarkovEval(faults, o.Lattice, "behavioral and spacial jumps + "+o.ScoreName, colors, P)
 			}
 			return nil, nil
 		})
 }
-
 
 func MarkovEval(faults []*Fault, lat *lattice.Lattice, name string, colorStates map[int][]int, P [][]float64) (results EvalResults) {
 	group := func(order []int, scores map[int]float64) [][]int {
@@ -198,15 +197,15 @@ func MarkovEval(faults []*Fault, lat *lattice.Lattice, name string, colorStates 
 					fn, b, pos,
 				)
 				r := &MarkovEvalResult{
-					ScoreName: name,
-					HT_Rank: ranks[color],
+					ScoreName:   name,
+					HT_Rank:     ranks[color],
 					HittingTime: score,
-					fault: f,
+					fault:       f,
 					loc: &Location{
-						Color: color,
+						Color:        color,
 						BasicBlockId: b,
-						FnName: fn,
-						Position: pos,
+						FnName:       fn,
+						Position:     pos,
 					},
 				}
 				results = append(results, r)
@@ -285,7 +284,7 @@ func RankListWithJumpsMarkovChain(max int, groups [][]int, prJump float64, jumps
 		gState := grpState(gid)
 		for _, color := range group {
 			bState := blkState(color)
-			P[gState][bState] = (1./2.) * 1/float64(len(group))
+			P[gState][bState] = (1. / 2.) * 1 / float64(len(group))
 			P[bState][gState] = 1 - prJump
 			totalJumps := 0
 			for nColor := range jumps[color] {
@@ -296,21 +295,21 @@ func RankListWithJumpsMarkovChain(max int, groups [][]int, prJump float64, jumps
 			for nColor := range jumps[color] {
 				if neighbors, has := blockStates[nColor]; has {
 					for _, neighbor := range neighbors {
-						P[bState][neighbor] = prJump * 1/float64(totalJumps)
+						P[bState][neighbor] = prJump * 1 / float64(totalJumps)
 					}
 				}
 			}
 		}
 		if gid > 0 {
 			prev := grpState(gid - 1)
-			P[gState][prev] = (1./2.) * float64(blocks - 1)/float64(blocks)
-			P[prev][gState] = (1./2.) * 1/float64(blocks)
+			P[gState][prev] = (1. / 2.) * float64(blocks-1) / float64(blocks)
+			P[prev][gState] = (1. / 2.) * 1 / float64(blocks)
 		}
 	}
 	first := grpState(0)
-	last := grpState(len(groupStates)-1)
-	P[first][first] = (1./2.) * float64(blocks - 1)/float64(blocks)
-	P[last][last]   = (1./2.) * 1/float64(blocks)
+	last := grpState(len(groupStates) - 1)
+	P[first][first] = (1. / 2.) * float64(blocks-1) / float64(blocks)
+	P[last][last] = (1. / 2.) * 1 / float64(blocks)
 	return blockStates, P
 }
 
@@ -429,7 +428,7 @@ func DsgMarkovChain(max int, m *Miner) (blockStates map[int][]int, P [][]float64
 		groupStates[gid] = states
 		states++
 		for nid, n := range group {
-			graphStates[graph{gid,nid}] = states
+			graphStates[graph{gid, nid}] = states
 			states++
 			graphs++
 			unique := make(map[int]bool)
@@ -458,30 +457,30 @@ func DsgMarkovChain(max int, m *Miner) (blockStates map[int][]int, P [][]float64
 		}
 		groupState := groupStates[gid]
 		for nid, n := range group {
-			graphState := graphStates[graph{gid,nid}]
-			P[groupState][graphState] = (1./2.) * 1/float64(len(group))
-			P[graphState][groupState] = (1./2.)
+			graphState := graphStates[graph{gid, nid}]
+			P[groupState][graphState] = (1. / 2.) * 1 / float64(len(group))
+			P[graphState][groupState] = (1. / 2.)
 			unique := make(map[int]bool)
 			for _, v := range n.Node.SubGraph.V {
 				unique[v.Color] = true
 			}
 			for color := range unique {
 				for _, blockState := range blockStates[color] {
-					P[graphState][blockState] = (1./2.) * 1/float64(len(unique))
-					P[blockState][graphState] = 1/float64(graphsPerColor[color])
+					P[graphState][blockState] = (1. / 2.) * 1 / float64(len(unique))
+					P[blockState][graphState] = 1 / float64(graphsPerColor[color])
 				}
 			}
 		}
 		if gid > 0 {
-			prev := groupStates[gid - 1]
-			P[groupState][prev] = (1./2.) * float64(graphs - 1)/float64(graphs)
-			P[prev][groupState] = (1./2.) * 1/float64(graphs)
+			prev := groupStates[gid-1]
+			P[groupState][prev] = (1. / 2.) * float64(graphs-1) / float64(graphs)
+			P[prev][groupState] = (1. / 2.) * 1 / float64(graphs)
 		}
 	}
 	first := groupStates[0]
 	last := groupStates[maxGid-1]
-	P[first][first] = (1./2.) * float64(graphs - 1)/float64(graphs)
-	P[last][last]   = (1./2.) * 1/float64(graphs)
+	P[first][first] = (1. / 2.) * float64(graphs-1) / float64(graphs)
+	P[last][last] = (1. / 2.) * 1 / float64(graphs)
 	if false {
 		fmt.Println("group", groupStates)
 		fmt.Println("graph", graphStates)
@@ -522,7 +521,7 @@ func ExpectedHittingTimes(transitions [][]float64) [][]float64 {
 							sum += P.Get(t, k) * (M.Get(k, s) + 1)
 						}
 					}
-					M.Set(t, s, P.Get(t, s) + sum)
+					M.Set(t, s, P.Get(t, s)+sum)
 				}
 			}
 		}
@@ -576,19 +575,19 @@ func ParPyEHT(start int, states []int, transitions [][]float64) (map[int]float64
 	}
 	type result struct {
 		hits map[int]float64
-		err error
+		err  error
 	}
 	hits := make(map[int]float64, len(states))
 	results := make(chan result)
 	for w := range work {
 		go func(mine []int) {
 			hits, err := PyExpectedHittingTimes(start, mine, transitions)
-			results<-result{hits, err}
+			results <- result{hits, err}
 		}(work[w])
 	}
 	var err error
 	for i := 0; i < cpus; i++ {
-		r :=<-results
+		r := <-results
 		if r.err != nil {
 			err = r.err
 			continue
@@ -605,8 +604,8 @@ func ParPyEHT(start int, states []int, transitions [][]float64) (map[int]float64
 
 func PyExpectedHittingTimes(start int, states []int, transitions [][]float64) (map[int]float64, error) {
 	type data struct {
-		Start int
-		States []int
+		Start       int
+		States      []int
 		Transitions [][]float64
 	}
 	encoded, err := json.Marshal(data{start, states, transitions})
@@ -649,4 +648,3 @@ func PyExpectedHittingTimes(start int, states []int, transitions [][]float64) (m
 	}
 	return hits, nil
 }
-

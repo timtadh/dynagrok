@@ -200,8 +200,9 @@ func (t *Testcase) minimizeWith(lat *lattice.Lattice, sg *subgraph.SubGraph, mkC
 		te, ok := <-tests
 		drain := make(chan bool)
 		go func() {
-			for range tests {}
-			drain<-true
+			for range tests {
+			}
+			drain <- true
 		}()
 		close(done)
 		<-drain

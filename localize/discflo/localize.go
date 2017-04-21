@@ -269,9 +269,9 @@ func RankColors(m *mine.Miner, colors map[int][]*Cluster) Result {
 		result = append(result, Location{
 			&mine.ScoredLocation{
 				mine.Location{
-					Color: color,
-					Position: pos,
-					FnName: fnName,
+					Color:        color,
+					Position:     pos,
+					FnName:       fnName,
 					BasicBlockId: bbid,
 				},
 				ScoreColor(m, color, clusters),
@@ -291,9 +291,9 @@ func RankNodes(m *mine.Miner, sg *subgraph.SubGraph) mine.ScoredLocations {
 		bbid, fnName, pos := m.Lattice.Info.Get(color)
 		result = append(result, &mine.ScoredLocation{
 			mine.Location{
-				Color: color,
-				Position: pos,
-				FnName: fnName,
+				Color:        color,
+				Position:     pos,
+				FnName:       fnName,
 				BasicBlockId: bbid,
 			},
 			n.Score,

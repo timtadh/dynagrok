@@ -1,19 +1,19 @@
 package mine
 
 import (
-	"sort"
 	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 )
 
 import (
-	"github.com/timtadh/getopt"
 	"github.com/timtadh/data-structures/errors"
+	"github.com/timtadh/getopt"
 )
 
 import (
@@ -21,7 +21,6 @@ import (
 	"github.com/timtadh/dynagrok/localize/lattice"
 	"github.com/timtadh/dynagrok/localize/test"
 )
-
 
 var Notes string = `
 Notes on Binary Args (-a,--binary-args)
@@ -67,12 +66,12 @@ func NewCommand(c *cmd.Config) cmd.Runnable {
 		),
 		cmd.Commands(map[string]cmd.Runnable{
 			"": cmd.Concat(
-					NewAlgorithmParser(c, &o),
-					cmd.Commands(map[string]cmd.Runnable{
-						"": NewRunner(c, &o),
-						eval.Name(): eval,
-						markovEval.Name(): markovEval,
-					}),
+				NewAlgorithmParser(c, &o),
+				cmd.Commands(map[string]cmd.Runnable{
+					"":                NewRunner(c, &o),
+					eval.Name():       eval,
+					markovEval.Name(): markovEval,
+				}),
 			),
 			cmp.Name(): cmp,
 		}),
@@ -131,7 +130,7 @@ func NewAlgorithmParser(c *cmd.Config, o *Options) cmd.Runnable {
 	return cmd.Commands(map[string]cmd.Runnable{
 		bb.Name():    bb,
 		sleap.Name(): sleap,
-		leap.Name(): leap,
+		leap.Name():  leap,
 		urw.Name():   cmd.Concat(urw, walkTypes),
 		swrw.Name():  cmd.Concat(swrw, walkTypes),
 	})

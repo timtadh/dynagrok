@@ -8,18 +8,16 @@ import (
 )
 
 import (
-	"golang.org/x/tools/go/loader"
 	"github.com/timtadh/data-structures/errors"
+	"golang.org/x/tools/go/loader"
 )
-
-
 
 func Functions(pkg *loader.PackageInfo, n ast.Node, do func(fn ast.Node, fnName string) error) error {
 	count := 0
 	v := &funcVisitor{
-		do: do,
-		pkg: pkg,
-		seen: make(map[uintptr]bool),
+		do:    do,
+		pkg:   pkg,
+		seen:  make(map[uintptr]bool),
 		count: &count,
 	}
 	ast.Walk(v, n)
@@ -27,24 +25,24 @@ func Functions(pkg *loader.PackageInfo, n ast.Node, do func(fn ast.Node, fnName 
 }
 
 type funcVisitor struct {
-	pkg *loader.PackageInfo
-	err error
-	do func(fn ast.Node, fnName string) error
-	seen map[uintptr]bool
-	fn *ast.FuncDecl
+	pkg   *loader.PackageInfo
+	err   error
+	do    func(fn ast.Node, fnName string) error
+	seen  map[uintptr]bool
+	fn    *ast.FuncDecl
 	count *int
-	prev *funcVisitor
+	prev  *funcVisitor
 }
 
 func ptr(n ast.Node) uintptr {
 	type intr struct {
-		typ uintptr
+		typ  uintptr
 		data uintptr
 	}
 	return (*intr)(unsafe.Pointer(&n)).data
 }
 
-func (v *funcVisitor) Visit(n ast.Node) (ast.Visitor) {
+func (v *funcVisitor) Visit(n ast.Node) ast.Visitor {
 	if n == nil || v.err != nil {
 		return nil
 	}
@@ -78,11 +76,11 @@ func (v *funcVisitor) Visit(n ast.Node) (ast.Visitor) {
 	}
 	if fn != nil {
 		iv := &funcVisitor{
-			pkg: v.pkg,
-			do: v.do,
-			seen: v.seen,
-			fn: parent,
-			prev: v,
+			pkg:   v.pkg,
+			do:    v.do,
+			seen:  v.seen,
+			fn:    parent,
+			prev:  v,
 			count: count,
 		}
 		for _, stmt := range *blk {

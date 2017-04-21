@@ -9,8 +9,6 @@ import (
 	"github.com/timtadh/data-structures/types"
 )
 
-import ()
-
 type Embeddings []*Embedding
 
 type Embedding struct {

@@ -38,8 +38,8 @@ func (s *Score) Max(n *lattice.Node) float64 {
 	if n == nil || n.SubGraph == nil {
 		F := float64(s.lat.Fail.G.Graphs)
 		O := float64(s.lat.Ok.G.Graphs)
-		prF := F/(F+O)
-		prO := O/(F+O)
+		prF := F / (F + O)
+		prO := O / (F + O)
 		x := s.score(prF, 0, prO, 1)
 		y := s.score(prF, 1, prO, 0)
 		return max(x, y)
@@ -118,9 +118,9 @@ func LocalizeNodes(score *Score) ScoredLocations {
 		bbid, fnName, pos := lat.Info.Get(color)
 		result = append(result, &ScoredLocation{
 			Location{
-				Color: color,
-				Position: pos,
-				FnName: fnName,
+				Color:        color,
+				Position:     pos,
+				FnName:       fnName,
 				BasicBlockId: bbid,
 			},
 			n.Score,

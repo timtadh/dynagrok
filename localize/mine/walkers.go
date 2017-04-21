@@ -172,7 +172,6 @@ func WalkingTopColors(walker Walker, opts ...TopColorOpt) MinerFunc {
 	}
 }
 
-
 func ParTopColors(walker Walker, opts ...TopColorOpt) MinerFunc {
 	o := &topColorOpts{
 		percentOfColors: .0625,
@@ -201,7 +200,7 @@ func ParTopColors(walker Walker, opts ...TopColorOpt) MinerFunc {
 				if o.debug >= 1 {
 					errors.Logf("DEBUG", "sending (%d/%d) (%d/%d) (%d/%d) %d", groups, o.minGroups, i, total, w, o.walksPerColor, l.Color)
 				}
-				out<-l.Color
+				out <- l.Color
 			}
 			if prevScore-l.Score > .0001 {
 				groups++
@@ -212,9 +211,9 @@ func ParTopColors(walker Walker, opts ...TopColorOpt) MinerFunc {
 		wg.Wait()
 		close(nodes)
 	}
-	work := func(m *Miner, wg *sync.WaitGroup, in <-chan int, out chan<-*SearchNode) {
+	work := func(m *Miner, wg *sync.WaitGroup, in <-chan int, out chan<- *SearchNode) {
 		for color := range in {
-			out<-walker.WalkFromColor(m, color)
+			out <- walker.WalkFromColor(m, color)
 		}
 		wg.Done()
 	}
@@ -231,7 +230,7 @@ func ParTopColors(walker Walker, opts ...TopColorOpt) MinerFunc {
 		count := 0
 		sni = func() (*SearchNode, SearchNodes) {
 		start:
-			n, ok :=<-nodes
+			n, ok := <-nodes
 			if !ok {
 				return nil, nil
 			}

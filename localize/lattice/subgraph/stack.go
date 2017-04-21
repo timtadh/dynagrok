@@ -8,8 +8,6 @@ import (
 	"github.com/timtadh/data-structures/errors"
 )
 
-import ()
-
 type embSearchNode struct {
 	emb *Embedding
 	eid int

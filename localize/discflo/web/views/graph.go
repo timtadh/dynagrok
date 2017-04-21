@@ -11,20 +11,19 @@ import (
 	"github.com/timtadh/dynagrok/localize/test"
 )
 
-
 func (v *Views) Graph(c *Context) error {
 	type location struct {
 		Color, BasicBlockId int
-		Position, FnName string
-		Score float64
+		Position, FnName    string
+		Score               float64
 	}
 	type data struct {
-		ClusterId int
-		NodeId    int
-		Score     float64
-		MinimizedTests map[int]*test.Testcase
+		ClusterId        int
+		NodeId           int
+		Score            float64
+		MinimizedTests   map[int]*test.Testcase
 		MinimizableTests map[int]*test.Testcase
-		Locations []*location
+		Locations        []*location
 	}
 	clusters, err := v.localization.Clusters()
 	if err != nil {
@@ -58,22 +57,22 @@ func (v *Views) Graph(c *Context) error {
 	for _, u := range sg.V {
 		bbid, fnName, pos := v.opts.Lattice.Info.Get(u.Color)
 		locations = append(locations, &location{
-			Color: u.Color,
+			Color:        u.Color,
 			BasicBlockId: bbid,
-			FnName: fnName,
-			Position: pos,
-			Score: discflo.ScoreColor(miner, u.Color, clusters.AsDiscflo(colors[u.Color])),
+			FnName:       fnName,
+			Position:     pos,
+			Score:        discflo.ScoreColor(miner, u.Color, clusters.AsDiscflo(colors[u.Color])),
 		})
 	}
 	sort.Slice(locations, func(i, j int) bool {
 		return locations[i].Score > locations[j].Score
 	})
 	return v.tmpl.ExecuteTemplate(c.rw, "graph", &data{
-		ClusterId: cid,
-		NodeId:    nid,
-		Score:     n.Score,
-		MinimizedTests: n.Tests,
+		ClusterId:        cid,
+		NodeId:           nid,
+		Score:            n.Score,
+		MinimizedTests:   n.Tests,
 		MinimizableTests: mt,
-		Locations: locations,
+		Locations:        locations,
 	})
 }

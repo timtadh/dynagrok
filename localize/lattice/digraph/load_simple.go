@@ -12,8 +12,6 @@ import (
 	"github.com/timtadh/data-structures/errors"
 )
 
-import ()
-
 type Info struct {
 	lock      sync.Mutex
 	Positions map[int]string

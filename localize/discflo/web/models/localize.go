@@ -48,7 +48,7 @@ type Cluster struct {
 	IncludedIdx      int
 	ExcludedIdx      int
 	MinimizableTests map[int]map[int]*test.Testcase
-	                 // node-id -> test-id -> original-test
+	// node-id -> test-id -> original-test
 }
 
 type Blocks []*Block
@@ -91,7 +91,7 @@ func (l *Localization) Test(tid int) (from string, test []byte) {
 	return l.opts.Failing[tid].From, l.opts.Failing[tid].Case
 }
 
-func (l *Localization) Lattice() (*lattice.Lattice) {
+func (l *Localization) Lattice() *lattice.Lattice {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 	return l.opts.Lattice
@@ -134,10 +134,10 @@ func (l *Localization) newClusters(miner *mine.Miner, clusters discflo.Clusters)
 	}
 	for i, x := range clusters {
 		cluster := &Cluster{
-			Cluster:     *x,
-			Id:          i,
-			IncludedIdx: i,
-			ExcludedIdx: -1,
+			Cluster:          *x,
+			Id:               i,
+			IncludedIdx:      i,
+			ExcludedIdx:      -1,
 			MinimizableTests: make(map[int]map[int]*test.Testcase),
 		}
 		c.included = append(c.included, cluster)

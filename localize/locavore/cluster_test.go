@@ -1,9 +1,10 @@
 package locavore
 
 import (
-	"github.com/timtadh/data-structures/test"
 	"math"
 	"testing"
+
+	"github.com/timtadh/data-structures/test"
 )
 
 type Vec struct {

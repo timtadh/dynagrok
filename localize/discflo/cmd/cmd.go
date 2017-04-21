@@ -2,8 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"time"
 	"strconv"
+	"time"
 )
 
 import (
@@ -13,8 +13,8 @@ import (
 import (
 	"github.com/timtadh/dynagrok/cmd"
 	"github.com/timtadh/dynagrok/localize/discflo"
-	"github.com/timtadh/dynagrok/localize/discflo/web"
 	"github.com/timtadh/dynagrok/localize/discflo/eval"
+	"github.com/timtadh/dynagrok/localize/discflo/web"
 	"github.com/timtadh/dynagrok/localize/mine"
 	"github.com/timtadh/dynagrok/localize/test"
 )
@@ -37,10 +37,10 @@ func NewCommand(c *cmd.Config) cmd.Runnable {
 		),
 		mine.NewAlgorithmParser(c, &o.Options),
 		cmd.Commands(map[string]cmd.Runnable{
-			"":              NewRunner(c, &o),
-			evaluate.Name(): evaluate,
+			"":                NewRunner(c, &o),
+			evaluate.Name():   evaluate,
 			markovEval.Name(): markovEval,
-			web.Name():      web,
+			web.Name():        web,
 		}),
 	)
 }

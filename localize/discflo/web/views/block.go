@@ -6,8 +6,8 @@ import (
 
 import (
 	"github.com/timtadh/dynagrok/localize/discflo/web/models"
-	"github.com/timtadh/dynagrok/localize/test"
 	"github.com/timtadh/dynagrok/localize/mine"
+	"github.com/timtadh/dynagrok/localize/test"
 )
 
 func (v *Views) Block(c *Context) error {
@@ -50,14 +50,14 @@ func (v *Views) Block(c *Context) error {
 				delete(mt, tid)
 			}
 			nodes = append(nodes, &node{
-				SearchNode: n,
+				SearchNode:       n,
 				MinimizableTests: mt,
 			})
 		}
 		clstrs = append(clstrs, &cluster{
 			Cluster: c,
-			Score: c.Score,
-			Nodes: nodes,
+			Score:   c.Score,
+			Nodes:   nodes,
 		})
 	}
 	bbid, fnName, _ := v.opts.Lattice.Info.Get(color)

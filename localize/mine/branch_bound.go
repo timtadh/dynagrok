@@ -14,13 +14,13 @@ import (
 )
 
 type branchBound struct {
-	k int
+	k     int
 	debug bool
 }
 
 func BranchAndBound(k int, debug bool) TopMiner {
 	return &branchBound{
-		k: k,
+		k:     k,
 		debug: debug,
 	}
 }

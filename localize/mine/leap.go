@@ -1,16 +1,14 @@
 package mine
 
-import ()
-
 import (
 	"github.com/timtadh/data-structures/errors"
 	"github.com/timtadh/data-structures/heap"
 )
 
 type leap struct {
-	k          int
-	sigma      float64
-	debug      int
+	k     int
+	sigma float64
+	debug int
 }
 
 func LEAP(k int, sigma float64, debug int) TopMiner {
@@ -54,9 +52,9 @@ func (l *leap) MineFrom(m *Miner, start *SearchNode) SearchNodes {
 	prev := -1000.0
 	cur := sum(max)
 	if true {
-		for sup(p) > m.MinFails && abs(cur - prev) > .01 {
+		for sup(p) > m.MinFails && abs(cur-prev) > .01 {
 			if true && len(max) > 0 {
-				errors.Logf("DEBUG", "cur %v %v (%v - %v) |%v - %v| = %v", sup(p), len(max), max[0].Score, max[len(max)-1].Score, prev, cur, abs(prev - cur))
+				errors.Logf("DEBUG", "cur %v %v (%v - %v) |%v - %v| = %v", sup(p), len(max), max[0].Score, max[len(max)-1].Score, prev, cur, abs(prev-cur))
 			}
 			p /= 2
 			max = newSLeap(l.k, l.sigma, sup(p), startMax(max)).mineFrom(m, start)
@@ -65,11 +63,11 @@ func (l *leap) MineFrom(m *Miner, start *SearchNode) SearchNodes {
 		}
 	}
 	if true && len(max) > 0 {
-		errors.Logf("DEBUG", "(done) cur %v %v (%v - %v) |%v - %v| = %v", sup(p), len(max), max[0].Score, max[len(max)-1].Score, prev, cur, abs(prev - cur))
+		errors.Logf("DEBUG", "(done) cur %v %v (%v - %v) |%v - %v| = %v", sup(p), len(max), max[0].Score, max[len(max)-1].Score, prev, cur, abs(prev-cur))
 	}
 	max = newSLeap(l.k, 0, m.MinFails, startMax(max)).mineFrom(m, start)
 	if true && len(max) > 0 {
-		errors.Logf("DEBUG", "(final) cur %v %v (%v - %v) |%v - %v| = %v", sup(p), len(max), max[0].Score, max[len(max)-1].Score, prev, cur, abs(prev - cur))
+		errors.Logf("DEBUG", "(final) cur %v %v (%v - %v) |%v - %v| = %v", sup(p), len(max), max[0].Score, max[len(max)-1].Score, prev, cur, abs(prev-cur))
 	}
 	return SliceToNodes(max)
 }
@@ -102,8 +100,8 @@ func SLeap(k int, sigma float64, minFailSup int, opts ...sLeapOpt) TopMiner {
 
 func newSLeap(k int, sigma float64, minFailSup int, opts ...sLeapOpt) *sLeap {
 	l := &sLeap{
-		k:     k,
-		sigma: sigma,
+		k:          k,
+		sigma:      sigma,
 		minFailSup: minFailSup,
 	}
 	for _, opt := range opts {
