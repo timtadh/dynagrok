@@ -1,8 +1,3 @@
-argparse==1.2.1
 numpy
-wsgiref
 scipy
-pandas
-seaborn
--e git+https://github.com/scikit-umfpack/scikit-umfpack#egg=scikit-umfpack
-
+scikit-umfpack
