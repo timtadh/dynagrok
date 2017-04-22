@@ -128,9 +128,15 @@ Eval Methods
 			}
 			evaluate := func(evalMethod, method string, o *discflo.Options) (eval.EvalResults, error) {
 				if evalMethod == "Markov" {
+					results := make(eval.EvalResults, 0, 10)
 					for _, chain := range eval.Chains[method] {
-						return eval.Evaluate(faults, o, o.Score, evalMethod, method, o.ScoreName, chain, max, jumpPrs)
+						r, err := eval.Evaluate(faults, o, o.Score, evalMethod, method, o.ScoreName, chain, max, jumpPrs)
+						if err != nil {
+							return nil, err
+						}
+						results = append(results, r...)
 					}
+					return results, nil
 				} else if method == "SBBFL" {
 					return nil, nil
 				}
