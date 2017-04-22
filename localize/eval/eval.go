@@ -33,6 +33,9 @@ var Chains = map[string][]string{
 	"DISCFLO": []string{
 		"DF-Jumps",
 	},
+	"DISCFLO + FP-Filter": []string{
+		"DF-Jumps",
+	},
 	"SBBFL": []string{
 		"SB-List",
 	},
