@@ -1,6 +1,4 @@
-if [[ ! (":$GOPATH:" == *":$(pwd):"*) ]]; then
-#unset GOROOT
-export GOPATH=$(pwd):$GOPATH
+unset GOROOT
+export GOPATH=$(pwd)
 export PATH=$(pwd)/bin:$PATH
-fi
 source env/bin/activate
