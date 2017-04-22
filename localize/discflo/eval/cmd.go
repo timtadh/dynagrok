@@ -6,11 +6,13 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/timtadh/dynagrok/cmd"
 	"github.com/timtadh/dynagrok/localize/discflo"
 	"github.com/timtadh/dynagrok/localize/eval"
 	"github.com/timtadh/dynagrok/localize/mine"
+	"github.com/timtadh/dynagrok/localize/test"
 	"github.com/timtadh/getopt"
 )
 
@@ -47,6 +49,8 @@ Eval Methods
 			"jump-prs=",
 			"method=",
 			"eval-method=",
+			"minimize-tests=",
+			"failure-oracle=",
 		},
 		func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
 			outputPath := ""
@@ -55,12 +59,26 @@ Eval Methods
 			max := 100
 			faultsPath := ""
 			jumpPrs := []float64{}
+			var oracle *test.Remote
+			var opts []discflo.DiscfloOption
 			for _, oa := range optargs {
 				switch oa.Opt() {
 				case "-f", "--faults":
 					faultsPath = oa.Arg()
 				case "-o", "--output":
 					outputPath = oa.Arg()
+				case "--failure-oracle":
+					r, err := test.NewRemote(oa.Arg(), test.Timeout(10*time.Second), test.Config(c))
+					if err != nil {
+						return nil, cmd.Err(1, err)
+					}
+					oracle = r
+				case "--minimize-tests":
+					m, err := strconv.Atoi(oa.Arg())
+					if err != nil {
+						return nil, cmd.Errorf(1, "Could not parse arg to `%v` expected a int (got %v). err: %v", oa.Opt(), oa.Arg(), err)
+					}
+					opts = append(opts, discflo.Tests(o.Failing), discflo.Minimize(m))
 				case "-m", "--method":
 					for _, part := range strings.Split(oa.Arg(), ",") {
 						methods = append(methods, strings.TrimSpace(part))
@@ -108,26 +126,39 @@ Eval Methods
 			for _, f := range faults {
 				fmt.Println(f)
 			}
+			evaluate := func(evalMethod, method string, o *discflo.Options) (eval.EvalResults, error) {
+				if evalMethod == "Markov" {
+					for _, chain := range eval.Chains[method] {
+						return eval.Evaluate(faults, o, o.Score, evalMethod, method, o.ScoreName, chain, max, jumpPrs)
+					}
+				} else if method == "SBBFL" {
+					return nil, nil
+				}
+				return eval.Evaluate(faults, o, o.Score, evalMethod, method, o.ScoreName, "", max, jumpPrs)
+			}
 			results := make(eval.EvalResults, 0, 10)
+			fmt.Println("methods", methods)
 			for _, evalMethod := range evalMethods {
 				for _, method := range methods {
-					if evalMethod == "Markov" {
-						for _, chain := range eval.Chains[method] {
-							r, err := eval.Evaluate(faults, o, o.Score, evalMethod, method, o.ScoreName, chain, max, jumpPrs)
-							if err != nil {
-								return nil, cmd.Err(1, err)
-							}
-							results = append(results, r...)
+					if method == "DISCFLO" && oracle != nil && len(opts) > 0 {
+						o := o.Copy()
+						fex, err := test.SingleInputExecutor(o.BinArgs, oracle)
+						if err != nil {
+							return nil, cmd.Err(2, err)
 						}
-					} else if method == "SBBFL" {
-						continue
-					} else {
-						r, err := eval.Evaluate(faults, o, o.Score, evalMethod, method, o.ScoreName, "", max, jumpPrs)
+						opts = append(opts, discflo.Oracle(fex))
+						o.DiscfloOpts = append(o.DiscfloOpts, opts...)
+						r, err := evaluate(evalMethod, method+" + FP-Filter", o)
 						if err != nil {
 							return nil, cmd.Err(1, err)
 						}
 						results = append(results, r...)
 					}
+					r, err := evaluate(evalMethod, method, o)
+					if err != nil {
+						return nil, cmd.Err(1, err)
+					}
+					results = append(results, r...)
 				}
 			}
 			var output io.Writer = os.Stdout

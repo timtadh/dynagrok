@@ -43,12 +43,11 @@ func Evaluate(faults []*mine.Fault, o *discflo.Options, score mine.ScoreFunc, ev
 	switch evalName {
 	case "RankList":
 		var groups [][]ColorScore
-		switch methodName {
-		case "CBSFL":
+		if methodName == "CBSFL" {
 			groups = CBSFL(o, score)
-		case "DISCFLO":
+		} else if strings.HasPrefix(methodName, "DISCFLO") {
 			groups = Discflo(o, score)
-		default:
+		} else {
 			return nil, fmt.Errorf("no localization method named %v for eval method %v", methodName, evalName)
 		}
 		return RankListEval(faults, o.Lattice, methodName, scoreName, groups), nil
@@ -58,8 +57,7 @@ func Evaluate(faults []*mine.Fault, o *discflo.Options, score mine.ScoreFunc, ev
 			var colors map[int][]int
 			var P [][]float64
 			jumpChain := chainName
-			switch methodName {
-			case "CBSFL":
+			if methodName == "CBSFL" {
 				switch chainName {
 				case "Ranked-List":
 					colors, P = RankListMarkovChain(maxStates, m)
@@ -76,17 +74,17 @@ func Evaluate(faults []*mine.Fault, o *discflo.Options, score mine.ScoreFunc, ev
 				default:
 					return nil, fmt.Errorf("no chain named %v", methodName)
 				}
-			case "SBBFL":
+			} else if methodName == "SBBFL" {
 				colors, P = DsgMarkovChain(maxStates, m)
 				return MarkovEval(faults, o.Lattice, methodName, scoreName, chainName, colors, P), nil
-			case "DISCFLO":
+			} else if strings.HasPrefix(methodName, "DISCFLO") {
 				var err error
 				colors, P, err = DiscfloMarkovChain(jumpPr, maxStates, o, score)
 				if err != nil {
 					return nil, err
 				}
 				jumpChain = fmt.Sprintf("%v(%g)", chainName, jumpPr)
-			default:
+			} else {
 				return nil, fmt.Errorf("no localization method named %v for eval method %v", methodName, evalName)
 			}
 			r := MarkovEval(faults, o.Lattice, methodName, scoreName, jumpChain, colors, P)

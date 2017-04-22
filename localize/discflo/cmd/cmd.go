@@ -48,7 +48,7 @@ func NewOptionParser(c *cmd.Config, o *discflo.Options) cmd.Runnable {
 		"",
 		``,
 		`
---minimize-tests                  Use test case minimization to minimize the
+--minimize-tests=<int>            Use test case minimization to minimize the
                                   failing tests.
 --failure-oracle=<path>           A failure oracle to filter out graphs with
                                   non-failing minimized tests.
@@ -57,7 +57,7 @@ func NewOptionParser(c *cmd.Config, o *discflo.Options) cmd.Runnable {
 `,
 		"",
 		[]string{
-			"minimize-tests",
+			"minimize-tests=",
 			"failure-oracle=",
 			"db-scan-epsilon=",
 			"debug=",
@@ -73,7 +73,11 @@ func NewOptionParser(c *cmd.Config, o *discflo.Options) cmd.Runnable {
 					}
 					oracle = r
 				case "--minimize-tests":
-					o.DiscfloOpts = append(o.DiscfloOpts, discflo.Tests(o.Failing))
+					m, err := strconv.Atoi(oa.Arg())
+					if err != nil {
+						return nil, cmd.Errorf(1, "Could not parse arg to `%v` expected a int (got %v). err: %v", oa.Opt(), oa.Arg(), err)
+					}
+					o.DiscfloOpts = append(o.DiscfloOpts, discflo.Tests(o.Failing), discflo.Minimize(m))
 				case "--db-scan-epsilon":
 					e, err := strconv.ParseFloat(oa.Arg(), 64)
 					if err != nil {
