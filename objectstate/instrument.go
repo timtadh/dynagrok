@@ -124,6 +124,7 @@ func (i *instrumenter) function(fnName string, fnAst ast.Node, recv *[]*ast.Fiel
 		}
 	}
 
+	// TODO You idiot, returns don't have to come at the end
 	// if the function has a return statement
 	if ret, ok := (*body)[len(*body)-1].(*ast.ReturnStmt); ok {
 		stmt, vars, varnames := i.mkAssignment(ret.Pos(), ret.Results)

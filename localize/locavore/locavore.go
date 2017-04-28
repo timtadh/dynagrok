@@ -3,185 +3,81 @@ package locavore
 import (
 	"fmt"
 	"log"
+	"math"
 
 	"github.com/timtadh/dynagrok/dgruntime/dgtypes"
 )
 
-type CausalEstimator struct {
-	ok   []dgtypes.Clusterable
-	fail []dgtypes.Clusterable
-	//inputs     []dgtypes.Clusterable
-	//outputs    []dgtypes.Clusterable
-	profs      []dgtypes.Clusterable
-	inBins     [][]dgtypes.Clusterable
-	inMedoids  []dgtypes.Clusterable
-	outBins    [][]dgtypes.Clusterable
-	outMedoids []dgtypes.Clusterable
-	simMatrix  [][]float64
+// Compile takes a list of passing FuncProfiles and a list of failing
+// FuncProfiles. It returns these lists, after appending together profiles which
+// are defined on the same funcName.
+func Collate(okf []dgtypes.FuncProfile, failf []dgtypes.FuncProfile) ([]dgtypes.FuncProfile, []dgtypes.FuncProfile) {
+	return collateProf(okf), collateProf(failf)
 }
-
-type Individual struct {
-	cov       dgtypes.Clusterable
-	treatment dgtypes.Clusterable
-	outcome   bool // true if pass, false is fail
-}
-
-func (i *Individual) Dissimilar(o dgtypes.Clusterable) float64 {
-	if other, ok := o.(*Individual); ok {
-		return i.treatment.Dissimilar(other.treatment)
+func collateProf(profiles []dgtypes.FuncProfile) []dgtypes.FuncProfile {
+	var ret []dgtypes.FuncProfile = make([]dgtypes.FuncProfile, 0)
+	for _, prof := range profiles {
+		contains := false
+		for i := range ret {
+			if ret[i].FuncName == prof.FuncName {
+				contains = true
+				if len(prof.In) != len(prof.Out) {
+					fmt.Printf("In (%d):\n%v\n\nOut (%d):\n%v\n\n", len(prof.In), prof.In, len(prof.Out), prof.Out)
+				}
+				ret[i].In = append(ret[i].In, prof.In...)
+				ret[i].Out = append(ret[i].Out, prof.Out...)
+				break
+			}
+		}
+		if !contains {
+			ret = append(ret, prof)
+		}
 	}
-	panic("Expected another *Individual to be passed to Dissimilar")
-}
-func (i *Individual) String() string {
-	return fmt.Sprintf("{In: %v, Out: %v, Outcome: %v}", i.cov, i.treatment, i.outcome)
+	return ret
 }
 
 func Localize(okf []dgtypes.FuncProfile, failf []dgtypes.FuncProfile, types []dgtypes.Type, numbins int) {
+	suspiciousness := make(map[string]float64)
+	okf, failf = Collate(okf, failf)
 	for _, okprof := range okf {
 		for _, failprof := range failf {
 			if okprof.FuncName == failprof.FuncName {
-				CausalEffect(okprof, failprof, numbins)
-			}
-		}
-	}
-}
-
-func CausalEffect(okf dgtypes.FuncProfile, failf dgtypes.FuncProfile, numbins int) {
-	var ok, fail []dgtypes.Clusterable = make([]dgtypes.Clusterable, 0), make([]dgtypes.Clusterable, 0)
-	for i := range okf.In {
-		if len(okf.Out) != 0 {
-			ok = append(ok, &Individual{cov: okf.In[i], treatment: okf.Out[i], outcome: true})
-		}
-	}
-	for i := range failf.In {
-		if len(failf.Out) != 0 {
-			fail = append(fail, &Individual{cov: failf.In[i], treatment: failf.Out[i], outcome: false})
-		}
-	}
-	profs := append(ok, fail...)
-	if len(profs) < 3 {
-		log.Printf("Skipping profiles of %v (not enough data)...\n", okf.FuncName)
-		return
-	}
-
-	log.Printf("Clustering profiles of %v...\n", okf.FuncName)
-
-	// Step 1:   Bin the inputs
-	// Step 1.5: Bin the outputs
-	C := CausalEstimator{
-		ok:    ok,
-		fail:  fail,
-		profs: profs,
-	}
-	C.bin(numbins)
-	// Step 2: {optional} Propensity scoring
-	// Step 3: Matching outputs with different outcomes, based on covariant
-	//	similarity
-	log.Printf("Matching profiles of %v...\n", okf.FuncName)
-	C.match()
-	log.Printf("Matrix of causal-effect pairs for %v...\n", okf.FuncName)
-	for r := range C.simMatrix {
-		for c := range C.simMatrix[r] {
-			fmt.Printf("%.3f ", C.simMatrix[r][c])
-		}
-		fmt.Println("")
-	}
-	// Step 4: ??
-}
-
-func (c *CausalEstimator) bin(numbins int) {
-	c.inBins, c.inMedoids = KMedoidsFunc(numbins, c.profs,
-		func(this dgtypes.Clusterable, other dgtypes.Clusterable) float64 {
-			if obj, ok := this.(*Individual); ok {
-				if o, ok := other.(*Individual); ok {
-					return obj.cov.Dissimilar(o.cov)
+				fmt.Println("")
+				log.Printf("--- Attempting to calculate causal effect for %s ---", okprof.FuncName)
+				treatments, pairwiseEffects, err := CausalEffect(okprof, failprof, numbins)
+				if err == nil {
+					log.Printf("--- Succesfully calculated causal effect for %s ---", okprof.FuncName)
 				}
+				suspiciousness[okprof.FuncName] = Suspiciousness(pairwiseEffects)
+				_ = treatments
 			}
-			panic("Expected *Individual")
-		})
-	c.outBins, c.outMedoids = KMedoids(numbins, c.profs)
-	log.Printf("Adding medoids to their respective clusters...")
-	for i, j := range c.inMedoids {
-		c.inBins[i] = append(c.inBins[i], j)
+		}
 	}
-	for i, j := range c.outMedoids {
-		c.outBins[i] = append(c.inBins[i], j)
-	}
-	fmt.Printf("%v ouput medoids: %v\n", len(c.outMedoids), c.outMedoids)
-	fmt.Printf("%v output clusters: %v\n", len(c.outBins), c.outBins)
+	// TODO print Max-value suspiciousness as well. That will work better for
+	// certain faults
+	// TODO create test driver for some empty-list bug fault.
+	fmt.Println("")
+	log.Printf("--- Finished calculating causal effect ---")
+	log.Printf("Printing scores...")
+	printScores(suspiciousness)
+
 }
 
-func (c *CausalEstimator) match() {
-	// Yang - P Score Matching
-	// Computer pairwise Causal Effects for each treatment
-	// TODO : Compute only one triangle of this matrix
-	// TODO : Store this somewhere
-	c.simMatrix = make([][]float64, len(c.outMedoids))
-	for treatment1 := range c.outMedoids {
-		c.simMatrix[treatment1] = make([]float64, len(c.outMedoids))
-		for treatment2 := range c.outMedoids {
-			if treatment1 >= treatment2 {
+// Suspiciousness takes a matrix of causal effect pairs and computes some metric
+// to determine the overal suspiciousness of the associated function.
+func Suspiciousness(matrix [][]float64) float64 {
+	return math.Abs(Average(matrix))
+}
+
+func Average(matrix [][]float64) float64 {
+	avg := 0.0
+	for i := range matrix {
+		for j := range matrix {
+			if i >= j {
 				continue
-			} else {
-				c.simMatrix[treatment1][treatment2] = c.pairwiseMatch(treatment1, treatment2)
 			}
+			avg += matrix[i][j] / float64(len(matrix))
 		}
 	}
-}
-
-// pairwiseMatch determines the causal effect of treatment t1
-// on treatment t2. t1 and t2 are the index of the c.outBins
-// and c.outMedoids
-func (c *CausalEstimator) pairwiseMatch(t1, t2 int) float64 {
-	effect := 0.0
-	for _, i := range c.profs {
-		y1 := c.outcome(t1, c.mCov(i, t1))
-		y2 := c.outcome(t1, c.mCov(i, t2))
-		effect += (y1 - y2) / float64(len(c.profs))
-	}
-	return effect
-}
-
-func (c *CausalEstimator) outcome(treatment, ind int) float64 {
-	// if c.outBins[treatment][ind] in the fail list, return 0.0;
-	// else return 1.0
-	if x, ok := c.outBins[treatment][ind].(*Individual); ok {
-		if x.outcome == false {
-			return 0.0
-		} else {
-			return 1.0
-		}
-	} else {
-		panic("Expected Individual")
-	}
-}
-
-// gets the covariates of the individual referred to by i
-// in treatment level t
-func (c *CausalEstimator) cov(i, t int) dgtypes.Clusterable {
-	if x, ok := c.outBins[t][i].(*Individual); ok {
-		return x.cov
-	} else {
-		panic("Expected Individual")
-	}
-}
-
-// mCov is the covariate matching function mentioned in Yang
-// it returns the argmin over elements j in tlevel of ||individual - j||
-// in terms of their covariates
-func (c *CausalEstimator) mCov(individual dgtypes.Clusterable, tlevel int) int {
-	if ind, ok := individual.(*Individual); ok {
-		min := 2.0
-		matchindex := -1
-		for i := range c.outBins[tlevel] {
-			dist := c.cov(i, tlevel).Dissimilar(ind.cov)
-			if dist < min {
-				min = dist
-				matchindex = i
-			}
-		}
-		return matchindex
-	} else {
-		panic("Expected Individual")
-	}
+	return avg
 }

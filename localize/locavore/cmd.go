@@ -65,7 +65,7 @@ Option Flags
 			defer failClose()
 			okFile, okClose, err := cmd.Input(args[1])
 			if err != nil {
-				return nil, cmd.Errorf(2, "Could not read profiles from successful executions: %v\n%v", args[0], err)
+				return nil, cmd.Errorf(2, "Could not read profiles from successful executions: %v\n%v", args[1], err)
 			}
 			defer okClose()
 			types, ok, fail := ParseProfiles(okFile, failFile)

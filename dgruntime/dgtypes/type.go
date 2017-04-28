@@ -112,7 +112,10 @@ func NewStructType(typ reflect.Type) *StructType {
 	fields := make(map[string]Type)
 	if typ.Kind() == reflect.Struct {
 		for k := 0; k < typ.NumField(); k++ {
-			fields[typ.Field(k).Name] = newType(typ.Field(k).Type)
+			//if typ.Field(k).Type == typ {
+			//
+			//}
+			//fields[typ.Field(k).Name] = newType(typ.Field(k).Type)
 		}
 		return &StructType{Tname: typ.Name(), Fields: fields}
 	}

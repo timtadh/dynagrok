@@ -273,10 +273,10 @@ func (b *BoolValue) Dissimilar(v Value) float64 {
 
 // {{{ StructValue
 type StructValue struct {
+	JSONType string
 	TypName  string
 	Fields   []Field
 	val      interface{}
-	JSONType string
 }
 
 func StructVal(i interface{}) *StructValue {
@@ -370,22 +370,25 @@ func (f Field) String() string {
 
 // {{{ ReferenceValue
 type ReferenceValue struct {
+	JSONType string
 	val      interface{}
 	Typename string
 	Elem     Value
 	kind     Kind
-	JSONType string
 }
 
 func ReferenceVal(i interface{}) *ReferenceValue {
 	val := reflect.ValueOf(i)
+	if val.IsNil() {
+		return &ReferenceValue{val: i, Elem: nil, kind: Pointer, Typename: "*" + val.Type().Name(), JSONType: "ReferenceValue"}
+	}
 	elem := NewVal(val.Elem().Interface())
 	switch val.Kind() {
 	case reflect.Ptr:
 		return &ReferenceValue{val: i, Elem: elem, kind: Pointer, Typename: "*" + elem.TypeName(), JSONType: "ReferenceValue"}
 	case reflect.Interface:
 		// TODO determine the typename for interfaces
-		return &ReferenceValue{val: i, Elem: elem, kind: Interface, Typename: "*" + elem.TypeName(), JSONType: "ReferenceValue"}
+		return &ReferenceValue{val: i, Elem: elem, kind: Interface, Typename: "I*" + elem.TypeName(), JSONType: "ReferenceValue"}
 	default:
 		panic(fmt.Errorf("%v should be a reference, is %T", i, i))
 	}
@@ -405,6 +408,9 @@ func (r *ReferenceValue) Value() interface{} {
 }
 
 func (r *ReferenceValue) String() string {
+	if r.Elem == nil {
+		return "<nil>"
+	}
 	return r.Elem.String()
 }
 
