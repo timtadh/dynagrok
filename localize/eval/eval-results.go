@@ -1,63 +1,31 @@
-package mine
+package eval
 
 import (
 	"fmt"
-	"sort"
 	"strings"
+
+	"github.com/timtadh/dynagrok/localize/mine"
 )
 
-type Location struct {
-	Color        int
-	Position     string
-	FnName       string
-	BasicBlockId int
-}
+type EvalResults []EvalResult
 
-type ScoredLocation struct {
-	Location
-	Score float64
-}
-
-type ScoredLocations []*ScoredLocation
-
-func (l *Location) String() string {
-	return fmt.Sprintf("%v, %v, %v", l.Position, l.FnName, l.BasicBlockId)
-}
-
-func (l *ScoredLocation) String() string {
-	return fmt.Sprintf("%v, %v", l.Location.String(), l.Score)
-}
-
-func (r ScoredLocations) String() string {
-	parts := make([]string, 0, len(r))
-	for _, l := range r {
-		parts = append(parts, l.String())
+func (results EvalResults) String() string {
+	parts := make([]string, 0, len(results))
+	parts = append(parts, "Rank, FL Method, Score, Eval Method, Raw Score, Location")
+	for _, result := range results {
+		parts = append(parts,
+			fmt.Sprintf("%v, %v, %v, %v, %v, %v",
+				result.Rank(),
+				result.Method(),
+				result.Score(),
+				result.Eval(),
+				result.RawScore(),
+				result.Location(),
+			),
+		)
 	}
 	return strings.Join(parts, "\n")
 }
-
-func (r ScoredLocations) Group() []ScoredLocations {
-	r.Sort()
-	groups := make([]ScoredLocations, 0, 10)
-	for _, n := range r {
-		lg := len(groups)
-		if lg > 0 && n.Score == groups[lg-1][0].Score {
-			groups[lg-1] = append(groups[lg-1], n)
-		} else {
-			groups = append(groups, make([]*ScoredLocation, 0, 10))
-			groups[lg] = append(groups[lg], n)
-		}
-	}
-	return groups
-}
-
-func (r ScoredLocations) Sort() {
-	sort.SliceStable(r, func(i, j int) bool {
-		return r[i].Score > r[j].Score
-	})
-}
-
-type EvalResults []EvalResult
 
 type EvalResult interface {
 	Method() string    // fault localization method: eg. CBSFL, SBBFL, DISCFLO
@@ -65,8 +33,8 @@ type EvalResult interface {
 	Eval() string      // evaluation method used: Ranked List, Markov Chain, Chain + Behavior Jumps, etc...
 	Rank() float64     // the rank score or equivalent
 	RawScore() float64 // the raw score given to this location
-	Fault() *Fault
-	Location() *Location
+	Fault() *mine.Fault
+	Location() *mine.Location
 }
 
 type MarkovEvalResult struct {
@@ -75,8 +43,8 @@ type MarkovEvalResult struct {
 	ChainName   string
 	HT_Rank     float64
 	HittingTime float64
-	loc         *Location
-	fault       *Fault
+	loc         *mine.Location
+	fault       *mine.Fault
 }
 
 func (r *MarkovEvalResult) Method() string {
@@ -88,7 +56,7 @@ func (r *MarkovEvalResult) Score() string {
 }
 
 func (r *MarkovEvalResult) Eval() string {
-	return "Markov +" + r.ChainName
+	return "Markov + " + r.ChainName
 }
 
 func (r *MarkovEvalResult) Rank() float64 {
@@ -99,11 +67,11 @@ func (r *MarkovEvalResult) RawScore() float64 {
 	return r.HittingTime
 }
 
-func (r *MarkovEvalResult) Fault() *Fault {
+func (r *MarkovEvalResult) Fault() *mine.Fault {
 	return r.fault
 }
 
-func (r *MarkovEvalResult) Location() *Location {
+func (r *MarkovEvalResult) Location() *mine.Location {
 	return r.loc
 }
 
@@ -112,8 +80,8 @@ type RankListEvalResult struct {
 	ScoreName      string
 	RankScore      float64
 	Suspiciousness float64
-	Loc            *Location
-	LocalizedFault *Fault
+	Loc            *mine.Location
+	LocalizedFault *mine.Fault
 }
 
 func (r *RankListEvalResult) Method() string {
@@ -136,10 +104,10 @@ func (r *RankListEvalResult) RawScore() float64 {
 	return r.Suspiciousness
 }
 
-func (r *RankListEvalResult) Fault() *Fault {
+func (r *RankListEvalResult) Fault() *mine.Fault {
 	return r.LocalizedFault
 }
 
-func (r *RankListEvalResult) Location() *Location {
+func (r *RankListEvalResult) Location() *mine.Location {
 	return r.Loc
 }

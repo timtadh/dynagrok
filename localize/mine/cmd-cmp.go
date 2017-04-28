@@ -81,7 +81,7 @@ Option Flags
 				}
 				timeit := func(m *Miner) ([]*SearchNode, time.Duration) {
 					s := time.Now()
-					nodes := m.Mine().unique()
+					nodes := m.Mine().Unique()
 					e := time.Now()
 					return nodes, e.Sub(s)
 				}
@@ -158,7 +158,7 @@ Option Flags
 	)
 }
 
-func (nodes SearchNodes) unique() (unique []*SearchNode) {
+func (nodes SearchNodes) Unique() (unique []*SearchNode) {
 	added := make(map[string]bool)
 	for n, next := nodes(); next != nil; n, next = next() {
 		if n.Node.SubGraph == nil {
@@ -177,8 +177,8 @@ func (nodes SearchNodes) unique() (unique []*SearchNode) {
 	return unique
 }
 
-func (nodes SearchNodes) group() [][]*SearchNode {
-	unique := nodes.unique()
+func (nodes SearchNodes) Group() [][]*SearchNode {
+	unique := nodes.Unique()
 	groups := make([][]*SearchNode, 0, 10)
 	for _, n := range unique {
 		lg := len(groups)

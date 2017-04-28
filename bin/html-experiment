@@ -67,7 +67,9 @@ for ((i=1;i<=$COUNT;i++)); do
     run mkdir -p $oks/tests
     run mkdir -p $fails/tests $fails/failures
     t=1
-    for path in $(ls $dgpath/examples/src/dynagrok/examples/html/testdata/webkit/*.dat); do
+    tpath=$dgpath/examples/src/dynagrok/examples/html/testdata/webkit/split
+    for f in $(ls $tpath | awk 'BEGIN {srand()} !/^$/ { if (rand() <= .10) print $0}'); do
+        path=$tpath/$f
         echo "running test $t $path"
         export DGPROF=$tests/$t
         run mkdir -p $DGPROF

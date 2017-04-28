@@ -64,7 +64,7 @@ Option Flags
 				fmt.Println(f)
 			}
 			eval := func(name string, m *Miner) {
-				localized := m.Mine().group()
+				localized := m.Mine().Group()
 				for _, f := range faults {
 					sum := 0
 					for gid, group := range localized {

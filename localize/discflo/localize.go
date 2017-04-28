@@ -51,14 +51,21 @@ func (r Result) Sort() {
 }
 
 type discflo struct {
-	miner   *mine.Miner
-	tests   []*test.Testcase
-	oracle  test.Executor
-	epsilon float64
-	debug   int
+	miner    *mine.Miner
+	tests    []*test.Testcase
+	minimize int
+	oracle   test.Executor
+	epsilon  float64
+	debug    int
 }
 
 type DiscfloOption func(*discflo)
+
+func Minimize(min int) DiscfloOption {
+	return func(d *discflo) {
+		d.minimize = min
+	}
+}
 
 func Tests(tests []*test.Testcase) DiscfloOption {
 	return func(d *discflo) {
@@ -130,9 +137,11 @@ func (d *discflo) clusters(db *DbScan) (Clusters, error) {
 	}
 	passing := make([]*mine.SearchNode, 0, 10)
 	filtered := make([]*Cluster, 0, 10)
-	if len(d.tests) > 0 {
+	minimize := d.minimize
+	if minimize > 0 {
 		for i, c := range clusters {
-			if len(filtered) >= 5 && i > 5 || len(filtered) >= 2 && i > 10 || len(filtered) >= 1 && i > 15 {
+			fmt.Println("minimize", minimize)
+			if minimize <= 0 {
 				for _, x := range clusters[i:] {
 					filtered = append(filtered, x)
 				}
@@ -150,6 +159,7 @@ func (d *discflo) clusters(db *DbScan) (Clusters, error) {
 				for count := 0; count < len(d.tests); count++ {
 					j := rand.Intn(len(d.tests))
 					t := d.tests[j]
+					minimize--
 					min, err := t.Minimize(d.miner.Lattice, n.Node.SubGraph)
 					if err != nil {
 						return nil, err

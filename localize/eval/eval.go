@@ -1,4 +1,4 @@
-package mine
+package eval
 
 import (
 	"bytes"
@@ -13,101 +13,166 @@ import (
 )
 
 import (
-	"github.com/timtadh/getopt"
 	"github.com/timtadh/matrix"
 )
 
 import (
-	"github.com/timtadh/dynagrok/cmd"
+	"github.com/timtadh/dynagrok/localize/discflo"
+	"github.com/timtadh/dynagrok/localize/discflo/web/models"
 	"github.com/timtadh/dynagrok/localize/lattice"
+	"github.com/timtadh/dynagrok/localize/mine"
 )
 
-func NewMarkovEvalParser(c *cmd.Config, o *Options) cmd.Runnable {
-	return cmd.Cmd(
-		"markov-eval",
-		`[options]`,
-		`
-Evaluate a fault localization method from ground truth
-
-Option Flags
-    -h,--help                         Show this message
-    -f,--faults=<path>                Path to a fault file.
-    -m,--max=<int>                    Maximum number of states in the chain
-    -j,--jump-pr=<float64>            Probability of taking jumps in chains which have them
-`,
-		"f:m:j:",
-		[]string{
-			"faults=",
-			"max=",
-			"jump-pr=",
-		},
-		func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
-			max := 1000000
-			faultsPath := ""
-			jumpPr := (1. / 10.)
-			for _, oa := range optargs {
-				switch oa.Opt() {
-				case "-f", "--faults":
-					faultsPath = oa.Arg()
-				case "-m", "--max":
-					var err error
-					max, err = strconv.Atoi(oa.Arg())
-					if err != nil {
-						return nil, cmd.Errorf(1, "For flag %v expected an int got %v. err: %v", oa.Opt, oa.Arg(), err)
-					}
-				case "-j", "--jump-pr":
-					var err error
-					jumpPr, err = strconv.ParseFloat(oa.Arg(), 64)
-					if err != nil {
-						return nil, cmd.Errorf(1, "For flag %v expected a float got %v. err: %v", oa.Opt, oa.Arg(), err)
-					}
-					if jumpPr < 0 || jumpPr >= 1 {
-						return nil, cmd.Errorf(1, "For flag %v expected a float between 0-1. got %v", oa.Opt, oa.Arg())
-					}
-				}
-			}
-			if faultsPath == "" {
-				return nil, cmd.Errorf(1, "You must supply the `-f` flag and give a path to the faults")
-			}
-			faults, err := LoadFaults(faultsPath)
-			if err != nil {
-				return nil, cmd.Err(1, err)
-			}
-			for _, f := range faults {
-				fmt.Println(f)
-			}
-			if o.Score == nil {
-				for name, score := range Scores {
-					m := NewMiner(o.Miner, o.Lattice, score, o.Opts...)
-					colors, P := DsgMarkovChain(max, m)
-					MarkovEval(faults, o.Lattice, "mine-dsg + "+name, colors, P)
-					colors, P = RankListMarkovChain(max, m)
-					MarkovEval(faults, o.Lattice, name, colors, P)
-					colors, P = SpacialJumps(jumpPr, max, m)
-					MarkovEval(faults, o.Lattice, "spacial jumps + "+name, colors, P)
-					colors, P = BehavioralJumps(jumpPr, max, m)
-					MarkovEval(faults, o.Lattice, "behavioral jumps + "+name, colors, P)
-					colors, P = BehavioralAndSpacialJumps(jumpPr, max, m)
-					MarkovEval(faults, o.Lattice, "behavioral and spacial jumps + "+name, colors, P)
-				}
-			} else {
-				m := NewMiner(o.Miner, o.Lattice, o.Score, o.Opts...)
-				colors, P := DsgMarkovChain(max, m)
-				MarkovEval(faults, o.Lattice, "mine-dsg + "+o.ScoreName, colors, P)
-				colors, P = RankListMarkovChain(max, m)
-				MarkovEval(faults, o.Lattice, o.ScoreName, colors, P)
-				colors, P = SpacialJumps(jumpPr, max, m)
-				MarkovEval(faults, o.Lattice, "spacial jumps + "+o.ScoreName, colors, P)
-				colors, P = BehavioralJumps(jumpPr, max, m)
-				MarkovEval(faults, o.Lattice, "behavioral jumps + "+o.ScoreName, colors, P)
-				colors, P = BehavioralAndSpacialJumps(jumpPr, max, m)
-				MarkovEval(faults, o.Lattice, "behavioral and spacial jumps + "+o.ScoreName, colors, P)
-			}
-			return nil, nil
-		})
+var Chains = map[string][]string{
+	"CBSFL": []string{
+		"Ranked-List",
+		"Spacial-Jumps",
+		"Behavioral-Jumps",
+		"Behavioral+Spacial-Jumps",
+	},
+	"DISCFLO": []string{
+		"DF-Jumps",
+	},
+	"DISCFLO + FP-Filter": []string{
+		"DF-Jumps",
+	},
+	"SBBFL": []string{
+		"SB-List",
+	},
 }
 
-func MarkovEval(faults []*Fault, lat *lattice.Lattice, name string, colorStates map[int][]int, P [][]float64) (results EvalResults) {
+func Evaluate(faults []*mine.Fault, o *discflo.Options, score mine.ScoreFunc, evalName, methodName, scoreName, chainName string, maxStates int, jumpPrs []float64) (EvalResults, error) {
+	m := mine.NewMiner(o.Miner, o.Lattice, score, o.Opts...)
+	switch evalName {
+	case "RankList":
+		var groups [][]ColorScore
+		if methodName == "CBSFL" {
+			groups = CBSFL(o, score)
+		} else if strings.HasPrefix(methodName, "DISCFLO") {
+			groups = Discflo(o, score)
+		} else {
+			return nil, fmt.Errorf("no localization method named %v for eval method %v", methodName, evalName)
+		}
+		return RankListEval(faults, o.Lattice, methodName, scoreName, groups), nil
+	case "Markov":
+		results := make(EvalResults, 0, 10)
+		for _, jumpPr := range jumpPrs {
+			var colors map[int][]int
+			var P [][]float64
+			jumpChain := chainName
+			if methodName == "CBSFL" {
+				switch chainName {
+				case "Ranked-List":
+					colors, P = RankListMarkovChain(maxStates, m)
+					return MarkovEval(faults, o.Lattice, methodName, scoreName, chainName, colors, P), nil
+				case "Spacial-Jumps":
+					colors, P = SpacialJumps(jumpPr, maxStates, m)
+					jumpChain = fmt.Sprintf("%v(%g)", chainName, jumpPr)
+				case "Behavioral-Jumps":
+					colors, P = BehavioralJumps(jumpPr, maxStates, m)
+					jumpChain = fmt.Sprintf("%v(%g)", chainName, jumpPr)
+				case "Behavioral+Spacial-Jumps":
+					colors, P = BehavioralAndSpacialJumps(jumpPr, maxStates, m)
+					jumpChain = fmt.Sprintf("%v(%g)", chainName, jumpPr)
+				default:
+					return nil, fmt.Errorf("no chain named %v", methodName)
+				}
+			} else if methodName == "SBBFL" {
+				colors, P = DsgMarkovChain(maxStates, m)
+				return MarkovEval(faults, o.Lattice, methodName, scoreName, chainName, colors, P), nil
+			} else if strings.HasPrefix(methodName, "DISCFLO") {
+				var err error
+				colors, P, err = DiscfloMarkovChain(jumpPr, maxStates, o, score)
+				if err != nil {
+					return nil, err
+				}
+				jumpChain = fmt.Sprintf("%v(%g)", chainName, jumpPr)
+			} else {
+				return nil, fmt.Errorf("no localization method named %v for eval method %v", methodName, evalName)
+			}
+			r := MarkovEval(faults, o.Lattice, methodName, scoreName, jumpChain, colors, P)
+			results = append(results, r...)
+		}
+		return results, nil
+	default:
+		return nil, fmt.Errorf("no evaluation method named %v", evalName)
+	}
+}
+
+type ColorScore struct {
+	Color int
+	Score float64
+}
+
+func CBSFL(o *discflo.Options, s mine.ScoreFunc) [][]ColorScore {
+	miner := mine.NewMiner(o.Miner, o.Lattice, s, o.Opts...)
+	groups := make([][]ColorScore, 0, 10)
+	for _, group := range mine.LocalizeNodes(miner.Score).Group() {
+		colorGroup := make([]ColorScore, 0, len(group))
+		for _, n := range group {
+			colorGroup = append(colorGroup, ColorScore{n.Color, n.Score})
+		}
+		groups = append(groups, colorGroup)
+	}
+	return groups
+}
+
+func Discflo(o *discflo.Options, s mine.ScoreFunc) [][]ColorScore {
+	miner := mine.NewMiner(o.Miner, o.Lattice, s, o.Opts...)
+	c, err := discflo.Localizer(o)(miner)
+	if err != nil {
+		panic(err)
+	}
+	groups := make([][]ColorScore, 0, 10)
+	for _, group := range c.RankColors(miner).ScoredLocations().Group() {
+		colorGroup := make([]ColorScore, 0, len(group))
+		for _, n := range group {
+			colorGroup = append(colorGroup, ColorScore{n.Color, n.Score})
+		}
+		groups = append(groups, colorGroup)
+	}
+	return groups
+}
+
+func RankListEval(faults []*mine.Fault, lat *lattice.Lattice, methodName, scoreName string, groups [][]ColorScore) (results EvalResults) {
+	for _, f := range faults {
+		sum := 0
+		for gid, group := range groups {
+			for _, cs := range group {
+				bbid, fnName, pos := lat.Info.Get(cs.Color)
+				if fnName == f.FnName && bbid == f.BasicBlockId {
+					fmt.Printf(
+						"   %v + %v {\n        rank: %v, gid: %v, group-size: %v\n        score: %v,\n        fn: %v (%d),\n        pos: %v\n    }\n",
+						methodName, scoreName,
+						float64(sum)+float64(len(group))/2, gid, len(group),
+						cs.Score,
+						fnName,
+						bbid,
+						pos,
+					)
+					r := &RankListEvalResult{
+						MethodName:     methodName,
+						ScoreName:      scoreName,
+						RankScore:      float64(sum) + float64(len(group))/2,
+						Suspiciousness: cs.Score,
+						LocalizedFault: f,
+						Loc: &mine.Location{
+							Color:        cs.Color,
+							BasicBlockId: bbid,
+							FnName:       fnName,
+							Position:     pos,
+						},
+					}
+					results = append(results, r)
+				}
+			}
+			sum += len(group)
+		}
+	}
+	return results
+}
+
+func MarkovEval(faults []*mine.Fault, lat *lattice.Lattice, methodName, scoreName, chainName string, colorStates map[int][]int, P [][]float64) (results EvalResults) {
 	group := func(order []int, scores map[int]float64) [][]int {
 		sort.Slice(order, func(i, j int) bool {
 			return scores[order[i]] < scores[order[j]]
@@ -190,18 +255,20 @@ func MarkovEval(faults []*Fault, lat *lattice.Lattice, name string, colorStates 
 			b, fn, pos := lat.Info.Get(color)
 			if fn == f.FnName && b == f.BasicBlockId {
 				fmt.Printf(
-					"    markov-eval %v {\n        rank: %v,\n        hitting time: %v,\n        fn: %v (%d),\n        pos: %v\n    }\n",
-					name,
+					"    %v + %v + Markov%v {\n        rank: %v,\n        hitting time: %v,\n        fn: %v (%d),\n        pos: %v\n    }\n",
+					methodName, scoreName, chainName,
 					ranks[color],
 					score,
 					fn, b, pos,
 				)
 				r := &MarkovEvalResult{
-					ScoreName:   name,
+					MethodName:  methodName,
+					ScoreName:   scoreName,
+					ChainName:   chainName,
 					HT_Rank:     ranks[color],
 					HittingTime: score,
 					fault:       f,
-					loc: &Location{
+					loc: &mine.Location{
 						Color:        color,
 						BasicBlockId: b,
 						FnName:       fn,
@@ -216,8 +283,38 @@ func MarkovEval(faults []*Fault, lat *lattice.Lattice, name string, colorStates 
 	return results
 }
 
-func RankListMarkovChain(max int, m *Miner) (blockStates map[int][]int, P [][]float64) {
-	groups := LocalizeNodes(m.Score).Group()
+func DiscfloMarkovChain(jumpPr float64, max int, o *discflo.Options, score mine.ScoreFunc) (blockStates map[int][]int, P [][]float64, err error) {
+	opts := o.Copy()
+	opts.Score = score
+	localizer := models.Localize(opts)
+	clusters, err := localizer.Clusters()
+	if err != nil {
+		return nil, nil, err
+	}
+	groups := clusters.Blocks().Group()
+	neighbors := make(map[int]map[int]bool)
+	colors := make([][]int, 0, len(groups))
+	for _, group := range groups {
+		colorGroup := make([]int, 0, len(group))
+		for _, block := range group {
+			colorGroup = append(colorGroup, block.Color)
+			neighbors[block.Color] = make(map[int]bool)
+			for _, cluster := range block.In {
+				for _, n := range cluster.Nodes {
+					for _, v := range n.Node.SubGraph.V {
+						neighbors[block.Color][v.Color] = true
+					}
+				}
+			}
+		}
+		colors = append(colors, colorGroup)
+	}
+	blockStates, P = RankListWithJumpsMarkovChain(max, colors, jumpPr, neighbors)
+	return blockStates, P, nil
+}
+
+func RankListMarkovChain(max int, m *mine.Miner) (blockStates map[int][]int, P [][]float64) {
+	groups := mine.LocalizeNodes(m.Score).Group()
 	colors := make([][]int, 0, len(groups))
 	jumps := make(map[int]map[int]bool)
 	for _, group := range groups {
@@ -313,8 +410,8 @@ func RankListWithJumpsMarkovChain(max int, groups [][]int, prJump float64, jumps
 	return blockStates, P
 }
 
-func BehavioralJumps(jumpPr float64, max int, m *Miner) (blockStates map[int][]int, P [][]float64) {
-	groups := LocalizeNodes(m.Score).Group()
+func BehavioralJumps(jumpPr float64, max int, m *mine.Miner) (blockStates map[int][]int, P [][]float64) {
+	groups := mine.LocalizeNodes(m.Score).Group()
 	colors := make([][]int, 0, len(groups))
 	jumps := make(map[int]map[int]bool)
 	for _, group := range groups {
@@ -338,8 +435,8 @@ func BehavioralJumps(jumpPr float64, max int, m *Miner) (blockStates map[int][]i
 	return RankListWithJumpsMarkovChain(max, colors, jumpPr, jumps)
 }
 
-func SpacialJumps(jumpPr float64, max int, m *Miner) (blockStates map[int][]int, P [][]float64) {
-	groups := LocalizeNodes(m.Score).Group()
+func SpacialJumps(jumpPr float64, max int, m *mine.Miner) (blockStates map[int][]int, P [][]float64) {
+	groups := mine.LocalizeNodes(m.Score).Group()
 	colors := make([][]int, 0, len(groups))
 	jumps := make(map[int]map[int]bool)
 	fnBlks := make(map[string][]int)
@@ -368,8 +465,8 @@ func SpacialJumps(jumpPr float64, max int, m *Miner) (blockStates map[int][]int,
 	return RankListWithJumpsMarkovChain(max, colors, jumpPr, jumps)
 }
 
-func BehavioralAndSpacialJumps(jumpPr float64, max int, m *Miner) (blockStates map[int][]int, P [][]float64) {
-	groups := LocalizeNodes(m.Score).Group()
+func BehavioralAndSpacialJumps(jumpPr float64, max int, m *mine.Miner) (blockStates map[int][]int, P [][]float64) {
+	groups := mine.LocalizeNodes(m.Score).Group()
 	colors := make([][]int, 0, len(groups))
 	jumps := make(map[int]map[int]bool)
 	fnBlks := make(map[string][]int)
@@ -406,8 +503,8 @@ func BehavioralAndSpacialJumps(jumpPr float64, max int, m *Miner) (blockStates m
 	return RankListWithJumpsMarkovChain(max, colors, jumpPr, jumps)
 }
 
-func DsgMarkovChain(max int, m *Miner) (blockStates map[int][]int, P [][]float64) {
-	groups := m.Mine().group()
+func DsgMarkovChain(max int, m *mine.Miner) (blockStates map[int][]int, P [][]float64) {
+	groups := m.Mine().Group()
 	type graph struct {
 		gid int
 		nid int

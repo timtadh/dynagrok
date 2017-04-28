@@ -1,10 +1,11 @@
 package mine
 
 import (
-	"github.com/timtadh/data-structures/errors"
-)
+	"fmt"
+	"sort"
+	"strings"
 
-import (
+	"github.com/timtadh/data-structures/errors"
 	"github.com/timtadh/dynagrok/localize/lattice"
 )
 
@@ -128,4 +129,55 @@ func LocalizeNodes(score *Score) ScoredLocations {
 	}
 	result.Sort()
 	return result
+}
+
+type Location struct {
+	Color        int
+	Position     string
+	FnName       string
+	BasicBlockId int
+}
+
+type ScoredLocation struct {
+	Location
+	Score float64
+}
+
+type ScoredLocations []*ScoredLocation
+
+func (l *Location) String() string {
+	return fmt.Sprintf("%v, %v, %v", l.Position, l.FnName, l.BasicBlockId)
+}
+
+func (l *ScoredLocation) String() string {
+	return fmt.Sprintf("%v, %v", l.Location.String(), l.Score)
+}
+
+func (r ScoredLocations) String() string {
+	parts := make([]string, 0, len(r))
+	for _, l := range r {
+		parts = append(parts, l.String())
+	}
+	return strings.Join(parts, "\n")
+}
+
+func (r ScoredLocations) Group() []ScoredLocations {
+	r.Sort()
+	groups := make([]ScoredLocations, 0, 10)
+	for _, n := range r {
+		lg := len(groups)
+		if lg > 0 && n.Score == groups[lg-1][0].Score {
+			groups[lg-1] = append(groups[lg-1], n)
+		} else {
+			groups = append(groups, make([]*ScoredLocation, 0, 10))
+			groups[lg] = append(groups[lg], n)
+		}
+	}
+	return groups
+}
+
+func (r ScoredLocations) Sort() {
+	sort.SliceStable(r, func(i, j int) bool {
+		return r[i].Score > r[j].Score
+	})
 }
