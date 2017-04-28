@@ -9,24 +9,6 @@ const (
 	JSONField = "JSONType"
 )
 
-func SerializeWtihType(v Value, typename string) ([]byte, error) {
-	bs, err := json.Marshal(v)
-	var typeMessage json.RawMessage
-	typeMessage, _ = json.Marshal(typename)
-	if err != nil {
-		panic("problem with json")
-	}
-	var object map[string]*json.RawMessage
-	json.Unmarshal(bs, &object)
-	object[JSONField] = &typeMessage
-	bs, err = json.Marshal(v)
-	return bs, err
-}
-
-//func (i *IntValue) MarshalJSON() ([]byte, error) {
-//	return SerializeWtihType(i, "IntValue")
-//}
-
 type paramPart struct {
 	Name string
 	Val  json.RawMessage
@@ -51,6 +33,9 @@ func valueFromRaw(raw *json.RawMessage) (Value, error) {
 	//fmt.Printf("RawMessage: %v\n", string(*raw))
 	// Put the raw Val into an object map
 	// and check if it has a field indicating its concrete type
+	if raw == nil {
+		return nil, nil
+	}
 	var valMap map[string]*json.RawMessage
 	json.Unmarshal(*raw, &valMap)
 	typeMessage, ok := valMap[JSONField]
@@ -65,7 +50,6 @@ func valueFromRaw(raw *json.RawMessage) (Value, error) {
 	case "IntValue":
 		var i IntValue
 		err = json.Unmarshal(*raw, &i)
-		//fmt.Printf("Unmarshaled %v\n", i)
 		return &i, err
 	case "StructValue":
 		var s StructValue
@@ -78,16 +62,13 @@ func valueFromRaw(raw *json.RawMessage) (Value, error) {
 		for i := range rawfields {
 			fields[i].Name = rawfields[i].Name
 			fields[i].Val, err = valueFromRaw(&rawfields[i].Val)
-			//fmt.Printf("Unmarshaled field %v\n", fields[i])
 		}
 		s.TypName = name
 		s.Fields = fields
-		//fmt.Printf("Unmarshaled struct %v\n", s)
 		return &s, err
 	case "StringValue":
 		var s StringValue
 		err = json.Unmarshal(*raw, &s)
-		//fmt.Printf("Unmarshaled %v\n", s)
 		return &s, err
 	case "BoolValue":
 		var s BoolValue
@@ -112,6 +93,7 @@ func valueFromRaw(raw *json.RawMessage) (Value, error) {
 		return &a, err
 
 	default:
-		return nil, nil
+		fmt.Printf("Unrecognized JSON type %s", typeName)
+		return nil, error(fmt.Errorf("Unrecognized JSON type %s", typeName))
 	}
 }
