@@ -140,7 +140,7 @@ for ((MUTANT=1;MUTANT<=$COUNT;MUTANT++)); do
 		echo "mutated compiler compiled hello world!"
 		run touch $MUTANTS/m$MUTANT/good
 		OKS=$MUTANTS/m$MUTANT/oks
-		FAILS=$MUTANTS/m$MUTANT/failed
+		FAILS=$MUTANTS/m$MUTANT/fails
 		run mkdir -p $OKS/tests
 		run mkdir -p $FAILS/tests $FAILS/failures
 		t=$((0))
@@ -148,8 +148,10 @@ for ((MUTANT=1;MUTANT<=$COUNT;MUTANT++)); do
 			echo "running test $t $path"
 			export DGPROF=$MUTANTS/m$MUTANT/tests/$t
 			run mkdir -p $DGPROF
-			run $COMPILER -o /dev/null $path
-			if [[ -f $DGPROF/failures ]]; then
+			run timeout 1s $COMPILER -o /dev/null $path
+			if [[ $? -eq 124 ]]; then
+				echo "skipping test it timed out"
+			elif [[ -f $DGPROF/failures ]]; then
 				run cp $path $FAILS/tests/
 				run cp $DGPROF/failures $FAILS/failures/$t
 			else
