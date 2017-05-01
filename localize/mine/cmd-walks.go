@@ -103,7 +103,7 @@ Option Flags
 			}
 			// o.Miner = WalkingTopColors(wo.walker, opts...)
 			o.Miner = ParTopColors(wo.walker, opts...)
-			o.MinerName += fmt.Sprintf(" walk-top-colors %v,%v", percent, walks)
+			o.MinerName += fmt.Sprintf(" walk-top-colors %v:%v", percent, walks)
 			return args, nil
 		})
 }

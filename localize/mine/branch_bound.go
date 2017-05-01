@@ -19,11 +19,11 @@ type branchBound struct {
 	maximal bool
 }
 
-func BranchAndBound(k int, debug bool) TopMiner {
+func BranchAndBound(k int, maximal, debug bool) TopMiner {
 	return &branchBound{
 		k:       k,
+		maximal: maximal,
 		debug:   debug,
-		maximal: false,
 	}
 }
 
@@ -61,6 +61,7 @@ func (b *branchBound) MineFrom(m *Miner, start *SearchNode) SearchNodes {
 		if b.maximal {
 			hadKid := false
 			scored := filterKids(m.MinFails, m, cur.Score, kids)
+			// scored := scoreKids(m.MinFails, m, kids)
 			for _, kid := range scored {
 				klabel := string(kid.Node.SubGraph.Label())
 				if best.Size() < b.k || m.Score.Max(kid.Node) >= best.Peek().(*SearchNode).Score {

@@ -6,16 +6,18 @@ import (
 )
 
 type leap struct {
-	k     int
-	sigma float64
-	debug int
+	k       int
+	sigma   float64
+	debug   int
+	maximal bool
 }
 
-func LEAP(k int, sigma float64, debug int) TopMiner {
+func LEAP(k int, sigma float64, maximal bool, debug int) TopMiner {
 	l := &leap{
-		k:     k,
-		sigma: sigma,
-		debug: debug,
+		k:       k,
+		sigma:   sigma,
+		debug:   debug,
+		maximal: maximal,
 	}
 	return l
 }
@@ -42,7 +44,7 @@ func (l *leap) MineFrom(m *Miner, start *SearchNode) SearchNodes {
 		return sum
 	}
 	p := 1.0
-	max := newSLeap(l.k, l.sigma, sup(p), SLeapDebug(l.debug)).mineFrom(m, start)
+	max := newSLeap(l.k, l.sigma, sup(p), SLeapMaximal(l.maximal), SLeapDebug(l.debug-1)).mineFrom(m, start)
 	// max := WalkingTopColors(
 	// 	ScoreWeightedRandomWalk(),
 	// 	PercentOfColors(1), WalksPerColor(10))(m).Slice()
@@ -51,22 +53,22 @@ func (l *leap) MineFrom(m *Miner, start *SearchNode) SearchNodes {
 	// }
 	prev := -1000.0
 	cur := sum(max)
-	if true {
+	if l.debug > 0 {
 		for sup(p) > m.MinFails && abs(cur-prev) > .01 {
 			if true && len(max) > 0 {
 				errors.Logf("DEBUG", "cur %v %v (%v - %v) |%v - %v| = %v", sup(p), len(max), max[0].Score, max[len(max)-1].Score, prev, cur, abs(prev-cur))
 			}
 			p /= 2
-			max = newSLeap(l.k, l.sigma, sup(p), startMax(max)).mineFrom(m, start)
+			max = newSLeap(l.k, l.sigma, sup(p), SLeapMaximal(l.maximal), SLeapDebug(l.debug-1), startMax(max)).mineFrom(m, start)
 			prev = cur
 			cur = sum(max)
 		}
 	}
-	if true && len(max) > 0 {
+	if l.debug > 0 && len(max) > 0 {
 		errors.Logf("DEBUG", "(done) cur %v %v (%v - %v) |%v - %v| = %v", sup(p), len(max), max[0].Score, max[len(max)-1].Score, prev, cur, abs(prev-cur))
 	}
-	max = newSLeap(l.k, 0, m.MinFails, startMax(max)).mineFrom(m, start)
-	if true && len(max) > 0 {
+	max = newSLeap(l.k, 0, m.MinFails, SLeapMaximal(l.maximal), SLeapDebug(l.debug-1), startMax(max)).mineFrom(m, start)
+	if l.debug > 0 && len(max) > 0 {
 		errors.Logf("DEBUG", "(final) cur %v %v (%v - %v) |%v - %v| = %v", sup(p), len(max), max[0].Score, max[len(max)-1].Score, prev, cur, abs(prev-cur))
 	}
 	return SliceToNodes(max)
@@ -78,6 +80,7 @@ type sLeap struct {
 	minFailSup int
 	startMax   []*SearchNode
 	debug      int
+	maximal    bool
 }
 
 type sLeapOpt func(*sLeap)
@@ -91,6 +94,12 @@ func startMax(max []*SearchNode) sLeapOpt {
 func SLeapDebug(debug int) sLeapOpt {
 	return func(l *sLeap) {
 		l.debug = debug
+	}
+}
+
+func SLeapMaximal(maximal bool) sLeapOpt {
+	return func(l *sLeap) {
+		l.maximal = maximal
 	}
 }
 
@@ -155,7 +164,12 @@ mainLoop:
 		if err != nil {
 			panic(err)
 		}
-		filteredKids := filterKids(minFailSup, m, cur.Score, kids)
+		var filteredKids []*SearchNode
+		if l.maximal {
+			filteredKids = filterKids(minFailSup, m, cur.Score, kids)
+		} else {
+			filteredKids = scoreKids(minFailSup, m, kids)
+		}
 		for _, kid := range filteredKids {
 			klabel := string(kid.Node.SubGraph.Label())
 			if seen[klabel] {
@@ -175,18 +189,32 @@ mainLoop:
 				}
 			}
 		}
-		hadKid := false
-		for _, kid := range filteredKids {
-			klabel := string(kid.Node.SubGraph.Label())
-			if best.Size() < l.k || m.Score.Max(kid.Node) > best.Peek().(*SearchNode).Score {
-				hadKid = true
-				if !seen[klabel] {
-					queue.Push(priority(kid))
+		if l.maximal {
+			hadKid := false
+			for _, kid := range filteredKids {
+				klabel := string(kid.Node.SubGraph.Label())
+				if best.Size() < l.k || m.Score.Max(kid.Node) > best.Peek().(*SearchNode).Score {
+					hadKid = true
+					if !seen[klabel] {
+						queue.Push(priority(kid))
+					}
 				}
 			}
-		}
-		if !hadKid && cur.Node.SubGraph != nil && len(cur.Node.SubGraph.E) >= m.MinEdges {
-			checkMax(best, l.k, cur)
+			if !hadKid && cur.Node.SubGraph != nil && len(cur.Node.SubGraph.E) >= m.MinEdges {
+				checkMax(best, l.k, cur)
+			}
+		} else {
+			for _, kid := range filteredKids {
+				klabel := string(kid.Node.SubGraph.Label())
+				if best.Size() < l.k || m.Score.Max(kid.Node) > best.Peek().(*SearchNode).Score {
+					if !seen[klabel] {
+						queue.Push(priority(kid))
+					}
+				}
+			}
+			if cur.Node.SubGraph != nil && len(cur.Node.SubGraph.E) >= m.MinEdges {
+				checkMax(best, l.k, cur)
+			}
 		}
 	}
 	return pqToSlice(best)
