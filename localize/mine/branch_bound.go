@@ -1,15 +1,11 @@
 package mine
 
 import (
+	"context"
 	"math/rand"
-)
 
-import (
 	"github.com/timtadh/data-structures/errors"
 	"github.com/timtadh/data-structures/heap"
-)
-
-import (
 	"github.com/timtadh/dynagrok/localize/lattice"
 )
 
@@ -27,16 +23,19 @@ func BranchAndBound(k int, maximal, debug bool) TopMiner {
 	}
 }
 
-func (b *branchBound) Mine(m *Miner) SearchNodes {
-	return b.MineFrom(m, RootNode(m.Lattice))
+func (b *branchBound) Mine(ctx context.Context, m *Miner) SearchNodes {
+	return b.MineFrom(ctx, m, RootNode(m.Lattice))
 }
 
-func (b *branchBound) MineFrom(m *Miner, start *SearchNode) SearchNodes {
+func (b *branchBound) MineFrom(ctx context.Context, m *Miner, start *SearchNode) SearchNodes {
 	best := heap.NewMinHeap(b.k)
 	queue := heap.NewMaxHeap(m.MaxEdges * 2)
 	queue.Push(priority(start))
 	seen := make(map[string]bool)
 	for queue.Size() > 0 {
+		if ctx.Err() != nil {
+			break
+		}
 		var cur *SearchNode
 		cur = queue.Pop().(*SearchNode)
 		var label string

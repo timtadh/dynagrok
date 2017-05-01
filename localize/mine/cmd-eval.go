@@ -17,17 +17,13 @@ package mine
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
-)
 
-import (
-	"github.com/timtadh/getopt"
-)
-
-import (
 	"github.com/timtadh/dynagrok/cmd"
 	"github.com/timtadh/dynagrok/mutate"
+	"github.com/timtadh/getopt"
 )
 
 func NewEvalParser(c *cmd.Config, o *Options) cmd.Runnable {
@@ -64,7 +60,7 @@ Option Flags
 				fmt.Println(f)
 			}
 			eval := func(name string, m *Miner) {
-				localized := m.Mine().Group()
+				localized := m.Mine(context.TODO()).Group()
 				for _, f := range faults {
 					sum := 0
 					for gid, group := range localized {

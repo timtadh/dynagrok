@@ -1,11 +1,10 @@
 package mine
 
 import (
+	"context"
 	"runtime"
 	"sync"
-)
 
-import (
 	"github.com/timtadh/data-structures/errors"
 )
 
@@ -16,12 +15,12 @@ type Walker interface {
 }
 
 func Walking(walker Walker, walks int) MinerFunc {
-	return func(m *Miner) SearchNodes {
-		return WalksToNodes(m, walker.Walk, walks)
+	return func(ctx context.Context, m *Miner) SearchNodes {
+		return WalksToNodes(ctx, m, walker.Walk, walks)
 	}
 }
 
-func WalksToNodes(m *Miner, walk Walk, walks int) (sni SearchNodes) {
+func WalksToNodes(ctx context.Context, m *Miner, walk Walk, walks int) (sni SearchNodes) {
 	i := 0
 	sni = func() (*SearchNode, SearchNodes) {
 		if i >= walks {
@@ -29,6 +28,9 @@ func WalksToNodes(m *Miner, walk Walk, walks int) (sni SearchNodes) {
 		}
 		var n *SearchNode
 		for i < walks {
+			if ctx.Err() != nil {
+				return nil, nil
+			}
 			n = walk(m)
 			i++
 			if n.Node != nil && n.Node.SubGraph != nil && len(n.Node.SubGraph.E) >= m.MinEdges {
@@ -94,7 +96,7 @@ func WalkingTopColors(walker Walker, opts ...TopColorOpt) MinerFunc {
 	for _, opt := range opts {
 		opt(o)
 	}
-	return func(m *Miner) (sni SearchNodes) {
+	return func(ctx context.Context, m *Miner) (sni SearchNodes) {
 		locations := LocalizeNodes(m.Score)
 		total := int(o.percentOfColors * float64(len(locations)))
 		if total < 10 {
@@ -113,6 +115,12 @@ func WalkingTopColors(walker Walker, opts ...TopColorOpt) MinerFunc {
 		w := 0
 		sni = func() (*SearchNode, SearchNodes) {
 		start:
+			if ctx.Err() != nil {
+				if o.debug >= 2 {
+					errors.Logf("DEBUG", "canceled %d/%v %d/%d %d/%d %d out of locations", groups, o.minGroups, i, total, w, o.walksPerColor, count)
+				}
+				return nil, nil
+			}
 			if w >= o.walksPerColor {
 				l := locations[i]
 				if prevScore-l.Score > .0001 {
@@ -183,7 +191,7 @@ func ParTopColors(walker Walker, opts ...TopColorOpt) MinerFunc {
 	for _, opt := range opts {
 		opt(o)
 	}
-	gen := func(m *Miner, wg *sync.WaitGroup, out chan<- int, nodes chan *SearchNode) {
+	gen := func(ctx context.Context, m *Miner, wg *sync.WaitGroup, out chan<- int, nodes chan *SearchNode) {
 		locations := LocalizeNodes(m.Score)
 		total := int(o.percentOfColors * float64(len(locations)))
 		if total < 10 {
@@ -194,13 +202,24 @@ func ParTopColors(walker Walker, opts ...TopColorOpt) MinerFunc {
 		}
 		prevScore := -1e27
 		groups := 0
+	outer:
 		for i := 0; i < len(locations) && (i < total || groups < o.minGroups); i++ {
 			l := locations[i]
 			for w := 0; w < o.walksPerColor; w++ {
+				if ctx.Err() != nil {
+					if o.debug >= 2 {
+						errors.Logf("DEBUG", "canceled (%d/%d) (%d/%d) (%d/%d) %d", groups, o.minGroups, i, total, w, o.walksPerColor, l.Color)
+					}
+					break outer
+				}
 				if o.debug >= 1 {
 					errors.Logf("DEBUG", "sending (%d/%d) (%d/%d) (%d/%d) %d", groups, o.minGroups, i, total, w, o.walksPerColor, l.Color)
 				}
-				out <- l.Color
+				select {
+				case out <- l.Color:
+				case <-ctx.Done():
+					break outer
+				}
 			}
 			if prevScore-l.Score > .0001 {
 				groups++
@@ -211,21 +230,24 @@ func ParTopColors(walker Walker, opts ...TopColorOpt) MinerFunc {
 		wg.Wait()
 		close(nodes)
 	}
-	work := func(m *Miner, wg *sync.WaitGroup, in <-chan int, out chan<- *SearchNode) {
+	work := func(ctx context.Context, m *Miner, wg *sync.WaitGroup, in <-chan int, out chan<- *SearchNode) {
 		for color := range in {
+			if ctx.Err() != nil {
+				break
+			}
 			out <- walker.WalkFromColor(m, color)
 		}
 		wg.Done()
 	}
-	return func(m *Miner) (sni SearchNodes) {
+	return func(ctx context.Context, m *Miner) (sni SearchNodes) {
 		var wg sync.WaitGroup
 		colors := make(chan int)
 		nodes := make(chan *SearchNode)
 		wg.Add(runtime.NumCPU())
 		for i := 0; i < runtime.NumCPU(); i++ {
-			go work(m, &wg, colors, nodes)
+			go work(ctx, m, &wg, colors, nodes)
 		}
-		go gen(m, &wg, colors, nodes)
+		go gen(ctx, m, &wg, colors, nodes)
 		added := make(map[string]bool)
 		count := 0
 		sni = func() (*SearchNode, SearchNodes) {

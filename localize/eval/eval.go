@@ -2,6 +2,7 @@ package eval
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -10,17 +11,12 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-)
 
-import (
-	"github.com/timtadh/matrix"
-)
-
-import (
 	"github.com/timtadh/dynagrok/localize/discflo"
 	"github.com/timtadh/dynagrok/localize/discflo/web/models"
 	"github.com/timtadh/dynagrok/localize/lattice"
 	"github.com/timtadh/dynagrok/localize/mine"
+	"github.com/timtadh/matrix"
 )
 
 var Chains = map[string][]string{
@@ -504,7 +500,7 @@ func BehavioralAndSpacialJumps(jumpPr float64, max int, m *mine.Miner) (blockSta
 }
 
 func DsgMarkovChain(max int, m *mine.Miner) (blockStates map[int][]int, P [][]float64) {
-	groups := m.Mine().Group()
+	groups := m.Mine(context.TODO()).Group()
 	type graph struct {
 		gid int
 		nid int

@@ -1,6 +1,7 @@
 package mine
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"os"
@@ -65,23 +66,32 @@ Compare a walk based method against leap, s-leap, or branch and bound.
 
 Option Flags
     -h,--help                         Show this message
+    -t,--time-out=<seconds>           Timeout for each algorithm (default 120 seconds)
     -f,--faults=<path>                Path to a fault file.
     -o,--output=<path>                Place to write CSV of evaluation
 `,
-			"o:f:",
+			"o:f:t:",
 			[]string{
 				"output=",
 				"faults=",
+				"time-out=",
 			},
 			func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
 				outputPath := ""
 				faultsPath := ""
+				timeout := 120 * time.Second
 				for _, oa := range optargs {
 					switch oa.Opt() {
 					case "-o", "--output":
 						outputPath = oa.Arg()
 					case "-f", "--faults":
 						faultsPath = oa.Arg()
+					case "-t", "--time-out":
+						t, err := time.ParseDuration(oa.Arg())
+						if err != nil {
+							return nil, cmd.Errorf(1, "For flag %v expected a duration got %v. err: %v", oa.Opt, oa.Arg(), err)
+						}
+						timeout = t
 					}
 				}
 				if faultsPath == "" {
@@ -123,8 +133,10 @@ Option Flags
 					return b
 				}
 				timeit := func(m *Miner) ([]*SearchNode, time.Duration) {
+					ctx, cancel := context.WithTimeout(context.Background(), timeout)
+					defer cancel()
 					s := time.Now()
-					nodes := m.Mine().Unique()
+					nodes := m.Mine(ctx).Unique()
 					e := time.Now()
 					return nodes, e.Sub(s)
 				}

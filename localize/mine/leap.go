@@ -1,6 +1,8 @@
 package mine
 
 import (
+	"context"
+
 	"github.com/timtadh/data-structures/errors"
 	"github.com/timtadh/data-structures/heap"
 )
@@ -22,11 +24,11 @@ func LEAP(k int, sigma float64, maximal bool, debug int) TopMiner {
 	return l
 }
 
-func (l *leap) Mine(m *Miner) SearchNodes {
-	return l.MineFrom(m, RootNode(m.Lattice))
+func (l *leap) Mine(ctx context.Context, m *Miner) SearchNodes {
+	return l.MineFrom(ctx, m, RootNode(m.Lattice))
 }
 
-func (l *leap) MineFrom(m *Miner, start *SearchNode) SearchNodes {
+func (l *leap) MineFrom(ctx context.Context, m *Miner, start *SearchNode) SearchNodes {
 	sup := func(p float64) int {
 		F := float64(m.Lattice.Fail.G.Graphs)
 		s := int(p * F)
@@ -44,7 +46,7 @@ func (l *leap) MineFrom(m *Miner, start *SearchNode) SearchNodes {
 		return sum
 	}
 	p := 1.0
-	max := newSLeap(l.k, l.sigma, sup(p), SLeapMaximal(l.maximal), SLeapDebug(l.debug-1)).mineFrom(m, start)
+	max := newSLeap(l.k, l.sigma, sup(p), SLeapMaximal(l.maximal), SLeapDebug(l.debug-1)).mineFrom(ctx, m, start)
 	// max := WalkingTopColors(
 	// 	ScoreWeightedRandomWalk(),
 	// 	PercentOfColors(1), WalksPerColor(10))(m).Slice()
@@ -55,19 +57,25 @@ func (l *leap) MineFrom(m *Miner, start *SearchNode) SearchNodes {
 	cur := sum(max)
 	if l.debug > 0 {
 		for sup(p) > m.MinFails && abs(cur-prev) > .01 {
+			if ctx.Err() != nil {
+				break
+			}
 			if true && len(max) > 0 {
 				errors.Logf("DEBUG", "cur %v %v (%v - %v) |%v - %v| = %v", sup(p), len(max), max[0].Score, max[len(max)-1].Score, prev, cur, abs(prev-cur))
 			}
 			p /= 2
-			max = newSLeap(l.k, l.sigma, sup(p), SLeapMaximal(l.maximal), SLeapDebug(l.debug-1), startMax(max)).mineFrom(m, start)
+			max = newSLeap(l.k, l.sigma, sup(p), SLeapMaximal(l.maximal), SLeapDebug(l.debug-1), startMax(max)).mineFrom(ctx, m, start)
 			prev = cur
 			cur = sum(max)
 		}
 	}
+	if ctx.Err() != nil {
+		return SliceToNodes(max)
+	}
 	if l.debug > 0 && len(max) > 0 {
 		errors.Logf("DEBUG", "(done) cur %v %v (%v - %v) |%v - %v| = %v", sup(p), len(max), max[0].Score, max[len(max)-1].Score, prev, cur, abs(prev-cur))
 	}
-	max = newSLeap(l.k, 0, m.MinFails, SLeapMaximal(l.maximal), SLeapDebug(l.debug-1), startMax(max)).mineFrom(m, start)
+	max = newSLeap(l.k, 0, m.MinFails, SLeapMaximal(l.maximal), SLeapDebug(l.debug-1), startMax(max)).mineFrom(ctx, m, start)
 	if l.debug > 0 && len(max) > 0 {
 		errors.Logf("DEBUG", "(final) cur %v %v (%v - %v) |%v - %v| = %v", sup(p), len(max), max[0].Score, max[len(max)-1].Score, prev, cur, abs(prev-cur))
 	}
@@ -119,15 +127,15 @@ func newSLeap(k int, sigma float64, minFailSup int, opts ...sLeapOpt) *sLeap {
 	return l
 }
 
-func (l *sLeap) Mine(m *Miner) SearchNodes {
-	return l.MineFrom(m, RootNode(m.Lattice))
+func (l *sLeap) Mine(ctx context.Context, m *Miner) SearchNodes {
+	return l.MineFrom(ctx, m, RootNode(m.Lattice))
 }
 
-func (l *sLeap) MineFrom(m *Miner, start *SearchNode) SearchNodes {
-	return SliceToNodes(l.mineFrom(m, start))
+func (l *sLeap) MineFrom(ctx context.Context, m *Miner, start *SearchNode) SearchNodes {
+	return SliceToNodes(l.mineFrom(ctx, m, start))
 }
 
-func (l *sLeap) mineFrom(m *Miner, start *SearchNode) []*SearchNode {
+func (l *sLeap) mineFrom(ctx context.Context, m *Miner, start *SearchNode) []*SearchNode {
 	minFailSup := l.minFailSup
 	if l.minFailSup < 0 {
 		minFailSup = m.MinFails
@@ -143,6 +151,9 @@ func (l *sLeap) mineFrom(m *Miner, start *SearchNode) []*SearchNode {
 	seen := make(map[string]bool)
 mainLoop:
 	for queue.Size() > 0 {
+		if ctx.Err() != nil {
+			break
+		}
 		var cur *SearchNode
 		cur = queue.Pop().(*SearchNode)
 		var label string

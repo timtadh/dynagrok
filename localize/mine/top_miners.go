@@ -1,6 +1,8 @@
 package mine
 
+import "context"
+
 type TopMiner interface {
-	Mine(*Miner) SearchNodes
-	MineFrom(*Miner, *SearchNode) SearchNodes
+	Mine(context.Context, *Miner) SearchNodes
+	MineFrom(context.Context, *Miner, *SearchNode) SearchNodes
 }
