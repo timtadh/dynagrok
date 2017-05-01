@@ -1,15 +1,11 @@
 package mine
 
 import (
+	"fmt"
 	"strconv"
-)
 
-import (
-	"github.com/timtadh/getopt"
-)
-
-import (
 	"github.com/timtadh/dynagrok/cmd"
+	"github.com/timtadh/getopt"
 )
 
 type walkOpts struct {
@@ -42,7 +38,7 @@ Option Flags
 				}
 			}
 			o.Miner = Walking(wo.walker, walks)
-			o.MinerName += " k-walks"
+			o.MinerName += fmt.Sprintf(" k-walks %v", walks)
 			return args, nil
 		})
 }
@@ -71,6 +67,8 @@ Option Flags
 		},
 		func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
 			opts := make([]TopColorOpt, 0, 10)
+			walks := 0
+			percent := 0.0
 			for _, oa := range optargs {
 				switch oa.Opt() {
 				case "-p", "--percent-of-colors":
@@ -79,12 +77,14 @@ Option Flags
 						return nil, cmd.Errorf(1, "Could not parse arg to `%v` expected an int (got %v). err: %v", oa.Opt(), oa.Arg(), err)
 					}
 					opts = append(opts, PercentOfColors(p))
+					percent = p
 				case "-w", "--walks-per-color":
 					w, err := strconv.Atoi(oa.Arg())
 					if err != nil {
 						return nil, cmd.Errorf(1, "Could not parse arg to `%v` expected an int (got %v). err: %v", oa.Opt(), oa.Arg(), err)
 					}
 					opts = append(opts, WalksPerColor(w))
+					walks = w
 				case "-m", "--min-groups-walked":
 					m, err := strconv.Atoi(oa.Arg())
 					if err != nil {
@@ -103,7 +103,7 @@ Option Flags
 			}
 			// o.Miner = WalkingTopColors(wo.walker, opts...)
 			o.Miner = ParTopColors(wo.walker, opts...)
-			o.MinerName += " walk-top-colors"
+			o.MinerName += fmt.Sprintf(" walk-top-colors %v,%v", percent, walks)
 			return args, nil
 		})
 }

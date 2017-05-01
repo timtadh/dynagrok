@@ -1,15 +1,11 @@
 package mine
 
 import (
+	"fmt"
 	"strconv"
-)
 
-import (
-	"github.com/timtadh/getopt"
-)
-
-import (
 	"github.com/timtadh/dynagrok/cmd"
+	"github.com/timtadh/getopt"
 )
 
 func NewSLeapParser(c *cmd.Config, o *Options) cmd.Runnable {
@@ -56,7 +52,7 @@ Option Flags
 				}
 			}
 			o.Miner = SLeap(topk, sigma, -1, SLeapDebug(debug)).Mine
-			o.MinerName = "sLeap"
+			o.MinerName = fmt.Sprintf("sLeap %v", sigma)
 			return args, nil
 		})
 }

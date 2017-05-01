@@ -14,14 +14,16 @@ import (
 )
 
 type branchBound struct {
-	k     int
-	debug bool
+	k       int
+	debug   bool
+	maximal bool
 }
 
 func BranchAndBound(k int, debug bool) TopMiner {
 	return &branchBound{
-		k:     k,
-		debug: debug,
+		k:       k,
+		debug:   debug,
+		maximal: false,
 	}
 }
 
@@ -56,19 +58,37 @@ func (b *branchBound) MineFrom(m *Miner, start *SearchNode) SearchNodes {
 		if err != nil {
 			panic(err)
 		}
-		hadKid := false
-		scored := filterKids(m.MinFails, m, cur.Score, kids)
-		for _, kid := range scored {
-			klabel := string(kid.Node.SubGraph.Label())
-			if best.Size() < b.k || m.Score.Max(kid.Node) > best.Peek().(*SearchNode).Score {
-				hadKid = true
-				if !seen[klabel] {
-					queue.Push(priority(kid))
+		if b.maximal {
+			hadKid := false
+			scored := filterKids(m.MinFails, m, cur.Score, kids)
+			for _, kid := range scored {
+				klabel := string(kid.Node.SubGraph.Label())
+				if best.Size() < b.k || m.Score.Max(kid.Node) >= best.Peek().(*SearchNode).Score {
+					hadKid = true
+					if !seen[klabel] {
+						queue.Push(priority(kid))
+					}
 				}
 			}
-		}
-		if !hadKid && cur.Node.SubGraph != nil && len(cur.Node.SubGraph.E) >= m.MinEdges {
-			checkMax(best, b.k, cur)
+			if !hadKid && cur.Node.SubGraph != nil && len(cur.Node.SubGraph.E) >= m.MinEdges {
+				checkMax(best, b.k, cur)
+			}
+		} else {
+			// hadKid := false
+			scored := scoreKids(m.MinFails, m, kids)
+			for _, kid := range scored {
+				klabel := string(kid.Node.SubGraph.Label())
+				if best.Size() < b.k || m.Score.Max(kid.Node) >= best.Peek().(*SearchNode).Score {
+					// hadKid = true
+					if !seen[klabel] {
+						queue.Push(priority(kid))
+					}
+				}
+			}
+			// if !hadKid && cur.Node.SubGraph != nil && len(cur.Node.SubGraph.E) >= m.MinEdges {
+			if cur.Node.SubGraph != nil && len(cur.Node.SubGraph.E) >= m.MinEdges {
+				checkMax(best, b.k, cur)
+			}
 		}
 	}
 	return SliceToNodes(pqToSlice(best))

@@ -1,15 +1,11 @@
 package mine
 
 import (
+	"fmt"
 	"strconv"
-)
 
-import (
-	"github.com/timtadh/getopt"
-)
-
-import (
 	"github.com/timtadh/dynagrok/cmd"
+	"github.com/timtadh/getopt"
 )
 
 func NewLeapParser(c *cmd.Config, o *Options) cmd.Runnable {
@@ -56,7 +52,7 @@ Option Flags
 				}
 			}
 			o.Miner = LEAP(topk, sigma, debug).Mine
-			o.MinerName += "LEAP"
+			o.MinerName += fmt.Sprintf("LEAP %v", sigma)
 			return args, nil
 		})
 }
