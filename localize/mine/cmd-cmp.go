@@ -14,10 +14,10 @@ import (
 
 // TODO(tim):
 //
-// Thread timeouts through all algorithms
+// Thread timeouts through all algorithms [done]
 // Provide FP-filtering analysis. (maybe????)
-// Provide Fault Localization Accuracy Report
-// Compare top-k, top-k maximal for branch-and-bound, sLeap, LEAP
+// Provide Fault Localization Accuracy Report [done]
+// Compare top-k, top-k maximal for branch-and-bound, sLeap, LEAP [done]
 
 func algorithmParser(c *cmd.Config) func(o *Options, args []string) (*Options, []string, *cmd.Error) {
 	var wo walkOpts
@@ -200,7 +200,7 @@ Option Flags
 					} else {
 						variance = (1 / float64(T)) * variance
 					}
-					if sum(X) >= sum(Y) {
+					if sum(X[:T]) >= sum(Y[:T]) {
 						return math.Sqrt(variance)
 					} else {
 						return -math.Sqrt(variance)
@@ -213,13 +213,11 @@ Option Flags
 
 				}
 				stats := func(maxEdges, minFails, row int, name string, minout int, base1, base2, nodes []*SearchNode, dur time.Duration) {
-					base1c := base1[:minout]
-					base2c := base2[:minout]
 					clamp := nodes[:minout]
 					fmt.Fprintf(ouf,
 						"%9v, %9v, %3v, %-30v, %12.5g, %12.5g, %12.5g, %12.5g, %12.5g, %12.5g, %12.5g, %12v\n",
 						maxEdges, minFails, row, name,
-						sum(clamp), mean(clamp), stddev(clamp), stderr(base1c, clamp), stderr(base2c, clamp), rankScore(nodes),
+						sum(clamp), mean(clamp), stddev(clamp), stderr(base1, nodes), stderr(base2, nodes), rankScore(nodes),
 						dur.Seconds(), dur)
 				}
 				output := func(name string, nodes []*SearchNode) {
