@@ -142,11 +142,12 @@ Option Flags
 					e := time.Now()
 					return nodes, e.Sub(s)
 				}
-				rankScore := func(nodes []*SearchNode) float64 {
+				rankScore := func(nodes []*SearchNode) (int, float64) {
+					gid := -1
 					min := -1.0
 					for _, f := range faults {
 						sum := 0.0
-						for _, g := range group(nodes) {
+						for i, g := range group(nodes) {
 							count := 0
 							for _, n := range g {
 								for _, v := range n.Node.SubGraph.V {
@@ -163,15 +164,16 @@ Option Flags
 								score := ((r + 1) / (b + 1)) + sum
 								if min <= 0 || score < min {
 									min = score
+									gid = i
 								}
 							}
 							sum += float64(len(g))
 						}
 					}
 					if min <= 0 {
-						return math.Inf(1)
+						return -1, math.Inf(1)
 					}
-					return min
+					return gid, min
 				}
 				sum := func(nodes []*SearchNode) float64 {
 					sum := 0.0
@@ -215,16 +217,17 @@ Option Flags
 				}
 				statsHeader := func() {
 					fmt.Fprintf(ouf,
-						"%9v, %9v, %3v, %-30v, %12v, %12v, %12v, %12v, %12v, %12v, %12v, %12v\n",
-						"max-edges", "min-fails", "row", "name", "sum", "mean", "stddev", "stderr (0)", "stderr (1)", "rank-score", "dur (sec)", "duration")
-
+						"%9v, %9v, %3v, %-27v, %10v, %10v, %10v, %11v, %11v, %11v, %11v, %11v, %11v\n",
+						"max-edges", "min-fails", "row", "name", "sum", "mean", "stddev", "stderr (0)", "stderr (1)",
+						"rank-group", "rank-score", "dur (sec)", "duration")
 				}
 				stats := func(maxEdges, minFails, row int, name string, minout int, base1, base2, nodes []*SearchNode, dur time.Duration) {
 					clamp := nodes[:minout]
+					gid, score := rankScore(nodes)
 					fmt.Fprintf(ouf,
-						"%9v, %9v, %3v, %-30v, %12.5g, %12.5g, %12.5g, %12.5g, %12.5g, %12.5g, %12.5g, %12v\n",
+						"%9v, %9v, %3v, %-27v, %10.5g, %10.5g, %10.5g, %11.5g, %11.5g, %11v, %11.5g, %11.5g, %11v\n",
 						maxEdges, minFails, row, name,
-						sum(clamp), mean(clamp), stddev(clamp), stderr(base1, nodes), stderr(base2, nodes), rankScore(nodes),
+						sum(clamp), mean(clamp), stddev(clamp), stderr(base1, nodes), stderr(base2, nodes), gid, score,
 						dur.Seconds(), dur)
 				}
 				output := func(name string, nodes []*SearchNode) {
