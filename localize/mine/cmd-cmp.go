@@ -161,7 +161,7 @@ Option Flags
 							if count > 0 {
 								r := float64(len(g) - count)
 								b := float64(count)
-								score := ((r + 1) / (b + 1)) + sum
+								score := ((b + r + 1) / (b + 1)) + sum
 								if min <= 0 || score < min {
 									min = score
 									gid = i
