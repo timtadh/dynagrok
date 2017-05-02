@@ -19,6 +19,8 @@ import (
 // Provide Fault Localization Accuracy Report [done]
 // Compare top-k, top-k maximal for branch-and-bound, sLeap, LEAP [done]
 
+// https://math.stackexchange.com/questions/75968/expectation-of-number-of-trials-before-success-in-an-urn-problem-without-replace
+
 func algorithmParser(c *cmd.Config) func(o *Options, args []string) (*Options, []string, *cmd.Error) {
 	var wo walkOpts
 	return func(o *Options, args []string) (*Options, []string, *cmd.Error) {
@@ -144,18 +146,23 @@ Option Flags
 					min := -1.0
 					for _, f := range faults {
 						sum := 0.0
-					groupLoop:
 						for _, g := range group(nodes) {
+							count := 0
 							for _, n := range g {
 								for _, v := range n.Node.SubGraph.V {
 									b, fn, _ := o.Lattice.Info.Get(v.Color)
 									if fn == f.FnName && b == f.BasicBlockId {
-										score := (float64(len(g)) / 2.0) + sum
-										if min <= 0 || score < min {
-											min = score
-										}
-										break groupLoop
+										count++
+										break
 									}
+								}
+							}
+							if count > 0 {
+								r := float64(len(g) - count)
+								b := float64(count)
+								score := ((r + 1) / (b + 1)) + sum
+								if min <= 0 || score < min {
+									min = score
 								}
 							}
 							sum += float64(len(g))
