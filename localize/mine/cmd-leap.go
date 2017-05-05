@@ -1,15 +1,11 @@
 package mine
 
 import (
+	"fmt"
 	"strconv"
-)
 
-import (
-	"github.com/timtadh/getopt"
-)
-
-import (
 	"github.com/timtadh/dynagrok/cmd"
+	"github.com/timtadh/getopt"
 )
 
 func NewLeapParser(c *cmd.Config, o *Options) cmd.Runnable {
@@ -21,6 +17,7 @@ Option Flags
     -h,--help                         Show this message
     -k,--top-k=<int>                  Number of graphs to find
     -s,--sigma=<int>                  The leap factor for leaping of sigma similar branches
+    --maximal                         Mine only Maximal suspicious subgraphs
     --debug=<int>                     Debug level
 `,
 		"k:s:",
@@ -28,13 +25,17 @@ Option Flags
 			"top-k=",
 			"sigma=",
 			"debug=",
+			"maximal",
 		},
 		func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
 			debug := 0
 			topk := 10
 			sigma := .01
+			maximal := false
 			for _, oa := range optargs {
 				switch oa.Opt() {
+				case "--maximal":
+					maximal = true
 				case "--debug":
 					d, err := strconv.Atoi(oa.Arg())
 					if err != nil {
@@ -55,8 +56,11 @@ Option Flags
 					sigma = s
 				}
 			}
-			o.Miner = LEAP(topk, sigma, debug).Mine
-			o.MinerName += "LEAP"
+			o.Miner = LEAP(topk, sigma, maximal, debug).Mine
+			o.MinerName += fmt.Sprintf("LEAP %v", sigma)
+			if maximal {
+				o.MinerName += " (maximal)"
+			}
 			return args, nil
 		})
 }

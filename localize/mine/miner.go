@@ -1,15 +1,14 @@
 package mine
 
 import (
+	"context"
 	"fmt"
-)
 
-import (
 	"github.com/timtadh/dynagrok/localize/lattice"
 )
 
 type Walk func(*Miner) *SearchNode
-type MinerFunc func(*Miner) SearchNodes
+type MinerFunc func(context.Context, *Miner) SearchNodes
 
 type Miner struct {
 	MinerConfig
@@ -35,8 +34,8 @@ func NewMiner(mf MinerFunc, lat *lattice.Lattice, sf ScoreFunc, opts ...MinerOpt
 	return m
 }
 
-func (m *Miner) Mine() SearchNodes {
-	return m.Miner(m)
+func (m *Miner) Mine(ctx context.Context) SearchNodes {
+	return m.Miner(ctx, m)
 }
 
 type MinerConfig struct {

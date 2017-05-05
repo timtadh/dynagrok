@@ -25,7 +25,7 @@ Evaluate a fault localization method from ground truth
 
 Option Flags
     -h,--help                         Show this message
-    -o,output=<path>                  Place to write CSV of evaluation
+    -o,--output=<path>                Place to write CSV of evaluation
     -f,--faults=<path>                Path to a fault file.
     --max=<int>                       Maximum number of states in the chain
     -j,--jump-prs=<float64>           Probability of taking jumps in chains which have them

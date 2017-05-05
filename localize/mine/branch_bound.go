@@ -1,40 +1,41 @@
 package mine
 
 import (
+	"context"
 	"math/rand"
-)
 
-import (
 	"github.com/timtadh/data-structures/errors"
 	"github.com/timtadh/data-structures/heap"
-)
-
-import (
 	"github.com/timtadh/dynagrok/localize/lattice"
 )
 
 type branchBound struct {
-	k     int
-	debug bool
+	k       int
+	debug   bool
+	maximal bool
 }
 
-func BranchAndBound(k int, debug bool) TopMiner {
+func BranchAndBound(k int, maximal, debug bool) TopMiner {
 	return &branchBound{
-		k:     k,
-		debug: debug,
+		k:       k,
+		maximal: maximal,
+		debug:   debug,
 	}
 }
 
-func (b *branchBound) Mine(m *Miner) SearchNodes {
-	return b.MineFrom(m, RootNode(m.Lattice))
+func (b *branchBound) Mine(ctx context.Context, m *Miner) SearchNodes {
+	return b.MineFrom(ctx, m, RootNode(m.Lattice))
 }
 
-func (b *branchBound) MineFrom(m *Miner, start *SearchNode) SearchNodes {
+func (b *branchBound) MineFrom(ctx context.Context, m *Miner, start *SearchNode) SearchNodes {
 	best := heap.NewMinHeap(b.k)
 	queue := heap.NewMaxHeap(m.MaxEdges * 2)
 	queue.Push(priority(start))
 	seen := make(map[string]bool)
 	for queue.Size() > 0 {
+		if ctx.Err() != nil {
+			break
+		}
 		var cur *SearchNode
 		cur = queue.Pop().(*SearchNode)
 		var label string
@@ -56,19 +57,38 @@ func (b *branchBound) MineFrom(m *Miner, start *SearchNode) SearchNodes {
 		if err != nil {
 			panic(err)
 		}
-		hadKid := false
-		scored := filterKids(m.MinFails, m, cur.Score, kids)
-		for _, kid := range scored {
-			klabel := string(kid.Node.SubGraph.Label())
-			if best.Size() < b.k || m.Score.Max(kid.Node) > best.Peek().(*SearchNode).Score {
-				hadKid = true
-				if !seen[klabel] {
-					queue.Push(priority(kid))
+		if b.maximal {
+			hadKid := false
+			scored := filterKids(m.MinFails, m, cur.Score, kids)
+			// scored := scoreKids(m.MinFails, m, kids)
+			for _, kid := range scored {
+				klabel := string(kid.Node.SubGraph.Label())
+				if best.Size() < b.k || m.Score.Max(kid.Node) >= best.Peek().(*SearchNode).Score {
+					hadKid = true
+					if !seen[klabel] {
+						queue.Push(priority(kid))
+					}
 				}
 			}
-		}
-		if !hadKid && cur.Node.SubGraph != nil && len(cur.Node.SubGraph.E) >= m.MinEdges {
-			checkMax(best, b.k, cur)
+			if !hadKid && cur.Node.SubGraph != nil && len(cur.Node.SubGraph.E) >= m.MinEdges {
+				checkMax(best, b.k, cur)
+			}
+		} else {
+			// hadKid := false
+			scored := scoreKids(m.MinFails, m, kids)
+			for _, kid := range scored {
+				klabel := string(kid.Node.SubGraph.Label())
+				if best.Size() < b.k || m.Score.Max(kid.Node) >= best.Peek().(*SearchNode).Score {
+					// hadKid = true
+					if !seen[klabel] {
+						queue.Push(priority(kid))
+					}
+				}
+			}
+			// if !hadKid && cur.Node.SubGraph != nil && len(cur.Node.SubGraph.E) >= m.MinEdges {
+			if cur.Node.SubGraph != nil && len(cur.Node.SubGraph.E) >= m.MinEdges {
+				checkMax(best, b.k, cur)
+			}
 		}
 	}
 	return SliceToNodes(pqToSlice(best))

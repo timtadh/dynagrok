@@ -2,6 +2,7 @@ package mine
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -9,17 +10,12 @@ import (
 	"strconv"
 	"strings"
 	"time"
-)
 
-import (
 	"github.com/timtadh/data-structures/errors"
-	"github.com/timtadh/getopt"
-)
-
-import (
 	"github.com/timtadh/dynagrok/cmd"
 	"github.com/timtadh/dynagrok/localize/lattice"
 	"github.com/timtadh/dynagrok/localize/test"
+	"github.com/timtadh/getopt"
 )
 
 var Notes string = `
@@ -85,7 +81,7 @@ func NewRunner(c *cmd.Config, o *Options) cmd.Runnable {
 			subgraphs := make([]*SearchNode, 0, 10)
 			added := make(map[string]bool)
 			miner := NewMiner(o.Miner, o.Lattice, o.Score, o.Opts...)
-			for n, next := miner.Mine()(); next != nil; n, next = next() {
+			for n, next := miner.Mine(context.TODO())(); next != nil; n, next = next() {
 				if n.Node.SubGraph == nil {
 					continue
 				}

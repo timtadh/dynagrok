@@ -1,17 +1,13 @@
 package discflo
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"sort"
 	"strings"
-)
 
-import (
 	"github.com/timtadh/data-structures/errors"
-)
-
-import (
 	"github.com/timtadh/dynagrok/localize/lattice/subgraph"
 	"github.com/timtadh/dynagrok/localize/mine"
 	"github.com/timtadh/dynagrok/localize/test"
@@ -107,7 +103,7 @@ func (d *discflo) localize() (Clusters, error) {
 	added := make(map[string]bool)
 	db := NewDbScan(d.epsilon)
 	i := 0
-	for n, next := d.miner.Mine()(); next != nil; n, next = next() {
+	for n, next := d.miner.Mine(context.TODO())(); next != nil; n, next = next() {
 		if n.Node.SubGraph == nil {
 			continue
 		}

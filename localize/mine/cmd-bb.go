@@ -20,20 +20,25 @@ func NewBranchAndBoundParser(c *cmd.Config, o *Options) cmd.Runnable {
 Option Flags
     -h,--help                         Show this message
     -k,--top-k=<int>                  Number of graphs to find
+    --maximal                         Mine only Maximal suspicious subgraphs
     --debug                           Turn on debug prints
 `,
 		"k:",
 		[]string{
 			"top-k=",
 			"debug",
+			"maximal",
 		},
 		func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
 			debug := false
+			maximal := false
 			topk := 10
 			for _, oa := range optargs {
 				switch oa.Opt() {
 				case "--debug":
 					debug = true
+				case "--maximal":
+					maximal = true
 				case "-k", "--top-k":
 					k, err := strconv.Atoi(oa.Arg())
 					if err != nil {
@@ -42,8 +47,11 @@ Option Flags
 					topk = k
 				}
 			}
-			o.Miner = BranchAndBound(topk, debug).Mine
+			o.Miner = BranchAndBound(topk, maximal, debug).Mine
 			o.MinerName += "branch-and-bound"
+			if maximal {
+				o.MinerName += " (maximal)"
+			}
 			return args, nil
 		})
 }

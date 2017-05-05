@@ -1,45 +1,64 @@
 package mine
 
 import (
+	"context"
 	"fmt"
 	"math"
+	"os"
 	"sort"
 	"time"
-)
 
-import (
+	"github.com/timtadh/dynagrok/cmd"
 	"github.com/timtadh/getopt"
 )
 
-import (
-	"github.com/timtadh/dynagrok/cmd"
-)
+// TODO(tim):
+//
+// Thread timeouts through all algorithms [done]
+// Provide FP-filtering analysis. (maybe????)
+// Provide Fault Localization Accuracy Report [done]
+// Compare top-k, top-k maximal for branch-and-bound, sLeap, LEAP [done]
+
+// https://math.stackexchange.com/questions/75968/expectation-of-number-of-trials-before-success-in-an-urn-problem-without-replace
+
+func algorithmParser(c *cmd.Config) func(o *Options, args []string) (*Options, []string, *cmd.Error) {
+	var wo walkOpts
+	return func(o *Options, args []string) (*Options, []string, *cmd.Error) {
+		bb := NewBranchAndBoundParser(c, o)
+		sleap := NewSLeapParser(c, o)
+		leap := NewLeapParser(c, o)
+		urw := NewURWParser(c, o, &wo)
+		swrw := NewSWRWParser(c, o, &wo)
+		walks := NewWalksParser(c, o, &wo)
+		topColors := NewWalkTopColorsParser(c, o, &wo)
+		walkTypes := cmd.Commands(map[string]cmd.Runnable{
+			walks.Name():     walks,
+			topColors.Name(): topColors,
+		})
+		options := map[string]cmd.Runnable{
+			bb.Name():    bb,
+			sleap.Name(): sleap,
+			leap.Name():  leap,
+			urw.Name():   cmd.Concat(urw, walkTypes),
+			swrw.Name():  cmd.Concat(swrw, walkTypes),
+		}
+		command := cmd.Commands(options)
+		if len(args) <= 0 {
+			return nil, nil, nil
+		}
+		if _, has := options[args[0]]; !has {
+			return nil, args, nil
+		}
+		leftover, err := command.Run(args)
+		if err != nil {
+			return nil, nil, err
+		}
+		return o, leftover, nil
+	}
+}
 
 func NewCompareParser(c *cmd.Config, o *Options) cmd.Runnable {
-	var o1, o2 Options
-	var wo1, wo2 walkOpts
-	bb1 := NewBranchAndBoundParser(c, &o1)
-	sleap1 := NewSLeapParser(c, &o1)
-	leap1 := NewLeapParser(c, &o1)
-	urw1 := NewURWParser(c, &o1, &wo1)
-	swrw1 := NewSWRWParser(c, &o1, &wo1)
-	walks1 := NewWalksParser(c, &o1, &wo1)
-	topColors1 := NewWalkTopColorsParser(c, &o1, &wo1)
-	walkTypes1 := cmd.Commands(map[string]cmd.Runnable{
-		walks1.Name():     walks1,
-		topColors1.Name(): topColors1,
-	})
-	bb2 := NewBranchAndBoundParser(c, &o2)
-	sleap2 := NewSLeapParser(c, &o2)
-	leap2 := NewLeapParser(c, &o2)
-	urw2 := NewURWParser(c, &o2, &wo2)
-	swrw2 := NewSWRWParser(c, &o2, &wo2)
-	walks2 := NewWalksParser(c, &o2, &wo2)
-	topColors2 := NewWalkTopColorsParser(c, &o2, &wo2)
-	walkTypes2 := cmd.Commands(map[string]cmd.Runnable{
-		walks2.Name():     walks2,
-		topColors2.Name(): topColors2,
-	})
+	parser := algorithmParser(c)
 	return cmd.Concat(
 		cmd.Cmd(
 			"compare",
@@ -49,30 +68,66 @@ Compare a walk based method against leap, s-leap, or branch and bound.
 
 Option Flags
     -h,--help                         Show this message
+    -t,--time-out=<seconds>           Timeout for each algorithm (default 120 seconds)
+    -f,--faults=<path>                Path to a fault file.
+    -o,--output=<path>                Place to write CSV of evaluation
 `,
-			"",
-			[]string{},
+			"o:f:t:",
+			[]string{
+				"output=",
+				"faults=",
+				"time-out=",
+			},
 			func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
-				o1 = *o.Copy()
-				o2 = *o.Copy()
-				return args, nil
-			}),
-		cmd.Commands(map[string]cmd.Runnable{
-			bb1.Name():    bb1,
-			sleap1.Name(): sleap1,
-			leap1.Name():  leap1,
-			urw1.Name():   cmd.Concat(urw1, walkTypes1),
-			swrw1.Name():  cmd.Concat(swrw1, walkTypes1),
-		}),
-		cmd.Commands(map[string]cmd.Runnable{
-			bb2.Name():    bb2,
-			sleap2.Name(): sleap2,
-			leap2.Name():  leap2,
-			urw2.Name():   cmd.Concat(urw2, walkTypes2),
-			swrw2.Name():  cmd.Concat(swrw2, walkTypes2),
-		}),
-		cmd.BareCmd(
-			func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
+				outputPath := ""
+				faultsPath := ""
+				timeout := 120 * time.Second
+				for _, oa := range optargs {
+					switch oa.Opt() {
+					case "-o", "--output":
+						outputPath = oa.Arg()
+					case "-f", "--faults":
+						faultsPath = oa.Arg()
+					case "-t", "--time-out":
+						t, err := time.ParseDuration(oa.Arg())
+						if err != nil {
+							return nil, cmd.Errorf(1, "For flag %v expected a duration got %v. err: %v", oa.Opt, oa.Arg(), err)
+						}
+						timeout = t
+					}
+				}
+				if faultsPath == "" {
+					return nil, cmd.Errorf(1, "You must supply the `-f` flag and give a path to the faults")
+				}
+				faults, err := LoadFaults(faultsPath)
+				if err != nil {
+					return nil, cmd.Err(1, err)
+				}
+				for _, f := range faults {
+					fmt.Println(f)
+				}
+				ouf := os.Stdout
+				if outputPath != "" {
+					f, err := os.Create(outputPath)
+					if err != nil {
+						return nil, cmd.Err(1, err)
+					}
+					defer f.Close()
+					ouf = f
+				}
+				opts := make([]*Options, 0, 10)
+				for {
+					var opt *Options
+					var err *cmd.Error
+					opt, args, err = parser(o.Copy(), args)
+					if err != nil {
+						return nil, err
+					}
+					if opt == nil {
+						break
+					}
+					opts = append(opts, opt)
+				}
 				min := func(a, b int) int {
 					if a < b {
 						return a
@@ -80,10 +135,45 @@ Option Flags
 					return b
 				}
 				timeit := func(m *Miner) ([]*SearchNode, time.Duration) {
+					ctx, cancel := context.WithTimeout(context.Background(), timeout)
+					defer cancel()
 					s := time.Now()
-					nodes := m.Mine().Unique()
+					nodes := m.Mine(ctx).Unique()
 					e := time.Now()
 					return nodes, e.Sub(s)
+				}
+				rankScore := func(nodes []*SearchNode) (int, float64) {
+					gid := -1
+					min := -1.0
+					for _, f := range faults {
+						sum := 0.0
+						for i, g := range group(nodes) {
+							count := 0
+							for _, n := range g {
+								for _, v := range n.Node.SubGraph.V {
+									b, fn, _ := o.Lattice.Info.Get(v.Color)
+									if fn == f.FnName && b == f.BasicBlockId {
+										count++
+										break
+									}
+								}
+							}
+							if count > 0 {
+								r := float64(len(g) - count)
+								b := float64(count)
+								score := ((b + r + 1) / (b + 1)) + sum
+								if min <= 0 || score < min {
+									min = score
+									gid = i
+								}
+							}
+							sum += float64(len(g))
+						}
+					}
+					if min <= 0 {
+						return -1, math.Inf(1)
+					}
+					return gid, min
 				}
 				sum := func(nodes []*SearchNode) float64 {
 					sum := 0.0
@@ -119,16 +209,26 @@ Option Flags
 					} else {
 						variance = (1 / float64(T)) * variance
 					}
-					return math.Sqrt(variance)
+					if sum(X[:T]) >= sum(Y[:T]) {
+						return math.Sqrt(variance)
+					} else {
+						return -math.Sqrt(variance)
+					}
 				}
 				statsHeader := func() {
-					fmt.Printf(
-						"%-20v %15v %15v %15v %15v\n", "", "sum", "mean", "stddev", "duration")
-
+					fmt.Fprintf(ouf,
+						"%9v, %9v, %3v, %-27v, %10v, %10v, %10v, %11v, %11v, %11v, %11v, %11v, %11v\n",
+						"max-edges", "min-fails", "row", "name", "sum", "mean", "stddev", "stderr (0)", "stderr (1)",
+						"rank-group", "rank-score", "dur (sec)", "duration")
 				}
-				stats := func(name string, nodes []*SearchNode, dur time.Duration) {
-					fmt.Printf(
-						"%-20v %15.5g %15.5g %15.5g %15v\n", name, sum(nodes), mean(nodes), stddev(nodes), dur)
+				stats := func(maxEdges, minFails, row int, name string, minout int, base1, base2, nodes []*SearchNode, dur time.Duration) {
+					clamp := nodes[:minout]
+					gid, score := rankScore(nodes)
+					fmt.Fprintf(ouf,
+						"%9v, %9v, %3v, %-27v, %10.5g, %10.5g, %10.5g, %11.5g, %11.5g, %11v, %11.5g, %11.5g, %11v\n",
+						maxEdges, minFails, row, name,
+						sum(clamp), mean(clamp), stddev(clamp), stderr(base1, nodes), stderr(base2, nodes), gid, score,
+						dur.Seconds(), dur)
 				}
 				output := func(name string, nodes []*SearchNode) {
 					fmt.Println()
@@ -139,19 +239,29 @@ Option Flags
 					}
 					fmt.Println()
 				}
-				a := NewMiner(o1.Miner, o1.Lattice, o1.Score, o1.Opts...)
-				b := NewMiner(o2.Miner, o2.Lattice, o2.Score, o2.Opts...)
-				A, aTime := timeit(a)
-				B, bTime := timeit(b)
-				A = A[:min(len(A), len(B))]
-				B = B[:min(len(A), len(B))]
-
-				output(o1.MinerName, A)
-				output(o2.MinerName, B)
+				maxEdges := 0
+				minFails := 0
+				minout := -1
+				outputs := make([][]*SearchNode, 0, len(opts))
+				times := make([]time.Duration, 0, len(opts))
+				for _, opt := range opts {
+					a := NewMiner(opt.Miner, opt.Lattice, opt.Score, opt.Opts...)
+					A, aTime := timeit(a)
+					outputs = append(outputs, A)
+					times = append(times, aTime)
+					if minout < 0 || len(A) < minout {
+						minout = len(A)
+					}
+					maxEdges = a.MaxEdges
+					minFails = a.MinFails
+				}
+				for i := range outputs {
+					output(opts[i].MinerName, outputs[i][:minout])
+				}
 				statsHeader()
-				stats(o1.MinerName, A, aTime)
-				stats(o2.MinerName, B, bTime)
-				fmt.Printf("%-20v %15.5g\n", "stderr:", stderr(A, B))
+				for i := range outputs {
+					stats(maxEdges, minFails, i, opts[i].MinerName, minout, outputs[0], outputs[1], outputs[i], times[i])
+				}
 				fmt.Println()
 				return args, nil
 			}),
@@ -178,7 +288,10 @@ func (nodes SearchNodes) Unique() (unique []*SearchNode) {
 }
 
 func (nodes SearchNodes) Group() [][]*SearchNode {
-	unique := nodes.Unique()
+	return group(nodes.Unique())
+}
+
+func group(unique []*SearchNode) [][]*SearchNode {
 	groups := make([][]*SearchNode, 0, 10)
 	for _, n := range unique {
 		lg := len(groups)
