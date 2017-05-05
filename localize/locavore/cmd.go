@@ -1,7 +1,6 @@
 package locavore
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 )
@@ -48,6 +47,7 @@ Option Flags
 					binstring = oa.Arg()
 				}
 			}
+			_ = output
 			var binum int
 			if bins, err := strconv.Atoi(binstring); err != nil {
 				return nil, cmd.Errorf(2, "Expected int argument for --numbins, received: [%v]", binstring)
@@ -57,7 +57,6 @@ Option Flags
 			if len(args) != 2 {
 				return nil, cmd.Usage(r, 2, "Expected exactly 2 arguments for successful/failing test profiles got: [%v]", strings.Join(args, ", "))
 			}
-			fmt.Println("output ", output)
 			failFile, failClose, err := cmd.Input(args[0])
 			if err != nil {
 				return nil, cmd.Errorf(2, "Could not read profiles from failed executions: %v\n%v", args[0], err)
@@ -69,7 +68,6 @@ Option Flags
 			}
 			defer okClose()
 			types, ok, fail := ParseProfiles(okFile, failFile)
-			fmt.Printf("Localizing...\n")
 			Localize(ok, fail, types, binum)
 			return nil, nil
 		})
