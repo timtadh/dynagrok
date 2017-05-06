@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/timtadh/dynagrok/dgruntime/dgtypes"
 	"log"
+	"os"
 )
 
 type CausalEstimator struct {
@@ -90,6 +91,12 @@ func CausalEffect(okf dgtypes.FuncProfile, failf dgtypes.FuncProfile, numbins in
 func (c *CausalEstimator) bin(numbins int) {
 	c.inBins, c.inMedoids = KMedoidsFunc(numbins, c.profs, covDissimilar)
 	c.outBins, c.outMedoids = KMedoids(numbins, c.profs)
+	//for i := range c.outBins {
+	//	fmt.Printf("Medoid: %v\n", c.outMedoids[0])
+	//	for j := range c.outBins[i] {
+	//		fmt.Printf("\t%d: %v\n", j, c.outBins[i][j])
+	//	}
+	//}
 	log.Printf("Adding medoids to their respective clusters...")
 	for i, j := range c.inMedoids {
 		c.inBins[i] = append(c.inBins[i], j)
@@ -104,8 +111,6 @@ func (c *CausalEstimator) bin(numbins int) {
 func (c *CausalEstimator) match() {
 	// Yang - P Score Matching
 	// Computer pairwise Causal Effects for each treatment
-	// TODO : Compute only one triangle of this matrix
-	// TODO : Store this somewhere
 	c.simMatrix = make([][]float64, len(c.outMedoids))
 	for treatment1 := range c.outMedoids {
 		c.simMatrix[treatment1] = make([]float64, len(c.outMedoids))
@@ -179,8 +184,8 @@ func (c *CausalEstimator) mCov(individual dgtypes.Clusterable, tlevel int) int {
 func printMatrix(matrix [][]float64) {
 	for r := range matrix {
 		for c := range matrix[r] {
-			fmt.Printf("%.3f ", matrix[r][c])
+			fmt.Fprintf(os.Stderr, "%.3f ", matrix[r][c])
 		}
-		fmt.Println("")
+		fmt.Fprintf(os.Stderr, "\n")
 	}
 }
