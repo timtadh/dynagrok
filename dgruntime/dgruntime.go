@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"runtime"
 	"syscall"
+	"time"
 	"unsafe"
 )
 
@@ -59,10 +60,14 @@ func EnterBlk(bbid int, pos string) {
 	defer g.m.Unlock()
 	fc := g.Stack[len(g.Stack)-1]
 	last := fc.Last
+	start := fc.LastTime
 	cur := dgtypes.BlkEntrance{In: fc.FuncPc, BasicBlockId: bbid}
-	g.Flows[dgtypes.FlowEdge{Src: last, Targ: cur}]++
 	fc.Last = cur
+	fc.LastTime = time.Now()
+	dur := fc.LastTime.Sub(start)
+	g.Flows[dgtypes.FlowEdge{Src: last, Targ: cur}]++
 	g.Positions[cur] = pos
+	g.Durations[last] += dur
 }
 
 func EnterFunc(name, pos string) {
@@ -78,9 +83,10 @@ func EnterFunc(name, pos string) {
 	fpc := f.Entry()
 	cur := dgtypes.BlkEntrance{In: fpc, BasicBlockId: 0}
 	g.Stack = append(g.Stack, &dgtypes.FuncCall{
-		Name:   name,
-		FuncPc: fpc,
-		Last:   cur,
+		Name:     name,
+		FuncPc:   fpc,
+		Last:     cur,
+		LastTime: time.Now(),
 	})
 	g.Flows[dgtypes.FlowEdge{Src: g.Stack[len(g.Stack)-2].Last, Targ: cur}]++
 	g.Calls[dgtypes.Call{Caller: g.Stack[len(g.Stack)-2].FuncPc, Callee: fpc}]++
@@ -138,7 +144,12 @@ func ExitFunc(name string) {
 	g.Stack = g.Stack[:len(g.Stack)-1]
 	// Println(fmt.Sprintf("exit %v %v", fc.Name, fc.Flow))
 	if len(g.Stack) >= 1 {
-		g.Flows[dgtypes.FlowEdge{Src: fc.Last, Targ: g.Stack[len(g.Stack)-1].Last}]++
+		ret := g.Stack[len(g.Stack)-1]
+		start := fc.LastTime
+		now := time.Now()
+		g.Flows[dgtypes.FlowEdge{Src: fc.Last, Targ: ret.Last}]++
+		g.Durations[fc.Last] += now.Sub(start)
+		ret.LastTime = now
 	}
 	if f, has := g.Funcs[fc.FuncPc]; has {
 		f.Update(fc)

@@ -3,6 +3,7 @@ package dgruntime
 import (
 	"dgruntime/dgtypes"
 	"sync"
+	"time"
 )
 
 type Goroutine struct {
@@ -17,6 +18,7 @@ type Goroutine struct {
 	Flows     map[dgtypes.FlowEdge]int
 	Funcs     map[uintptr]*dgtypes.Function
 	Positions map[dgtypes.BlkEntrance]string
+	Durations map[dgtypes.BlkEntrance]time.Duration
 	CallCount int
 }
 
@@ -31,6 +33,7 @@ func newGoroutine(id int64) *Goroutine {
 		Funcs:     make(map[uintptr]*dgtypes.Function),
 		Flows:     make(map[dgtypes.FlowEdge]int),
 		Positions: make(map[dgtypes.BlkEntrance]string),
+		Durations: make(map[dgtypes.BlkEntrance]time.Duration),
 	}
 	g.Stack = append(g.Stack, &dgtypes.FuncCall{
 		Name: "<entry>",

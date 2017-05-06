@@ -1,5 +1,7 @@
 package dgtypes
 
+import "time"
+
 type Function struct {
 	Name   string
 	FuncPc uintptr
@@ -7,9 +9,10 @@ type Function struct {
 }
 
 type FuncCall struct {
-	Name   string
-	FuncPc uintptr
-	Last   BlkEntrance
+	Name     string
+	FuncPc   uintptr
+	Last     BlkEntrance
+	LastTime time.Time
 }
 
 func NewFunction(fc *FuncCall) *Function {

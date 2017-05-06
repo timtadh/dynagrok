@@ -144,6 +144,9 @@ func (e *Execution) merge(g *Goroutine) {
 	for be, pos := range g.Positions {
 		e.Profile.Positions[be] = pos
 	}
+	for be, dur := range g.Durations {
+		e.Profile.Durations[be] += dur
+	}
 	for funcName, instances := range g.Inputs {
 		e.Profile.Inputs[funcName] = append(e.Profile.Inputs[funcName], instances...)
 	}

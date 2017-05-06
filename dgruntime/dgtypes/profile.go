@@ -5,6 +5,7 @@ import (
 	"io"
 	"runtime"
 	"strconv"
+	"time"
 )
 
 type Profile struct {
@@ -15,6 +16,7 @@ type Profile struct {
 	Calls     map[Call]int
 	Flows     map[FlowEdge]int
 	Positions map[BlkEntrance]string
+	Durations map[BlkEntrance]time.Duration
 	CallCount int
 }
 
@@ -24,6 +26,7 @@ func NewProfile() *Profile {
 		Funcs:     make(map[uintptr]*Function),
 		Flows:     make(map[FlowEdge]int),
 		Positions: make(map[BlkEntrance]string),
+		Durations: make(map[BlkEntrance]time.Duration),
 		Inputs:    make(map[string][]ObjectProfile),
 		Outputs:   make(map[string][]ObjectProfile),
 		Types:     make(map[string]Type),
@@ -55,26 +58,28 @@ func (p *Profile) WriteDotty(fout io.Writer) {
 		if _, has := blks[e.Src]; !has {
 			s := nextid
 			nextid++
-			fmt.Fprintf(fout, "%d [label=%v, shape=rect, position=%v, runtime_name=%v, fn_name=%v, bbid=%d];\n",
+			fmt.Fprintf(fout, "%d [label=%v, shape=rect, position=%v, runtime_name=%v, fn_name=%v, bbid=%d, duration=%v];\n",
 				s,
 				strconv.Quote(src),
 				strconv.Quote(p.Positions[e.Src]),
 				strconv.Quote(p.runtime_name(e.Src.In)),
 				strconv.Quote(p.fn_name(e.Src)),
 				e.Src.BasicBlockId,
+				strconv.Quote(p.Durations[e.Src].String()),
 			)
 			blks[e.Src] = s
 		}
 		if _, has := blks[e.Targ]; !has {
 			t := nextid
 			nextid++
-			fmt.Fprintf(fout, "%d [label=%v, shape=rect, position=%v, runtime_name=%v, fn_name=%v, bbid=%d];\n",
+			fmt.Fprintf(fout, "%d [label=%v, shape=rect, position=%v, runtime_name=%v, fn_name=%v, bbid=%d, duration=%v];\n",
 				t,
 				strconv.Quote(targ),
 				strconv.Quote(p.Positions[e.Targ]),
 				strconv.Quote(p.runtime_name(e.Targ.In)),
 				strconv.Quote(p.fn_name(e.Targ)),
 				e.Targ.BasicBlockId,
+				strconv.Quote(p.Durations[e.Targ].String()),
 			)
 			blks[e.Targ] = t
 		}
@@ -123,12 +128,13 @@ func (p *Profile) WriteSimple(fout io.Writer) {
 	blks := make(map[BlkEntrance]int)
 	entry := p.blk_name(BlkEntrance{})
 	fmt.Fprintln(fout, "start-graph")
-	fmt.Fprintf(fout, "vertex\t%d, %v, %d, %v, %v\n",
+	fmt.Fprintf(fout, "vertex\t%d, %v, %d, %v, %v, %v\n",
 		0,
 		strconv.Quote(entry),
 		0,
 		strconv.Quote("entry"),
 		strconv.Quote("<none>"),
+		strconv.Quote("0s"),
 	)
 	blks[BlkEntrance{}] = 0
 	for e, _ := range p.Flows {
@@ -137,24 +143,26 @@ func (p *Profile) WriteSimple(fout io.Writer) {
 		if _, has := blks[e.Src]; !has {
 			s := nextid
 			nextid++
-			fmt.Fprintf(fout, "vertex\t%d, %v, %d, %v, %v\n",
+			fmt.Fprintf(fout, "vertex\t%d, %v, %d, %v, %v, %v\n",
 				s,
 				strconv.Quote(src),
 				e.Src.BasicBlockId,
 				strconv.Quote(p.fn_name(e.Src)),
 				strconv.Quote(p.Positions[e.Src]),
+				strconv.Quote(p.Durations[e.Src].String()),
 			)
 			blks[e.Src] = s
 		}
 		if _, has := blks[e.Targ]; !has {
 			t := nextid
 			nextid++
-			fmt.Fprintf(fout, "vertex\t%d, %v, %d, %v, %v\n",
+			fmt.Fprintf(fout, "vertex\t%d, %v, %d, %v, %v, %v\n",
 				t,
 				strconv.Quote(targ),
 				e.Targ.BasicBlockId,
 				strconv.Quote(p.fn_name(e.Targ)),
 				strconv.Quote(p.Positions[e.Targ]),
+				strconv.Quote(p.Durations[e.Targ].String()),
 			)
 			blks[e.Targ] = t
 		}
