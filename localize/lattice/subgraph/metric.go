@@ -7,7 +7,7 @@ import (
 
 import (
 	"github.com/timtadh/data-structures/errors"
-	"github.com/timtadh/matrix"
+	matrix "github.com/timtadh/go.matrix"
 )
 
 func (sg *SubGraph) Metric(o *SubGraph) float64 {

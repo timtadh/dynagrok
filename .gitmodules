@@ -1,21 +1,3 @@
-[submodule "src/golang.org/x/tools"]
-	path = src/golang.org/x/tools
-	url = https://www.github.com/golang/tools
-[submodule "src/github.com/timtadh/getopt"]
-	path = src/github.com/timtadh/getopt
-	url = https://www.github.com/timtadh/getopt
-[submodule "src/github.com/timtadh/data-structures"]
-	path = src/github.com/timtadh/data-structures
-	url = https://www.github.com/timtadh/data-structures
-[submodule "src/github.com/timtadh/lexmachine"]
-	path = src/github.com/timtadh/lexmachine
-	url = https://www.github.com/timtadh/lexmachine
-[submodule "src/github.com/timtadh/dot"]
-	path = src/github.com/timtadh/dot
-	url = https://www.github.com/timtadh/dot
-[submodule "src/github.com/timtadh/combos"]
-	path = src/github.com/timtadh/combos
-	url = https://www.github.com/timtadh/combos
 [submodule "src/dynagrok/examples/shapes"]
 	path = src/dynagrok/examples/shapes
 	url = http://github.com/jkobyp/shapes
@@ -23,24 +5,6 @@
 [submodule "src/github.com/stretchr/testify"]
 	path = src/github.com/stretchr/testify
 	url = http://github.com/stretchr/testify
-[submodule "src/github.com/timtadh/sfp"]
-	path = src/github.com/timtadh/sfp
-	url = https://github.com/timtadh/sfp
-[submodule "src/github.com/timtadh/fs2"]
-	path = src/github.com/timtadh/fs2
-	url = https://github.com/timtadh/fs2
-[submodule "src/github.com/timtadh/goiso"]
-	path = src/github.com/timtadh/goiso
-	url = https://github.com/timtadh/goiso
-[submodule "src/github.com/timtadh/matrix"]
-	path = src/github.com/timtadh/matrix
-	url = git@github.com:timtadh/go.matrix
-[submodule "src/github.com/google/shlex"]
-	path = src/github.com/google/shlex
-	url = git@github.com:google/shlex
-[submodule "src/github.com/julienschmidt/httprouter"]
-	path = src/github.com/julienschmidt/httprouter
-	url = git@github.com:julienschmidt/httprouter
 [submodule "examples/src/github.com/timtadh/combos"]
 	path = examples/src/github.com/timtadh/combos
 	url = git@github.com:timtadh/combos

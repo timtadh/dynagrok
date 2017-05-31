@@ -16,7 +16,7 @@ import (
 	"github.com/timtadh/dynagrok/localize/discflo/web/models"
 	"github.com/timtadh/dynagrok/localize/lattice"
 	"github.com/timtadh/dynagrok/localize/mine"
-	"github.com/timtadh/matrix"
+	matrix "github.com/timtadh/go.matrix"
 )
 
 var Chains = map[string][]string{
