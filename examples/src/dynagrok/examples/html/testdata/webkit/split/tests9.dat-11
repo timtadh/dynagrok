@@ -1,0 +1,21 @@
+#data
+<!DOCTYPE html><body><table><tbody><tr><math><mi>foo</mi><mi>bar</mi></math></tr></tbody></table>
+#errors
+Line: 1 Col: 45 Unexpected start tag (math) in table context caused voodoo mode.
+Line: 1 Col: 57 Unexpected end tag (mi) in table context caused voodoo mode.
+Line: 1 Col: 69 Unexpected end tag (mi) in table context caused voodoo mode.
+Line: 1 Col: 76 Unexpected end tag (math) in table context caused voodoo mode.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <math math>
+|       <math mi>
+|         "foo"
+|       <math mi>
+|         "bar"
+|     <table>
+|       <tbody>
+|         <tr>
+

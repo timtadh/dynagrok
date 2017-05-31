@@ -1,0 +1,11 @@
+#data
+FOO<script></script foo=">" dd>BAR
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO"
+|     <script>
+|     "BAR"
+

@@ -1,0 +1,13 @@
+#data
+<frameset><frame><frameset><frame></frameset><noframes></noframes></frameset>
+#errors
+Line: 1 Col: 10 Unexpected start tag (frameset). Expected DOCTYPE.
+#document
+| <html>
+|   <head>
+|   <frameset>
+|     <frame>
+|     <frameset>
+|       <frame>
+|     <noframes>
+

@@ -1,0 +1,11 @@
+#data
+<!doctype html></head> <head>
+#errors
+Line: 1 Col: 29 Unexpected start tag head. Ignored.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   " "
+|   <body>
+

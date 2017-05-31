@@ -1,0 +1,15 @@
+#data
+<math><mi><div><object><div><span></span></div></object></div></mi><mi>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <math math>
+|       <math mi>
+|         <div>
+|           <object>
+|             <div>
+|               <span>
+|       <math mi>
+

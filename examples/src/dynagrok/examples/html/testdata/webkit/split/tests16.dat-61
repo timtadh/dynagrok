@@ -1,0 +1,11 @@
+#data
+<!doctype html><script><!--<script --></script>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|     <script>
+|       "<!--<script -->"
+|   <body>
+

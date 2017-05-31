@@ -1,0 +1,11 @@
+#data
+<!doctype html><script><!--<script></scr'+'ipt>--></script>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|     <script>
+|       "<!--<script></scr'+'ipt>-->"
+|   <body>
+

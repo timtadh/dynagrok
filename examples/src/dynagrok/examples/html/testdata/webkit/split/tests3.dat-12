@@ -1,0 +1,12 @@
+#data
+<!DOCTYPE html><pre>&#x0a;&#x0a;A</pre>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <pre>
+|       "
+A"
+

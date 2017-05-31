@@ -1,0 +1,11 @@
+#data
+<!DOCTYPE html><HTML><META><HEAD></HEAD></HTML>
+#errors
+Line: 1 Col: 33 Unexpected start tag head in existing head. Ignored.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|     <meta>
+|   <body>
+

@@ -1,0 +1,10 @@
+#data
+<div><![CDATA[foo]]>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       <!-- [CDATA[foo]] -->
+

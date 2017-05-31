@@ -1,0 +1,27 @@
+#data
+<html>
+<dl>
+<dt><b>Boo
+<dd>Goo?
+</dl>
+</html>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <dl>
+|       "
+"
+|       <dt>
+|         <b>
+|           "Boo
+"
+|       <dd>
+|         <b>
+|           "Goo?
+"
+|     <b>
+|       "
+"
+

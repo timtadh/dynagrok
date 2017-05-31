@@ -1,0 +1,12 @@
+#data
+<!doctype html><script><!--<script></scr'+'ipt></script>X
+#errors
+Line: 1 Col: 57 Unexpected end of file. Expected end tag (script).
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|     <script>
+|       "<!--<script></scr'+'ipt></script>X"
+|   <body>
+

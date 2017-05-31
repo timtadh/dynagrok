@@ -1,0 +1,12 @@
+#data
+<iframe> <!--- </iframe>->x</iframe> --> </iframe>x
+#errors
+Line: 1 Col: 8 Unexpected start tag (iframe). Expected DOCTYPE.
+#document
+| <html>
+|   <head>
+|   <body>
+|     <iframe>
+|       " <!--- "
+|     "->x --> x"
+

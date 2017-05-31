@@ -1,0 +1,12 @@
+#data
+FOO<script>'<!-- potato'</script>BAR
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO"
+|     <script>
+|       "'<!-- potato'"
+|     "BAR"
+

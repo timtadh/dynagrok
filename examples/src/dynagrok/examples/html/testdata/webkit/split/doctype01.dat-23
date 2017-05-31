@@ -1,0 +1,10 @@
+#data
+<!DOCTYPE potato PUBLIC "go'of">Hello
+#errors
+#document
+| <!DOCTYPE potato "go'of" "">
+| <html>
+|   <head>
+|   <body>
+|     "Hello"
+

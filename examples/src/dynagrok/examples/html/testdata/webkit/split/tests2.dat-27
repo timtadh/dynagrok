@@ -1,0 +1,13 @@
+#data
+<!doctypehtml><p><form>
+#errors
+Line: 1 Col: 9 No space after literal string 'DOCTYPE'.
+Line: 1 Col: 23 Expected closing tag. Unexpected end of file.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <p>
+|     <form>
+

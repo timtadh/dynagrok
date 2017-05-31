@@ -1,0 +1,11 @@
+#data
+<svg><![CDATA[<svg>]]><path>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|       "<svg>"
+|       <svg path>
+

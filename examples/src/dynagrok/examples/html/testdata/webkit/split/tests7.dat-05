@@ -1,0 +1,12 @@
+#data
+<!doctype html><table><meta></table>
+#errors
+Line: 1 Col: 28 Unexpected start tag (meta) in table context caused voodoo mode.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <meta>
+|     <table>
+

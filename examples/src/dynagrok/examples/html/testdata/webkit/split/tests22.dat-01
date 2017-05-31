@@ -1,0 +1,19 @@
+#data
+<a><b><big><em><strong><div>X</a>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <a>
+|       <b>
+|         <big>
+|           <em>
+|             <strong>
+|     <big>
+|       <em>
+|         <strong>
+|           <div>
+|             <a>
+|               "X"
+

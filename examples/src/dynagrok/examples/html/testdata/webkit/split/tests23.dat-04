@@ -1,0 +1,31 @@
+#data
+<p><font size=4 id=a><font size=4 id=b><font size=4><font size=4><p>X
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <p>
+|       <font>
+|         id="a"
+|         size="4"
+|         <font>
+|           id="b"
+|           size="4"
+|           <font>
+|             size="4"
+|             <font>
+|               size="4"
+|     <p>
+|       <font>
+|         id="a"
+|         size="4"
+|         <font>
+|           id="b"
+|           size="4"
+|           <font>
+|             size="4"
+|             <font>
+|               size="4"
+|               "X"
+

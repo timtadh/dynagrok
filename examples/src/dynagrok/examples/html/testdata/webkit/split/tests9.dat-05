@@ -1,0 +1,12 @@
+#data
+<!DOCTYPE html><body><select><math></math></select>
+#errors
+Line: 1 Col: 35 Unexpected start tag token (math) in the select phase. Ignored.
+Line: 1 Col: 42 Unexpected end tag (math) in the select phase. Ignored.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <select>
+

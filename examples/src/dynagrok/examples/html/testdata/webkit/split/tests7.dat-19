@@ -1,0 +1,15 @@
+#data
+<!doctype html><table><input type=" hidden"><input type=hidDEN></table>
+#errors
+Line: 1 Col: 44 Unexpected start tag (input) in table context caused voodoo mode.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <input>
+|       type=" hidden"
+|     <table>
+|       <input>
+|         type="hidDEN"
+

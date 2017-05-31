@@ -1,0 +1,10 @@
+#data
+FOO<!----->BAZ
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO"
+|     <!-- - -->
+|     "BAZ"

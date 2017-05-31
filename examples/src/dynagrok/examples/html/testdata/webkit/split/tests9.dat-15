@@ -1,0 +1,22 @@
+#data
+<!DOCTYPE html><body><table><caption><math><mi>foo</mi><mi>bar</mi><p>baz</table><p>quux
+#errors
+Line: 1 Col: 70 HTML start tag "p" in a foreign namespace context.
+Line: 1 Col: 81 Unexpected end table tag in caption. Generates implied end caption.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <table>
+|       <caption>
+|         <math math>
+|           <math mi>
+|             "foo"
+|           <math mi>
+|             "bar"
+|         <p>
+|           "baz"
+|     <p>
+|       "quux"
+

@@ -1,0 +1,16 @@
+#data
+<b><p>Bold </b> Not bold</p>
+Also not bold.
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <b>
+|     <p>
+|       <b>
+|         "Bold "
+|       " Not bold"
+|     "
+Also not bold."
+

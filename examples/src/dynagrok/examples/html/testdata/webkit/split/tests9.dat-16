@@ -1,0 +1,21 @@
+#data
+<!DOCTYPE html><body><table><caption><math><mi>foo</mi><mi>bar</mi>baz</table><p>quux
+#errors
+Line: 1 Col: 78 Unexpected end table tag in caption. Generates implied end caption.
+Line: 1 Col: 78 Unexpected end tag (caption). Missing end tag (math).
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <table>
+|       <caption>
+|         <math math>
+|           <math mi>
+|             "foo"
+|           <math mi>
+|             "bar"
+|           "baz"
+|     <p>
+|       "quux"
+

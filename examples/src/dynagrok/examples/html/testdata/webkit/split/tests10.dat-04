@@ -1,0 +1,12 @@
+#data
+<!DOCTYPE html><body><select><svg></svg></select>
+#errors
+35: Stray “svg” start tag.
+42: Stray end tag “svg”
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <select>
+

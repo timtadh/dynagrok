@@ -1,0 +1,13 @@
+#data
+<!doctype html><style><!--<style></style>--></style>
+#errors
+Line: 1 Col: 52 Unexpected end tag (style).
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|     <style>
+|       "<!--<style>"
+|   <body>
+|     "-->"
+

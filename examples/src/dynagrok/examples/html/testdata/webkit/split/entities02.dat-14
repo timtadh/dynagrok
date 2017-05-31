@@ -1,0 +1,10 @@
+#data
+<div bar="ZZ&pound_id=23"></div>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZ£_id=23"
+

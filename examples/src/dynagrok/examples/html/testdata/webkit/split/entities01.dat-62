@@ -1,0 +1,9 @@
+#data
+FOO&#xE000;ZOO
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOOZOO"
+

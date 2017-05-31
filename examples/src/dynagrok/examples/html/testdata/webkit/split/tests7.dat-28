@@ -1,0 +1,13 @@
+#data
+A<table><tr> B</tr> B</table>
+#errors
+XXX: Fix me
+#document
+| <html>
+|   <head>
+|   <body>
+|     "A B B"
+|     <table>
+|       <tbody>
+|         <tr>
+

@@ -1,0 +1,10 @@
+#data
+<html><head><title></title><body></body></html>
+#errors
+Line: 1 Col: 6 Unexpected start tag (html). Expected DOCTYPE.
+#document
+| <html>
+|   <head>
+|     <title>
+|   <body>
+

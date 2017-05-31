@@ -1,0 +1,14 @@
+#data
+<!doctype html><form><div></form><div>
+#errors
+33: End tag "form" seen but there were unclosed elements.
+38: End of file seen and there were open elements.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <form>
+|       <div>
+|         <div>
+

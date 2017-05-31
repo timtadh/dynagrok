@@ -1,0 +1,11 @@
+#data
+<!DOCTYPE HTML SYSTEM "http://www.w3.org/DTD/HTML4-strict.dtd"><body><b>Mine!</b></body>
+#errors
+#document
+| <!DOCTYPE html "" "http://www.w3.org/DTD/HTML4-strict.dtd">
+| <html>
+|   <head>
+|   <body>
+|     <b>
+|       "Mine!"
+

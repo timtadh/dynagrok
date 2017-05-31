@@ -1,0 +1,12 @@
+#data
+<script></s
+#errors
+Line: 1 Col: 8 Unexpected start tag (script). Expected DOCTYPE.
+Line: 1 Col: 11 Unexpected end of file. Expected end tag (script).
+#document
+| <html>
+|   <head>
+|     <script>
+|       "</s"
+|   <body>
+

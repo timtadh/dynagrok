@@ -1,0 +1,9 @@
+#data
+<svg><![CDATA[<!--svg-->]]>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|       "<!--svg-->"

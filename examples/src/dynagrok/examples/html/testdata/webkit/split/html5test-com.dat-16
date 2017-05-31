@@ -1,0 +1,11 @@
+#data
+<textarea><!--</textarea>-->
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <textarea>
+|       "<!--"
+|     "-->"
+

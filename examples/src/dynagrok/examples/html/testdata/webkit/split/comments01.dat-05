@@ -1,0 +1,11 @@
+#data
+FOO<!-- BAR -- <QUX> -- MUX --!>BAZ
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO"
+|     <!--  BAR -- <QUX> -- MUX  -->
+|     "BAZ"
+

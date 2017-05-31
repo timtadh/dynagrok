@@ -1,0 +1,10 @@
+#data
+<div>ZZ&pound=23</div>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       "ZZ£=23"
+

@@ -1,0 +1,14 @@
+#data
+<!DOCTYPE html><textarea>
+
+foo</textarea>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <textarea>
+|       "
+foo"
+

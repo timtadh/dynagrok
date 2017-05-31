@@ -1,0 +1,13 @@
+#data
+<style> <!-- </style> --> </style>x
+#errors
+Line: 1 Col: 7 Unexpected start tag (style). Expected DOCTYPE.
+#document
+| <html>
+|   <head>
+|     <style>
+|       " <!-- "
+|     " "
+|   <body>
+|     "--> x"
+

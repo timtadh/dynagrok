@@ -1,0 +1,14 @@
+#data
+<!doctype html><table>  <input type='hidDEN'></table>
+#errors
+Line: 1 Col: 45 Unexpected input with type hidden in table context.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <table>
+|       "  "
+|       <input>
+|         type="hidDEN"
+

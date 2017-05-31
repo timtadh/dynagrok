@@ -1,0 +1,12 @@
+#data
+<!doctype html><frameset></frameset><noframes>abc</noframes><!--abc-->
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <frameset>
+|   <noframes>
+|     "abc"
+|   <!-- abc -->
+

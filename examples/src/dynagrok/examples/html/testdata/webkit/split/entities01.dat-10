@@ -1,0 +1,9 @@
+#data
+FOO&#41;BAR
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO)BAR"
+

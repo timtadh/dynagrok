@@ -1,0 +1,13 @@
+#data
+<!doctype html><select><input>X
+#errors
+Line: 1 Col: 30 Unexpected input start tag in the select phase.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <select>
+|     <input>
+|     "X"
+

@@ -1,0 +1,22 @@
+#data
+<table><colgroup><col><colgroup><col><col><col><colgroup><col><col><thead><tr><td></table>
+#errors
+Line: 1 Col: 7 Unexpected start tag (table). Expected DOCTYPE.
+#document
+| <html>
+|   <head>
+|   <body>
+|     <table>
+|       <colgroup>
+|         <col>
+|       <colgroup>
+|         <col>
+|         <col>
+|         <col>
+|       <colgroup>
+|         <col>
+|         <col>
+|       <thead>
+|         <tr>
+|           <td>
+

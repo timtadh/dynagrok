@@ -1,0 +1,16 @@
+#data
+<!DOCTYPE html><html><head></head><body><pre>x<div>
+y</pre></body></html>
+#errors
+Line: 2 Col: 7 End tag (pre) seen too early. Expected other end tag.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <pre>
+|       "x"
+|       <div>
+|         "
+y"
+

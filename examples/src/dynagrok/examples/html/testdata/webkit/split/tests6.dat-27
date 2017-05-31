@@ -1,0 +1,9 @@
+#data
+foo<col>
+#errors
+Line: 1 Col: 3 Unexpected end tag (colgroup). Ignored.
+#document-fragment
+colgroup
+#document
+| <col>
+

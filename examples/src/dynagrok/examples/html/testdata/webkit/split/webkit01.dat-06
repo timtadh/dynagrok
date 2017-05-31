@@ -1,0 +1,11 @@
+#data
+<div foo="bar">Hello</div>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       foo="bar"
+|       "Hello"
+

@@ -1,0 +1,18 @@
+#data
+<i>A<b>B<p></i>C</b>D
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <i>
+|       "A"
+|       <b>
+|         "B"
+|     <b>
+|     <p>
+|       <b>
+|         <i>
+|         "C"
+|       "D"
+

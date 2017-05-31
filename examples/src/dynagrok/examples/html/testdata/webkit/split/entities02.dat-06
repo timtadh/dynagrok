@@ -1,0 +1,10 @@
+#data
+<div bar="ZZ&gt0YY"></div>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       bar="ZZ&gt0YY"
+

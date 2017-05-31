@@ -1,0 +1,14 @@
+#data
+<!doctype html><style><!--...</style><!-- --><style>@import ...</style>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|     <style>
+|       "<!--..."
+|     <!--   -->
+|     <style>
+|       "@import ..."
+|   <body>
+

@@ -1,0 +1,10 @@
+#data
+<a><caption>a
+#errors
+#document-fragment
+table
+#document
+| <a>
+| <caption>
+|   "a"
+

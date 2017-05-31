@@ -1,0 +1,18 @@
+#data
+<!DOCTYPE html>A<option>B<optgroup>C<select>D</option>E
+#errors
+Line: 1 Col: 54 Unexpected end tag (option) in the select phase. Ignored.
+Line: 1 Col: 55 Expected closing tag. Unexpected end of file.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     "A"
+|     <option>
+|       "B"
+|     <optgroup>
+|       "C"
+|       <select>
+|         "DE"
+

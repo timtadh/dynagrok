@@ -1,0 +1,11 @@
+#data
+<!DOCTYPE html><html><body><html id=x>
+#errors
+Line: 1 Col: 38 html needs to be the first start tag.
+#document
+| <!DOCTYPE html>
+| <html>
+|   id="x"
+|   <head>
+|   <body>
+

@@ -1,0 +1,18 @@
+#data
+<!DOCTYPE html><body></body></html><math><mi>foo</mi><mi>bar</mi><p>baz
+#errors
+Line: 1 Col: 41 Unexpected start tag (math).
+Line: 1 Col: 68 HTML start tag "p" in a foreign namespace context.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <math math>
+|       <math mi>
+|         "foo"
+|       <math mi>
+|         "bar"
+|     <p>
+|       "baz"
+

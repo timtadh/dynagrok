@@ -1,0 +1,12 @@
+#data
+<!doctype html><table> x</table>
+#errors
+Line: 1 Col: 24 Unexpected non-space characters in table context caused voodoo mode.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     " x"
+|     <table>
+

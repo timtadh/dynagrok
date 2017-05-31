@@ -1,0 +1,12 @@
+#data
+<!DOCTYPE root-element [SYSTEM OR PUBLIC FPI] "uri" [ 
+<!-- internal declarations -->
+]>
+#errors
+#document
+| <!DOCTYPE root-element>
+| <html>
+|   <head>
+|   <body>
+|     "]>"
+

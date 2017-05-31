@@ -1,0 +1,12 @@
+#data
+<style><!--<br><html xmlns:v="urn:schemas-microsoft-com:vml"><!--[if !mso]><style></style>X
+#errors
+Line: 1 Col: 7 Unexpected start tag (style). Expected DOCTYPE.
+#document
+| <html>
+|   <head>
+|     <style>
+|       "<!--<br><html xmlns:v="urn:schemas-microsoft-com:vml"><!--[if !mso]><style>"
+|   <body>
+|     "X"
+

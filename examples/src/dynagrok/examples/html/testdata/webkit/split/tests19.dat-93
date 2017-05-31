@@ -1,0 +1,18 @@
+#data
+<!doctype html><table><i>a<b>b<div>c</i>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <i>
+|       "a"
+|       <b>
+|         "b"
+|     <b>
+|       <div>
+|         <i>
+|           "c"
+|     <table>
+

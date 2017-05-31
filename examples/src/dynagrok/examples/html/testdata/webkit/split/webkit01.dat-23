@@ -1,0 +1,10 @@
+#data
+<html><body></body></html>x<!-- Hi there -->
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     "x"
+|     <!--  Hi there  -->
+

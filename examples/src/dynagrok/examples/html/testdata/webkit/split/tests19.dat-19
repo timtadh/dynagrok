@@ -1,0 +1,11 @@
+#data
+<!doctype html><math/><foo>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <math math>
+|     <foo>
+

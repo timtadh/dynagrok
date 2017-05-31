@@ -1,0 +1,11 @@
+#data
+<!DOCTYPE html><frameset>test
+#errors
+Line: 1 Col: 29 Unepxected characters in the frameset phase. Characters ignored.
+Line: 1 Col: 29 Expected closing tag. Unexpected end of file.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <frameset>
+

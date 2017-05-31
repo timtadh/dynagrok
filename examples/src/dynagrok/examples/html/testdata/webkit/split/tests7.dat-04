@@ -1,0 +1,12 @@
+#data
+<!doctype html></head><title>X</title>
+#errors
+Line: 1 Col: 29 Unexpected start tag (title) that can be in head. Moved.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|     <title>
+|       "X"
+|   <body>
+

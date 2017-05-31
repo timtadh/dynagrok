@@ -1,0 +1,8 @@
+#data
+direct div content
+#errors
+#document-fragment
+div
+#document
+| "direct div content"
+

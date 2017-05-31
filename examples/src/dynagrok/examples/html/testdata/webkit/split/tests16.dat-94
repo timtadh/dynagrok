@@ -1,0 +1,11 @@
+#data
+<!doctype html><iframe>...<!--X->...<!--/X->...</iframe>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <iframe>
+|       "...<!--X->...<!--/X->..."
+

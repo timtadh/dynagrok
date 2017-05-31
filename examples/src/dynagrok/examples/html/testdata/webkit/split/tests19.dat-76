@@ -1,0 +1,11 @@
+#data
+<!doctype html><svg>a</svg><frameset><frame>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|       "a"
+

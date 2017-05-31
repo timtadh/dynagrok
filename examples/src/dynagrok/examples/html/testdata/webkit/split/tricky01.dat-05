@@ -1,0 +1,21 @@
+#data
+<html><body>
+<label><a><div>Hello<div>World</div></a></label>  
+</body></html>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     "
+"
+|     <label>
+|       <a>
+|       <div>
+|         <a>
+|           "Hello"
+|           <div>
+|             "World"
+|         "  
+"
+

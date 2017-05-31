@@ -1,0 +1,12 @@
+#data
+<div FOO ><img><img></div>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       foo=""
+|       <img>
+|       <img>
+

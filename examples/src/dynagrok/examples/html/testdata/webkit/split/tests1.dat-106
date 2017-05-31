@@ -1,0 +1,14 @@
+#data
+<ul><li><ul></li><li>a</li></ul></li></ul>
+#errors
+XXX: fix me
+#document
+| <html>
+|   <head>
+|   <body>
+|     <ul>
+|       <li>
+|         <ul>
+|           <li>
+|             "a"
+

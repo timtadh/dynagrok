@@ -1,0 +1,10 @@
+#data
+<!DOCTYPE potato PUBLIC 'go:hh   of' >Hello
+#errors
+#document
+| <!DOCTYPE potato "go:hh   of" "">
+| <html>
+|   <head>
+|   <body>
+|     "Hello"
+

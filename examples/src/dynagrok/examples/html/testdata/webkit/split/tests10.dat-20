@@ -1,0 +1,18 @@
+#data
+<!DOCTYPE html><body></body><svg><g>foo</g><g>bar</g><p>baz
+#errors
+34: Stray “svg” start tag.
+61: HTML start tag “p” in a foreign namespace context.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|       <svg g>
+|         "foo"
+|       <svg g>
+|         "bar"
+|     <p>
+|       "baz"
+

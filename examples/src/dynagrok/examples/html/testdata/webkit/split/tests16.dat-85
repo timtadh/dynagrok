@@ -1,0 +1,14 @@
+#data
+<!doctype html><noscript><!--</noscript>X<noscript>--></noscript>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|     <noscript>
+|       "<!--"
+|   <body>
+|     "X"
+|     <noscript>
+|       "-->"
+

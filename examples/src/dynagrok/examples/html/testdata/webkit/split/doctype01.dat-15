@@ -1,0 +1,10 @@
+#data
+<!DOCTYPE potato SYSTEM "taco">Hello
+#errors
+#document
+| <!DOCTYPE potato "" "taco">
+| <html>
+|   <head>
+|   <body>
+|     "Hello"
+

@@ -1,0 +1,12 @@
+#data
+<!doctype html><figcaption><article></figcaption>a
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <figcaption>
+|       <article>
+|     "a"
+

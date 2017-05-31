@@ -1,0 +1,12 @@
+#data
+<math><annotation-xml><svg></svg></annotation-xml><mi>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <math math>
+|       <math annotation-xml>
+|         <svg svg>
+|       <math mi>
+

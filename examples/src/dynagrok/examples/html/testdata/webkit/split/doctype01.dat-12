@@ -1,0 +1,10 @@
+#data
+<!DOCTYPE   potato       sYstEM  ggg>Hello
+#errors
+#document
+| <!DOCTYPE potato>
+| <html>
+|   <head>
+|   <body>
+|     "Hello"
+

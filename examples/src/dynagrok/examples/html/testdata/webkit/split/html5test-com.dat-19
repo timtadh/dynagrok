@@ -1,0 +1,14 @@
+#data
+<ul><li>A </li> <li>B</li></ul>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <ul>
+|       <li>
+|         "A "
+|       " "
+|       <li>
+|         "B"
+

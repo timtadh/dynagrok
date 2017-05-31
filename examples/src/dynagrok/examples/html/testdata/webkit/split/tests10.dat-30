@@ -1,0 +1,12 @@
+#data
+<div><svg><path></svg><path>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       <svg svg>
+|         <svg path>
+|       <path>
+

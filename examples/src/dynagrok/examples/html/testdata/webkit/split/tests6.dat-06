@@ -1,0 +1,11 @@
+#data
+<!---x
+#errors
+Line: 1 Col: 6 Unexpected end of file in comment.
+Line: 1 Col: 6 Unexpected End of file. Expected DOCTYPE.
+#document
+| <!-- -x -->
+| <html>
+|   <head>
+|   <body>
+

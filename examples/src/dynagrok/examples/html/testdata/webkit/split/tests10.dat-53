@@ -1,0 +1,18 @@
+#data
+<math><annotation-xml><svg><foreignObject><div><math><mi></mi></math><span></span></div></foreignObject><path></path></svg></annotation-xml><mi>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <math math>
+|       <math annotation-xml>
+|         <svg svg>
+|           <svg foreignObject>
+|             <div>
+|               <math math>
+|                 <math mi>
+|               <span>
+|           <svg path>
+|       <math mi>
+

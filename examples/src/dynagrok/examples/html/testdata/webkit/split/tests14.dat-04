@@ -1,0 +1,11 @@
+#data
+<!DOCTYPE html><html xml:lang=bar><html xml:lang=foo>
+#errors
+15: Unexpected start tag html
+#document
+| <!DOCTYPE html>
+| <html>
+|   xml:lang="bar"
+|   <head>
+|   <body>
+

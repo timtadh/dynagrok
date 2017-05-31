@@ -1,0 +1,10 @@
+#data
+<!doctype html><html><frameset></frameset></html><!--foo-->
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <frameset>
+| <!-- foo -->
+

@@ -1,0 +1,16 @@
+#data
+<script><div></script></div><title><p></title><p><p>
+#errors
+Line: 1 Col: 8 Unexpected start tag (script). Expected DOCTYPE.
+Line: 1 Col: 28 Unexpected end tag (div). Ignored.
+#document
+| <html>
+|   <head>
+|     <script>
+|       "<div>"
+|     <title>
+|       "<p>"
+|   <body>
+|     <p>
+|     <p>
+

@@ -1,0 +1,12 @@
+#data
+<!doctype html><listing>
+X</listing>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <listing>
+|       "X"
+

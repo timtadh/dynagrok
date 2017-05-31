@@ -1,0 +1,13 @@
+#data
+<!DOCTYPE html><script> <!-- </script> --> </script> EOF
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|     <script>
+|       " <!-- "
+|     " "
+|   <body>
+|     "-->  EOF"
+

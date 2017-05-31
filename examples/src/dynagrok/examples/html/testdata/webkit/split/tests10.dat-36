@@ -1,0 +1,13 @@
+#data
+<!DOCTYPE html><p><svg><title><p>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <p>
+|       <svg svg>
+|         <svg title>
+|           <p>
+

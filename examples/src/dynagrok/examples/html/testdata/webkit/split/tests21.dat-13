@@ -1,0 +1,12 @@
+#data
+<svg><foreignObject><div><![CDATA[foo]]>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|       <svg foreignObject>
+|         <div>
+|           <!-- [CDATA[foo]] -->
+

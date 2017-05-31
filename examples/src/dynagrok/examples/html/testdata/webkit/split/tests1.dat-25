@@ -1,0 +1,13 @@
+#data
+<!DOCTYPE html><span><button>foo</span>bar
+#errors
+39: End tag “span” seen but there were unclosed elements.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <span>
+|       <button>
+|         "foobar"
+

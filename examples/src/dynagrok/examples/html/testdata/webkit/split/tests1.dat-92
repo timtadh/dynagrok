@@ -1,0 +1,12 @@
+#data
+<head></p><meta><p>
+#errors
+Line: 1 Col: 6 Unexpected start tag (head). Expected DOCTYPE.
+Line: 1 Col: 10 Unexpected end tag (p). Ignored.
+#document
+| <html>
+|   <head>
+|     <meta>
+|   <body>
+|     <p>
+

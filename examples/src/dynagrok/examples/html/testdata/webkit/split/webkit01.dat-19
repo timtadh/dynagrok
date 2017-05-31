@@ -1,0 +1,11 @@
+#data
+<bdy><br foo="bar"></body>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <bdy>
+|       <br>
+|         foo="bar"
+

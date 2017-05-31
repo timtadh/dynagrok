@@ -1,0 +1,12 @@
+#data
+FOO<script type="text/plain">'<!-- <sCrIpt>'</script>BAR
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO"
+|     <script>
+|       type="text/plain"
+|       "'<!-- <sCrIpt>'</script>BAR"
+

@@ -1,0 +1,12 @@
+#data
+<!doctype html><script><!--<script </scripta
+#errors
+Line: 1 Col: 44 Unexpected end of file. Expected end tag (script).
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|     <script>
+|       "<!--<script </scripta"
+|   <body>
+

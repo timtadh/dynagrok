@@ -1,0 +1,11 @@
+#data
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN"><html></html>
+#errors
+Line: 1 Col: 50 Erroneous DOCTYPE.
+Line: 1 Col: 63 Unexpected end tag (html) after the (implied) root element.
+#document
+| <!DOCTYPE html "-//W3C//DTD HTML 4.01//EN" "">
+| <html>
+|   <head>
+|   <body>
+

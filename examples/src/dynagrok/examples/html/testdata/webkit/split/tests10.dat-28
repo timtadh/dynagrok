@@ -1,0 +1,11 @@
+#data
+<div><svg></div>a
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       <svg svg>
+|     "a"
+

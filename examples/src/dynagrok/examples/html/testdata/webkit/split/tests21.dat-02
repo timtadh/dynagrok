@@ -1,0 +1,10 @@
+#data
+<math><![CDATA[foo]]>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <math math>
+|       "foo"
+

@@ -1,0 +1,15 @@
+#data
+<!DOCTYPE html><html><head></head><body><ul><li><div><p><li></ul></body></html>
+#errors
+Line: 1 Col: 60 Missing end tag (div, li).
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <ul>
+|       <li>
+|         <div>
+|           <p>
+|       <li>
+

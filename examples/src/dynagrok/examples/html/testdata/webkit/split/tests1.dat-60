@@ -1,0 +1,17 @@
+#data
+<b>A<cite>B<div>C</cite>D
+#errors
+Line: 1 Col: 3 Unexpected start tag (b). Expected DOCTYPE.
+Line: 1 Col: 24 Unexpected end tag (cite). Ignored.
+Line: 1 Col: 25 Expected closing tag. Unexpected end of file.
+#document
+| <html>
+|   <head>
+|   <body>
+|     <b>
+|       "A"
+|       <cite>
+|         "B"
+|         <div>
+|           "CD"
+

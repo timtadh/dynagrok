@@ -1,0 +1,12 @@
+#data
+<!doctype html><meta http-equiv="content-type" content="text/html;charset=ascii">
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|     <meta>
+|       content="text/html;charset=ascii"
+|       http-equiv="content-type"
+|   <body>
+

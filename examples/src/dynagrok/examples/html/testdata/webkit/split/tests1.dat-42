@@ -1,0 +1,11 @@
+#data
+<!
+#errors
+Line: 1 Col: 2 Expected '--' or 'DOCTYPE'. Not found.
+Line: 1 Col: 2 Unexpected End of file. Expected DOCTYPE.
+#document
+| <!--  -->
+| <html>
+|   <head>
+|   <body>
+

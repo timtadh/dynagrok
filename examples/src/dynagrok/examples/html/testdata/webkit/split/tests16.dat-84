@@ -1,0 +1,13 @@
+#data
+<!doctype html><noscript><!--<noscript></noscript>--></noscript>
+#errors
+Line: 1 Col: 64 Unexpected end tag (noscript).
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|     <noscript>
+|       "<!--<noscript>"
+|   <body>
+|     "-->"
+

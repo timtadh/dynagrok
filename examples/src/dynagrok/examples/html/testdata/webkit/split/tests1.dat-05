@@ -1,0 +1,9 @@
+#data
+<head>
+#errors
+Line: 1 Col: 6 Unexpected start tag (head). Expected DOCTYPE.
+#document
+| <html>
+|   <head>
+|   <body>
+

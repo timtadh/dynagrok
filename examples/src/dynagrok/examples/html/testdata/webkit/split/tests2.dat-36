@@ -1,0 +1,16 @@
+#data
+<!DOCTYPE html><select><optgroup><option></optgroup><option><select><option>
+#errors
+Line: 1 Col: 68 Unexpected select start tag in the select phase treated as select end tag.
+Line: 1 Col: 76 Expected closing tag. Unexpected end of file.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <select>
+|       <optgroup>
+|         <option>
+|       <option>
+|     <option>
+

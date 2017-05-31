@@ -1,0 +1,10 @@
+#data
+<!dOctYpE HtMl>Hello
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     "Hello"
+

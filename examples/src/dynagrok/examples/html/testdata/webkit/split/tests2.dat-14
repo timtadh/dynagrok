@@ -1,0 +1,15 @@
+#data
+<!DOCTYPE html><body t1=1><body t2=2><body t3=3 t4=4>
+#errors
+Line: 1 Col: 37 Unexpected start tag (body).
+Line: 1 Col: 53 Unexpected start tag (body).
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     t1="1"
+|     t2="2"
+|     t3="3"
+|     t4="4"
+

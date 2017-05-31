@@ -1,0 +1,11 @@
+#data
+<!DOCTYPE html><frameset><!DOCTYPE html>
+#errors
+Line: 1 Col: 40 Unexpected DOCTYPE. Ignored.
+Line: 1 Col: 40 Expected closing tag. Unexpected end of file.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <frameset>
+

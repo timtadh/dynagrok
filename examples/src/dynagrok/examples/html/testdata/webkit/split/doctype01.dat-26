@@ -1,0 +1,10 @@
+#data
+<!DOCTYPE potato PUBLIC "W3C-//dfdf" SYSTEM ggg>Hello
+#errors
+#document
+| <!DOCTYPE potato "W3C-//dfdf" "">
+| <html>
+|   <head>
+|   <body>
+|     "Hello"
+

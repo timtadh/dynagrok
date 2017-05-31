@@ -1,0 +1,9 @@
+#data
+<?import namespace="foo" implementation="#bar">
+#errors
+#document
+| <!-- ?import namespace="foo" implementation="#bar" -->
+| <html>
+|   <head>
+|   <body>
+

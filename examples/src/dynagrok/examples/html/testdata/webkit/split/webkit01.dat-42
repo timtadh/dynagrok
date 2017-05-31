@@ -1,0 +1,11 @@
+#data
+<img <="" FAIL>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <img>
+|       <=""
+|       fail=""
+

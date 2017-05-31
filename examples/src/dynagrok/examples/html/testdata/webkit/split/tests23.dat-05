@@ -1,0 +1,30 @@
+#data
+<p><b id=a><b id=a><b id=a><b><object><b id=a><b id=a>X</object><p>Y
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <p>
+|       <b>
+|         id="a"
+|         <b>
+|           id="a"
+|           <b>
+|             id="a"
+|             <b>
+|               <object>
+|                 <b>
+|                   id="a"
+|                   <b>
+|                     id="a"
+|                     "X"
+|     <p>
+|       <b>
+|         id="a"
+|         <b>
+|           id="a"
+|           <b>
+|             id="a"
+|             <b>
+|               "Y"

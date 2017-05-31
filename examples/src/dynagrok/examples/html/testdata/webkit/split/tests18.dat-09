@@ -1,0 +1,15 @@
+#data
+<!doctype html><table><tr><script></style></script>abc
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     "abc"
+|     <table>
+|       <tbody>
+|         <tr>
+|           <script>
+|             "</style>"
+

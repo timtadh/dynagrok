@@ -1,0 +1,14 @@
+#data
+<!doctype html><table><title>X</title></table>
+#errors
+Line: 1 Col: 29 Unexpected start tag (title) in table context caused voodoo mode.
+Line: 1 Col: 38 Unexpected end tag (title) in table context caused voodoo mode.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <title>
+|       "X"
+|     <table>
+

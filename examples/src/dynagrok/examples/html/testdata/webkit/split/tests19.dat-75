@@ -1,0 +1,10 @@
+#data
+<!doctype html><svg><foreignObject><div> <frameset><frame>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <frameset>
+|     <frame>
+

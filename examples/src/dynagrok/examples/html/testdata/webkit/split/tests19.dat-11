@@ -1,0 +1,17 @@
+#data
+<!doctype html><isindex type="hidden">
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <form>
+|       <hr>
+|       <label>
+|         "This is a searchable index. Enter search keywords: "
+|         <input>
+|           name="isindex"
+|           type="hidden"
+|       <hr>
+

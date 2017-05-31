@@ -1,0 +1,20 @@
+#data
+<!DOCTYPE html><body><table><tbody><svg><g>foo</g><g>bar</g></svg></tbody></table>
+#errors
+41: Start tag “svg” seen in “table”.
+53: Stray end tag “g”.
+65: Stray end tag “g”.
+72: Stray end tag “svg”.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|       <svg g>
+|         "foo"
+|       <svg g>
+|         "bar"
+|     <table>
+|       <tbody>
+

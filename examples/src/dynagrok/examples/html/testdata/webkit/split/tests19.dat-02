@@ -1,0 +1,10 @@
+#data
+<!doctype html><html></p><!--foo-->
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <!-- foo -->
+|   <head>
+|   <body>
+

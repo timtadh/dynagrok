@@ -1,0 +1,10 @@
+#data
+<foo></foo bar="baz"><potato></potato quack="duck">
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <foo>
+|     <potato>
+

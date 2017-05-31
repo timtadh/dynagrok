@@ -1,0 +1,13 @@
+#data
+<!doctype html><iframe><!--<iframe></iframe>--></iframe>
+#errors
+Line: 1 Col: 56 Unexpected end tag (iframe).
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <iframe>
+|       "<!--<iframe>"
+|     "-->"
+

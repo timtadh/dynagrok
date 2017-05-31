@@ -1,0 +1,18 @@
+#data
+<!DOCTYPE html><table><caption>test TEST</caption><td>test
+#errors
+Line: 1 Col: 54 Unexpected table cell start tag (td) in the table body phase.
+Line: 1 Col: 58 Expected closing tag. Unexpected end of file.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <table>
+|       <caption>
+|         "test TEST"
+|       <tbody>
+|         <tr>
+|           <td>
+|             "test"
+

@@ -1,0 +1,11 @@
+#data
+<noframes><body><script><!--...</script></body></noframes></html>
+#errors
+Line: 1 Col: 10 Unexpected start tag (noframes). Expected DOCTYPE.
+#document
+| <html>
+|   <head>
+|     <noframes>
+|       "<body><script><!--...</script></body>"
+|   <body>
+

@@ -1,0 +1,13 @@
+#data
+<!DOCTYPE html><datalist><option>foo</datalist>bar
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <datalist>
+|       <option>
+|         "foo"
+|     "bar"
+

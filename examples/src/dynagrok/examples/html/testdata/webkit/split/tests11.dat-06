@@ -1,0 +1,46 @@
+#data
+<!DOCTYPE html><body><svg><altglyph /><altglyphdef /><altglyphitem /><animatecolor /><animatemotion /><animatetransform /><clippath /><feblend /><fecolormatrix /><fecomponenttransfer /><fecomposite /><feconvolvematrix /><fediffuselighting /><fedisplacementmap /><fedistantlight /><feflood /><fefunca /><fefuncb /><fefuncg /><fefuncr /><fegaussianblur /><feimage /><femerge /><femergenode /><femorphology /><feoffset /><fepointlight /><fespecularlighting /><fespotlight /><fetile /><feturbulence /><foreignobject /><glyphref /><lineargradient /><radialgradient /><textpath /></svg>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|       <svg altGlyph>
+|       <svg altGlyphDef>
+|       <svg altGlyphItem>
+|       <svg animateColor>
+|       <svg animateMotion>
+|       <svg animateTransform>
+|       <svg clipPath>
+|       <svg feBlend>
+|       <svg feColorMatrix>
+|       <svg feComponentTransfer>
+|       <svg feComposite>
+|       <svg feConvolveMatrix>
+|       <svg feDiffuseLighting>
+|       <svg feDisplacementMap>
+|       <svg feDistantLight>
+|       <svg feFlood>
+|       <svg feFuncA>
+|       <svg feFuncB>
+|       <svg feFuncG>
+|       <svg feFuncR>
+|       <svg feGaussianBlur>
+|       <svg feImage>
+|       <svg feMerge>
+|       <svg feMergeNode>
+|       <svg feMorphology>
+|       <svg feOffset>
+|       <svg fePointLight>
+|       <svg feSpecularLighting>
+|       <svg feSpotLight>
+|       <svg feTile>
+|       <svg feTurbulence>
+|       <svg foreignObject>
+|       <svg glyphRef>
+|       <svg linearGradient>
+|       <svg radialGradient>
+|       <svg textPath>
+

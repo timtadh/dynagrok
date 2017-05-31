@@ -1,0 +1,20 @@
+#data
+<!DOCTYPE html><svg><foreignObject><p><i></p>a
+#errors
+45: End tag “p” seen, but there were open elements.
+41: Unclosed element “i”.
+46: End of file seen and there were open elements.
+35: Unclosed element “foreignObject”.
+20: Unclosed element “svg”.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|       <svg foreignObject>
+|         <p>
+|           <i>
+|         <i>
+|           "a"
+

@@ -1,0 +1,14 @@
+#data
+<!doctypehtml><scrIPt type=text/x-foobar;baz>X</SCRipt
+#errors
+Line: 1 Col: 9 No space after literal string 'DOCTYPE'.
+Line: 1 Col: 54 Unexpected end of file in the tag name.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|     <script>
+|       type="text/x-foobar;baz"
+|       "X</SCRipt"
+|   <body>
+

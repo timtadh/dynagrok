@@ -1,0 +1,12 @@
+#data
+<!doctype html><svg><foreignObject><p>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|       <svg foreignObject>
+|         <p>
+

@@ -1,0 +1,15 @@
+#data
+<!doctype html><table><td><svg></svg>abc<td>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <table>
+|       <tbody>
+|         <tr>
+|           <td>
+|             <svg svg>
+|             "abc"
+|           <td>

@@ -1,0 +1,13 @@
+#data
+<table><tr></body></caption></col></colgroup></html></td></th><td>foo
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <table>
+|       <tbody>
+|         <tr>
+|           <td>
+|             "foo"
+

@@ -1,0 +1,13 @@
+#data
+<!DOCTYPE html>X</body><html id="x">
+#errors
+Line: 1 Col: 36 Unexpected start tag token (html) in the after body phase.
+Line: 1 Col: 36 html needs to be the first start tag.
+#document
+| <!DOCTYPE html>
+| <html>
+|   id="x"
+|   <head>
+|   <body>
+|     "X"
+

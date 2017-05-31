@@ -1,0 +1,24 @@
+#data
+<p>1<s id="A">2<b id="B">3</p>4</s>5</b>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <p>
+|       "1"
+|       <s>
+|         id="A"
+|         "2"
+|         <b>
+|           id="B"
+|           "3"
+|     <s>
+|       id="A"
+|       <b>
+|         id="B"
+|         "4"
+|     <b>
+|       id="B"
+|       "5"
+

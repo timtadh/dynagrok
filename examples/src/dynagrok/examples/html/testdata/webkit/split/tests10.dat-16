@@ -1,0 +1,25 @@
+#data
+<!DOCTYPE html><body><table><colgroup><svg><g>foo</g><g>bar</g><p>baz</table><p>quux
+#errors
+44: Start tag “svg” seen in “table”.
+56: Stray end tag “g”.
+68: Stray end tag “g”.
+71: HTML start tag “p” in a foreign namespace context.
+71: Start tag “p” seen in “table”.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|       <svg g>
+|         "foo"
+|       <svg g>
+|         "bar"
+|     <p>
+|       "baz"
+|     <table>
+|       <colgroup>
+|     <p>
+|       "quux"
+

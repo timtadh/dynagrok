@@ -1,0 +1,12 @@
+#data
+<textarea> <!--- </textarea>->x</textarea> --> </textarea>x
+#errors
+Line: 1 Col: 10 Unexpected start tag (textarea). Expected DOCTYPE.
+#document
+| <html>
+|   <head>
+|   <body>
+|     <textarea>
+|       " <!--- "
+|     "->x --> x"
+

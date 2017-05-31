@@ -1,0 +1,12 @@
+#data
+<!DOCTYPE html><spacer>foo
+#errors
+26: End of file seen and there were open elements.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <spacer>
+|       "foo"
+

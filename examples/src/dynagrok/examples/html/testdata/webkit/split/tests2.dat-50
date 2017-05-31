@@ -1,0 +1,17 @@
+#data
+<!DOCTYPE html><script>
+</script>  <title>x</title>  </head>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|     <script>
+|       "
+"
+|     "  "
+|     <title>
+|       "x"
+|     "  "
+|   <body>
+

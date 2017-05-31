@@ -1,0 +1,10 @@
+#data
+<!DOCTYPE html>&NotEqualTilde;A
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     "≂̸A"
+

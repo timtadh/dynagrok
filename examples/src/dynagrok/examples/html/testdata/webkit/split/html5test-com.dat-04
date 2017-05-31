@@ -1,0 +1,10 @@
+#data
+<div \"foo=''>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       \"foo=""
+

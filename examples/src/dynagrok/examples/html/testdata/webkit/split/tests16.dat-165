@@ -1,0 +1,13 @@
+#data
+<script><!--<scr'+'ipt></script>--></script>
+#errors
+Line: 1 Col: 8 Unexpected start tag (script). Expected DOCTYPE.
+Line: 1 Col: 44 Unexpected end tag (script).
+#document
+| <html>
+|   <head>
+|     <script>
+|       "<!--<scr'+'ipt>"
+|   <body>
+|     "-->"
+

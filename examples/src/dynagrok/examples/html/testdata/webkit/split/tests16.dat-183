@@ -1,0 +1,13 @@
+#data
+<textarea><!--<textarea></textarea>--></textarea>
+#errors
+Line: 1 Col: 10 Unexpected start tag (textarea). Expected DOCTYPE.
+Line: 1 Col: 49 Unexpected end tag (textarea).
+#document
+| <html>
+|   <head>
+|   <body>
+|     <textarea>
+|       "<!--<textarea>"
+|     "-->"
+

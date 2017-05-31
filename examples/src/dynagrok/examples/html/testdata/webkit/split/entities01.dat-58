@@ -1,0 +1,9 @@
+#data
+FOO&#xD800;ZOO
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     "FOO�ZOO"
+

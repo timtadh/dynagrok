@@ -1,0 +1,11 @@
+#data
+<!doctype html><noframes><body><script><!--...</script></body></noframes></html>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|     <noframes>
+|       "<body><script><!--...</script></body>"
+|   <body>
+

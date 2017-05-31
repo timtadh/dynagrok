@@ -1,0 +1,14 @@
+#data
+<!doctype html><table>X<input type=hidDEN></table>
+#errors
+Line: 1 Col: 23 Unexpected non-space characters in table context caused voodoo mode.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     "X"
+|     <table>
+|       <input>
+|         type="hidDEN"
+

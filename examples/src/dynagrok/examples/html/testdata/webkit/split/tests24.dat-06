@@ -1,0 +1,10 @@
+#data
+<!DOCTYPE html>&NotSubset;A
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     "⊂⃒A"
+

@@ -1,0 +1,12 @@
+#data
+<!doctype html><style>...<!--[if IE]><style>...</style>X
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|     <style>
+|       "...<!--[if IE]><style>..."
+|   <body>
+|     "X"
+

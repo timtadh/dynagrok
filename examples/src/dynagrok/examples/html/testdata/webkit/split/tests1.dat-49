@@ -1,0 +1,11 @@
+#data
+</ COM--MENT >
+#errors
+Line: 1 Col: 2 Expected closing tag. Unexpected character ' ' found.
+Line: 1 Col: 14 Unexpected End of file. Expected DOCTYPE.
+#document
+| <!--  COM--MENT  -->
+| <html>
+|   <head>
+|   <body>
+

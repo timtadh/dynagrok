@@ -1,0 +1,9 @@
+#data
+<svg></path>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+

@@ -1,0 +1,13 @@
+#data
+<!doctype html><noembed><!--<noembed></noembed>--></noembed>
+#errors
+Line: 1 Col: 60 Unexpected end tag (noembed).
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <noembed>
+|       "<!--<noembed>"
+|     "-->"
+

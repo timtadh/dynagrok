@@ -1,0 +1,11 @@
+#data
+<head></head><script></script>
+#errors
+Line: 1 Col: 6 Unexpected start tag (head). Expected DOCTYPE.
+Line: 1 Col: 21 Unexpected start tag (script) that can be in head. Moved.
+#document
+| <html>
+|   <head>
+|     <script>
+|   <body>
+

@@ -1,0 +1,18 @@
+#data
+<isindex test=x name=x>
+#errors
+Line: 1 Col: 23 Unexpected start tag (isindex). Expected DOCTYPE.
+Line: 1 Col: 23 Unexpected start tag isindex. Don't use it!
+#document
+| <html>
+|   <head>
+|   <body>
+|     <form>
+|       <hr>
+|       <label>
+|         "This is a searchable index. Enter search keywords: "
+|         <input>
+|           name="isindex"
+|           test="x"
+|       <hr>
+

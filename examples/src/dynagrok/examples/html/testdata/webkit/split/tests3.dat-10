@@ -1,0 +1,13 @@
+#data
+<!DOCTYPE html><html><head></head><body><pre>x
+y</pre></body></html>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <pre>
+|       "x
+y"
+

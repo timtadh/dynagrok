@@ -1,0 +1,24 @@
+#data
+<!DOCTYPE html><body><table><tr><td><select><math><mi>foo</mi><mi>bar</mi><p>baz</table><p>quux
+#errors
+Line: 1 Col: 50 Unexpected start tag token (math) in the select phase. Ignored.
+Line: 1 Col: 54 Unexpected start tag token (mi) in the select phase. Ignored.
+Line: 1 Col: 62 Unexpected end tag (mi) in the select phase. Ignored.
+Line: 1 Col: 66 Unexpected start tag token (mi) in the select phase. Ignored.
+Line: 1 Col: 74 Unexpected end tag (mi) in the select phase. Ignored.
+Line: 1 Col: 77 Unexpected start tag token (p) in the select phase. Ignored.
+Line: 1 Col: 88 Unexpected table element end tag (tables) in the select in table phase.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <table>
+|       <tbody>
+|         <tr>
+|           <td>
+|             <select>
+|               "foobarbaz"
+|     <p>
+|       "quux"
+

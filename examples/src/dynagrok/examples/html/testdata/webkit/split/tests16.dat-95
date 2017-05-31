@@ -1,0 +1,13 @@
+#data
+<!doctype html><xmp><!--<xmp></xmp>--></xmp>
+#errors
+Line: 1 Col: 44 Unexpected end tag (xmp).
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <xmp>
+|       "<!--<xmp>"
+|     "-->"
+

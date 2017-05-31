@@ -1,0 +1,11 @@
+#data
+<!doctype html></html> <head>
+#errors
+Line: 1 Col: 22 Unexpected end tag (html) after the (implied) root element.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     " "
+

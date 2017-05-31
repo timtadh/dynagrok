@@ -1,0 +1,12 @@
+#data
+<!DOCTYPE html><html><head></head><body><pre>
+foo</pre></body></html>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <pre>
+|       "foo"
+

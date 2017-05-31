@@ -1,0 +1,17 @@
+#data
+<!DOCTYPE html>X<p/x/y/z>
+#errors
+Line: 1 Col: 19 Expected a > after the /.
+Line: 1 Col: 21 Solidus (/) incorrectly placed in tag.
+Line: 1 Col: 23 Solidus (/) incorrectly placed in tag.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     "X"
+|     <p>
+|       x=""
+|       y=""
+|       z=""
+

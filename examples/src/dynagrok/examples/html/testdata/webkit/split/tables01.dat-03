@@ -1,0 +1,12 @@
+#data
+<table><col foo='bar'>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <table>
+|       <colgroup>
+|         <col>
+|           foo="bar"
+

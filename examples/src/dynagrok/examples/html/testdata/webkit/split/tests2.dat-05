@@ -1,0 +1,11 @@
+#data
+<frame>test
+#errors
+Line: 1 Col: 7 Unexpected start tag (frame). Expected DOCTYPE.
+Line: 1 Col: 7 Unexpected start tag frame. Ignored.
+#document
+| <html>
+|   <head>
+|   <body>
+|     "test"
+

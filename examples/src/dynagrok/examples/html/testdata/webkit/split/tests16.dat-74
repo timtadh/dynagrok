@@ -1,0 +1,12 @@
+#data
+<!doctype html><style><!--</style>X
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|     <style>
+|       "<!--"
+|   <body>
+|     "X"
+

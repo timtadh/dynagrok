@@ -1,0 +1,15 @@
+#data
+<!DOCTYPE html><table><tr>TEST
+#errors
+Line: 1 Col: 30 Unexpected non-space characters in table context caused voodoo mode.
+Line: 1 Col: 30 Unexpected end of file. Expected table content.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     "TEST"
+|     <table>
+|       <tbody>
+|         <tr>
+

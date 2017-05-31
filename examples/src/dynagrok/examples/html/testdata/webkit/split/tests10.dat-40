@@ -1,0 +1,11 @@
+#data
+<svg><script></script><path>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|       <svg script>
+|       <svg path>
+

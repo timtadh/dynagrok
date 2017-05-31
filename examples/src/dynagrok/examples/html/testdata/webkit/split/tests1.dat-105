@@ -1,0 +1,25 @@
+#data
+<ul><li></li><div><li></div><li><li><div><li><address><li><b><em></b><li></ul>
+#errors
+Line: 1 Col: 4 Unexpected start tag (ul). Expected DOCTYPE.
+Line: 1 Col: 45 Missing end tag (div, li).
+Line: 1 Col: 58 Missing end tag (address, li).
+Line: 1 Col: 69 End tag (b) violates step 1, paragraph 3 of the adoption agency algorithm.
+#document
+| <html>
+|   <head>
+|   <body>
+|     <ul>
+|       <li>
+|       <div>
+|         <li>
+|       <li>
+|       <li>
+|         <div>
+|       <li>
+|         <address>
+|       <li>
+|         <b>
+|           <em>
+|       <li>
+

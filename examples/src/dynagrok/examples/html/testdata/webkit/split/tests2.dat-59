@@ -1,0 +1,15 @@
+#data
+<!DOCTYPE html><table><tr><td></p></table>
+#errors
+Line: 1 Col: 34 Unexpected end tag (p). Ignored.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <table>
+|       <tbody>
+|         <tr>
+|           <td>
+|             <p>
+

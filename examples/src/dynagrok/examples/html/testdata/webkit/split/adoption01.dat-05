@@ -1,0 +1,18 @@
+#data
+<a>1<div>2<div>3</a>4</div>5</div>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <a>
+|       "1"
+|     <div>
+|       <a>
+|         "2"
+|       <div>
+|         <a>
+|           "3"
+|         "4"
+|       "5"
+

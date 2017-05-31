@@ -1,0 +1,12 @@
+#data
+<!doctypehtml><p><dt>
+#errors
+Line: 1 Col: 9 No space after literal string 'DOCTYPE'.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <p>
+|     <dt>
+

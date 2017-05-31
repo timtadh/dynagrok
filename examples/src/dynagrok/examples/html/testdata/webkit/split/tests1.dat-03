@@ -1,0 +1,16 @@
+#data
+Line1<br>Line2<br>Line3<br>Line4
+#errors
+Line: 1 Col: 5 Unexpected non-space characters. Expected DOCTYPE.
+#document
+| <html>
+|   <head>
+|   <body>
+|     "Line1"
+|     <br>
+|     "Line2"
+|     <br>
+|     "Line3"
+|     <br>
+|     "Line4"
+

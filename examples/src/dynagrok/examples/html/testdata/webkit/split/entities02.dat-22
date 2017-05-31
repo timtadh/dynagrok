@@ -1,0 +1,10 @@
+#data
+<div>ZZ&pound;_id=23</div>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <div>
+|       "ZZ£_id=23"
+

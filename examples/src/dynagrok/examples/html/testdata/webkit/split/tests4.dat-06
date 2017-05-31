@@ -1,0 +1,11 @@
+#data
+setting html's innerHTML
+#errors
+Line: 1 Col: 24 Unexpected EOF in inner html mode.
+#document-fragment
+html
+#document
+| <head>
+| <body>
+|   "setting html's innerHTML"
+

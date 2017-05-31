@@ -1,0 +1,17 @@
+#data
+<wbr><strike><code></strike><code><strike></code>
+#errors
+Line: 1 Col: 5 Unexpected start tag (wbr). Expected DOCTYPE.
+Line: 1 Col: 28 End tag (strike) violates step 1, paragraph 3 of the adoption agency algorithm.
+Line: 1 Col: 49 Unexpected end tag (code). Ignored.
+#document
+| <html>
+|   <head>
+|   <body>
+|     <wbr>
+|     <strike>
+|       <code>
+|     <code>
+|       <code>
+|         <strike>
+

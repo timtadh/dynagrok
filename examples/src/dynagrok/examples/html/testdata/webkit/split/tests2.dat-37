@@ -1,0 +1,14 @@
+#data
+<!DOCTYPE html><select><optgroup><option><optgroup>
+#errors
+Line: 1 Col: 51 Expected closing tag. Unexpected end of file.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <select>
+|       <optgroup>
+|         <option>
+|       <optgroup>
+

@@ -1,0 +1,10 @@
+#data
+<svg><![CDATA[<svg>a
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <svg svg>
+|       "<svg>a"
+

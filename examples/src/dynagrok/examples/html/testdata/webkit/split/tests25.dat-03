@@ -1,0 +1,11 @@
+#data
+<!DOCTYPE html><body><base>A
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <base>
+|     "A"
+

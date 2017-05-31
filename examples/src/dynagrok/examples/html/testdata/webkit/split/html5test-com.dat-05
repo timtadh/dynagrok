@@ -1,0 +1,10 @@
+#data
+<a href='\nbar'></a>
+#errors
+#document
+| <html>
+|   <head>
+|   <body>
+|     <a>
+|       href="\nbar"
+

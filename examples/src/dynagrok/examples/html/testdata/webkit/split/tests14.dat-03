@@ -1,0 +1,12 @@
+#data
+<!DOCTYPE html><html><html abc:def=gh><xyz:abc></xyz:abc>
+#errors
+15: Unexpected start tag html
+#document
+| <!DOCTYPE html>
+| <html>
+|   abc:def="gh"
+|   <head>
+|   <body>
+|     <xyz:abc>
+

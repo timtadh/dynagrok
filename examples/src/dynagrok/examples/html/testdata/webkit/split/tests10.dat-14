@@ -1,0 +1,22 @@
+#data
+<!DOCTYPE html><body><table><caption><svg><g>foo</g><g>bar</g><p>baz</table><p>quux
+#errors
+70: HTML start tag “p” in a foreign namespace context.
+81: “table” closed but “caption” was still open.
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|   <body>
+|     <table>
+|       <caption>
+|         <svg svg>
+|           <svg g>
+|             "foo"
+|           <svg g>
+|             "bar"
+|         <p>
+|           "baz"
+|     <p>
+|       "quux"
+

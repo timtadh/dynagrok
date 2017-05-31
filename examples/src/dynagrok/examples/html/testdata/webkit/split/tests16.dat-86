@@ -1,0 +1,12 @@
+#data
+<!doctype html><noscript><iframe></noscript>X
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   <head>
+|     <noscript>
+|       "<iframe>"
+|   <body>
+|     "X"
+

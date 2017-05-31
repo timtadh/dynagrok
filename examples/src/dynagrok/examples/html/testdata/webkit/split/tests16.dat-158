@@ -1,0 +1,11 @@
+#data
+<script><!--<script></script><script></script></script>
+#errors
+Line: 1 Col: 8 Unexpected start tag (script). Expected DOCTYPE.
+#document
+| <html>
+|   <head>
+|     <script>
+|       "<!--<script></script><script></script>"
+|   <body>
+

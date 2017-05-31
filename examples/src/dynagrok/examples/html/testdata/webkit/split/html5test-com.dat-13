@@ -1,0 +1,9 @@
+#data
+<!--foo--bar-->
+#errors
+#document
+| <!-- foo--bar -->
+| <html>
+|   <head>
+|   <body>
+

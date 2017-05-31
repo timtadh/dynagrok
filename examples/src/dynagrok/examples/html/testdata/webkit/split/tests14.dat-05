@@ -1,0 +1,10 @@
+#data
+<!DOCTYPE html><html 123=456>
+#errors
+#document
+| <!DOCTYPE html>
+| <html>
+|   123="456"
+|   <head>
+|   <body>
+
