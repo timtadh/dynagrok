@@ -9,23 +9,63 @@ type DominatorTree struct {
 	roots    []*Block
 	parent   map[*Block]*Block
 	children map[*Block][]*Block
+	succ     func(*Block) []*Block
+	pred     func(*Block) []*Block
+}
+
+type DominatorFrontier struct {
+	frontier map[*Block]map[*Block]bool
 }
 
 func (t *DominatorTree) Roots() []*Block {
-	roots := make([]*Block, 0, len(t.roots))
+	roots := make([]*Block, len(t.roots))
 	copy(roots, t.roots)
 	return roots
 }
 
 func (t *DominatorTree) Children(blk *Block) []*Block {
 	kids := t.children[blk]
-	children := make([]*Block, 0, len(kids))
+	children := make([]*Block, len(kids))
 	copy(children, kids)
 	return children
 }
 
 func (t *DominatorTree) Parent(blk *Block) *Block {
 	return t.parent[blk]
+}
+
+func (t *DominatorTree) IDom(blk *Block) *Block {
+	return t.parent[blk]
+}
+
+func (t *DominatorTree) Frontier() *DominatorFrontier {
+	frontier := make(map[*Block]map[*Block]bool)
+	var postfix func(*Block)
+	postfix = func(blk *Block) {
+		fmt.Println("postfix blk", blk.Id+1)
+		for _, kid := range t.Children(blk) {
+			fmt.Println("    kid blk", kid.Id+1)
+			postfix(kid)
+		}
+		fmt.Println("  frontier blk", blk.Id+1)
+		frontier[blk] = make(map[*Block]bool)
+		for _, y := range t.succ(blk) {
+			if t.IDom(y) != blk {
+				frontier[blk][y] = true
+			}
+		}
+		for _, kid := range t.Children(blk) {
+			for y := range frontier[kid] {
+				if t.IDom(y) != blk {
+					frontier[blk][y] = true
+				}
+			}
+		}
+	}
+	for _, r := range t.roots {
+		postfix(r)
+	}
+	return &DominatorFrontier{frontier}
 }
 
 func (t *DominatorTree) String() string {
@@ -52,6 +92,17 @@ func (t *DominatorTree) String() string {
 			kid := kids[e.j]
 			stack = append(stack, entry{e.n, e.j + 1})
 			stack = append(stack, entry{kid, 0})
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+func (f *DominatorFrontier) String() string {
+	lines := make([]string, 0, 10)
+	for blk, frontier := range f.frontier {
+		lines = append(lines, fmt.Sprintf("blk-%d", blk.Id+1))
+		for x := range frontier {
+			lines = append(lines, fmt.Sprintf("    blk-%d", x.Id+1))
 		}
 	}
 	return strings.Join(lines, "\n")
@@ -247,6 +298,8 @@ func dominators(cfg *CFG, V int, root *Block, succ, pred func(*Block) []*Block) 
 		roots:    []*Block{root},
 		parent:   make(map[*Block]*Block),
 		children: make(map[*Block][]*Block),
+		succ:     succ,
+		pred:     pred,
 	}
 	for i, blk := range vertex {
 		if i > 0 {

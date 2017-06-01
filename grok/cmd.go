@@ -73,8 +73,10 @@ Option Flags
 						}
 						cfg := analysis.BuildCFG(program.Fset, fnName, fn, body)
 						fmt.Println(cfg.Dominators())
+						fmt.Println(cfg.Dominators().Frontier())
 						fmt.Println()
 						fmt.Println(cfg.PostDominators())
+						fmt.Println(cfg.PostDominators().Frontier())
 						fmt.Println(cfg.Dotty())
 						return nil
 					})
