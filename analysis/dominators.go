@@ -11,6 +11,23 @@ type DominatorTree struct {
 	children map[*Block][]*Block
 }
 
+func (t *DominatorTree) Roots() []*Block {
+	roots := make([]*Block, 0, len(t.roots))
+	copy(roots, t.roots)
+	return roots
+}
+
+func (t *DominatorTree) Children(blk *Block) []*Block {
+	kids := t.children[blk]
+	children := make([]*Block, 0, len(kids))
+	copy(children, kids)
+	return children
+}
+
+func (t *DominatorTree) Parent(blk *Block) *Block {
+	return t.parent[blk]
+}
+
 func (t *DominatorTree) String() string {
 	type entry struct {
 		n *Block

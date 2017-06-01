@@ -72,9 +72,9 @@ Option Flags
 							return errors.Errorf("unexpected type %T", x)
 						}
 						cfg := analysis.BuildCFG(program.Fset, fnName, fn, body)
-						fmt.Println(analysis.Dominators(cfg))
+						fmt.Println(cfg.Dominators())
 						fmt.Println()
-						fmt.Println(analysis.PostDominators(cfg))
+						fmt.Println(cfg.PostDominators())
 						fmt.Println(cfg.Dotty())
 						return nil
 					})

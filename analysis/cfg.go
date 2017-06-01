@@ -27,6 +27,8 @@ type CFG struct {
 	Fn                        ast.Node
 	Body                      *[]ast.Stmt
 	Blocks                    []*Block
+	domTree                   *DominatorTree
+	pdomTree                  *DominatorTree
 	nodes                     map[uintptr]*Block
 	labels                    map[string]*Block
 	loopHeaders               []*Block
@@ -81,6 +83,20 @@ func BuildCFG(fset *token.FileSet, fnName string, fn ast.Node, body *[]ast.Stmt)
 	}
 	cfg.build()
 	return cfg
+}
+
+func (c *CFG) Dominators() *DominatorTree {
+	if c.domTree == nil {
+		c.domTree = Dominators(c)
+	}
+	return c.domTree
+}
+
+func (c *CFG) PostDominators() *DominatorTree {
+	if c.pdomTree == nil {
+		c.pdomTree = PostDominators(c)
+	}
+	return c.pdomTree
 }
 
 func (c *CFG) String() string {
