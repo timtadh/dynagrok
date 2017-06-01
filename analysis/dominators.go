@@ -6,7 +6,7 @@ import (
 )
 
 type DominatorTree struct {
-	root     *Block
+	roots    []*Block
 	parent   map[*Block]*Block
 	children map[*Block][]*Block
 }
@@ -17,8 +17,13 @@ func (t *DominatorTree) String() string {
 		j int
 	}
 	lines := make([]string, 0, 10)
+	roots := make([]string, 0, len(t.roots))
 	stack := make([]entry, 0, 10)
-	stack = append(stack, entry{t.root, 0})
+	for _, r := range t.roots {
+		roots = append(roots, fmt.Sprintf("blk-%d", r.Id+1))
+		stack = append(stack, entry{r, 0})
+	}
+	lines = append(lines, strings.Join(roots, ", "))
 	for len(stack) > 0 {
 		var e entry
 		stack, e = stack[:len(stack)-1], stack[len(stack)-1]
@@ -57,15 +62,17 @@ func Dominators(cfg *CFG) *DominatorTree {
 func PostDominators(cfg *CFG) *DominatorTree {
 	id := len(cfg.Blocks)
 	exit := NewBlock(cfg.FSet, id, nil, -1)
+	exits := make([]*Block, 0, 10)
 	for _, blk := range cfg.Blocks {
 		if len(blk.Next) == 0 {
+			exits = append(exits, blk)
 			blk.Link(&Flow{
 				Block: exit,
 				Type:  Unconditional,
 			})
 		}
 	}
-	return dominators(cfg, len(cfg.Blocks)+1, exit,
+	t := dominators(cfg, len(cfg.Blocks)+1, exit,
 		func(blk *Block) []*Block {
 			prev := make([]*Block, 0, len(blk.Prev))
 			for _, flow := range blk.Prev {
@@ -81,6 +88,16 @@ func PostDominators(cfg *CFG) *DominatorTree {
 			return next
 		},
 	)
+	for _, blk := range exits {
+		blk.Next = blk.Next[:0]
+	}
+	root := t.roots[0]
+	t.roots = t.children[root]
+	delete(t.children, root)
+	for _, r := range t.roots {
+		t.parent[r] = nil
+	}
+	return t
 }
 
 // computes the immediate dominators using the classic Lengauer-Tarjan algorithm
@@ -210,7 +227,7 @@ func dominators(cfg *CFG, V int, root *Block, succ, pred func(*Block) []*Block) 
 	}
 
 	t := &DominatorTree{
-		root:     root,
+		roots:    []*Block{root},
 		parent:   make(map[*Block]*Block),
 		children: make(map[*Block][]*Block),
 	}

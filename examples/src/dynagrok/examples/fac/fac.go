@@ -41,6 +41,9 @@ func loopFacBreak(x int) int {
 		if i > x {
 			break
 		}
+		if false {
+			return 0
+		}
 		f = f * i
 	}
 	return f
