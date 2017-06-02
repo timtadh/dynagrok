@@ -1,4 +1,5 @@
 DIR := ${CURDIR}
+HOME := $(HOME)
 PROG := dynagrok/examples/linkedlist
 
 install:
@@ -6,21 +7,21 @@ install:
 
 clientbad:
 	git -C examples/src/dynagrok/examples/shapes checkout dynagrokfaulty
-	dynagrok -r ~/dev/repos/go-research -d /home/koby/dev/repos/dynagrok -g /home/koby/dev/repos/dynagrok/examples objectstate --keep-work -w /tmp/work dynagrok/examples/shapes/client
+	dynagrok -r ~/dev/repos/go-research -d ${HOME}/dynagrok/src/github.com/timtadh/dynagrok -g ${HOME}/dynagrok/src/github.com/timtadh/dynagrok/examples objectstate --keep-work -w /tmp/work dynagrok/examples/shapes/client
 	git -C  examples/src/dynagrok/examples/shapes checkout dynagrok
 
 clientgood:
 	git -C examples/src/dynagrok/examples/shapes checkout dynagrok
-	dynagrok -r ~/dev/repos/go-research -d /home/koby/dev/repos/dynagrok -g /home/koby/dev/repos/dynagrok/examples objectstate --keep-work -w /tmp/work dynagrok/examples/shapes/client
+	dynagrok -r ~/dev/repos/go-research -d ${HOME}/dynagrok/src/github.com/timtadh/dynagrok -g ${HOME}/dynagrok/src/github.com/timtadh/dynagrok/examples objectstate --keep-work -w /tmp/work dynagrok/examples/shapes/client
 
 client:
-	dynagrok -r ~/dev/repos/go-research -d /home/koby/dev/repos/dynagrok -g /home/koby/dev/repos/dynagrok/examples objectstate --keep-work -w /tmp/work dynagrok/examples/shapes/client
+	dynagrok -r ~/dev/repos/go-research -d ${HOME}/dynagrok/src/github.com/timtadh/dynagrok -g ${HOME}/dynagrok/src/github.com/timtadh/dynagrok/examples objectstate --keep-work -w /tmp/work dynagrok/examples/shapes/client
 
 prog:
-	dynagrok -r ~/dev/repos/go-research -d /home/koby/dev/repos/dynagrok -g /home/koby/dev/repos/dynagrok/examples objectstate --keep-work -w /tmp/work ${PROG}
+	dynagrok -r ~/dev/repos/go-research -d ${HOME}/dynagrok/src/github.com/timtadh/dynagrok -g ${HOME}/dynagrok/src/github.com/timtadh/dynagrok/examples objectstate --keep-work -w /tmp/work ${PROG}
 
 method:
-	dynagrok -r ~/dev/repos/go-research -d /home/koby/dev/repos/dynagrok -g /home/koby/dev/repos/dynagrok/examples objectstate -m Move --keep-work -w /tmp/work dynagrok/examples/shapes/client
+	dynagrok -r ~/dev/repos/go-research -d ${HOME}/dynagrok/src/github.com/timtadh/dynagrok -g ${HOME}/dynagrok/src/github.com/timtadh/dynagrok/examples objectstate -m Move --keep-work -w /tmp/work dynagrok/examples/shapes/client
 
 clean:
 	rm /tmp/work/goroot/src/dgruntime* -r
