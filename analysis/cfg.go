@@ -29,6 +29,7 @@ type CFG struct {
 	Blocks                    []*Block
 	domTree                   *DominatorTree
 	pdomTree                  *DominatorTree
+	cdg                       *ControlDependenceGraph
 	nodes                     map[uintptr]*Block
 	labels                    map[string]*Block
 	loopHeaders               []*Block
@@ -97,6 +98,13 @@ func (c *CFG) PostDominators() *DominatorTree {
 		c.pdomTree = PostDominators(c)
 	}
 	return c.pdomTree
+}
+
+func (c *CFG) ControlDependencies() *ControlDependenceGraph {
+	if c.cdg == nil {
+		c.cdg = ControlDependencies(c)
+	}
+	return c.cdg
 }
 
 func (c *CFG) String() string {

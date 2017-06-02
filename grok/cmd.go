@@ -3,17 +3,12 @@ package grok
 import (
 	"fmt"
 	"go/ast"
-)
 
-import (
 	"github.com/timtadh/data-structures/errors"
-	"github.com/timtadh/getopt"
-)
-
-import (
 	"github.com/timtadh/dynagrok/analysis"
 	"github.com/timtadh/dynagrok/cmd"
 	"github.com/timtadh/dynagrok/dgruntime/excludes"
+	"github.com/timtadh/getopt"
 )
 
 func NewCommand(c *cmd.Config) cmd.Runnable {
@@ -72,12 +67,17 @@ Option Flags
 							return errors.Errorf("unexpected type %T", x)
 						}
 						cfg := analysis.BuildCFG(program.Fset, fnName, fn, body)
-						fmt.Println(cfg.Dominators())
-						fmt.Println(cfg.Dominators().Frontier())
-						fmt.Println()
-						fmt.Println(cfg.PostDominators())
-						fmt.Println(cfg.PostDominators().Frontier())
+						// fmt.Fprintln(os.Stderr, cfg.Dominators())
+						// fmt.Fprintln(os.Stderr, cfg.Dominators().Frontier())
+						// fmt.Fprintln(os.Stderr)
+						// fmt.Fprintln(os.Stderr, cfg.PostDominators())
+						// fmt.Fprintln(os.Stderr, cfg.PostDominators().Frontier())
+						// fmt.Fprintln(os.Stderr)
+						// fmt.Fprintln(os.Stderr)
 						fmt.Println(cfg.Dotty())
+						fmt.Println(cfg.Dominators().Dotty(cfg))
+						fmt.Println(cfg.PostDominators().Dotty(cfg))
+						fmt.Println(analysis.ControlDependencies(cfg).Dotty(cfg))
 						return nil
 					})
 					if err != nil {

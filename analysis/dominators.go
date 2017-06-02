@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -11,6 +12,7 @@ type DominatorTree struct {
 	children map[*Block][]*Block
 	succ     func(*Block) []*Block
 	pred     func(*Block) []*Block
+	frontier *DominatorFrontier
 }
 
 type DominatorFrontier struct {
@@ -38,16 +40,21 @@ func (t *DominatorTree) IDom(blk *Block) *Block {
 	return t.parent[blk]
 }
 
+// Algorithm in Fig. 10 from Cytron's classic paper:
+//
+// Cytron R., Ferrante J., Rosen B. K., and Wegman M. N. "Efficiently Computing
+// Static Single Assignment Form and the Control Dependence Graph." ACM TOPLAS.
+// https://doi.org/10.1145/115372.1
 func (t *DominatorTree) Frontier() *DominatorFrontier {
+	if t.frontier != nil {
+		return t.frontier
+	}
 	frontier := make(map[*Block]map[*Block]bool)
 	var postfix func(*Block)
 	postfix = func(blk *Block) {
-		fmt.Println("postfix blk", blk.Id+1)
 		for _, kid := range t.Children(blk) {
-			fmt.Println("    kid blk", kid.Id+1)
 			postfix(kid)
 		}
-		fmt.Println("  frontier blk", blk.Id+1)
 		frontier[blk] = make(map[*Block]bool)
 		for _, y := range t.succ(blk) {
 			if t.IDom(y) != blk {
@@ -65,7 +72,8 @@ func (t *DominatorTree) Frontier() *DominatorFrontier {
 	for _, r := range t.roots {
 		postfix(r)
 	}
-	return &DominatorFrontier{frontier}
+	t.frontier = &DominatorFrontier{frontier}
+	return t.frontier
 }
 
 func (t *DominatorTree) String() string {
@@ -95,6 +103,34 @@ func (t *DominatorTree) String() string {
 		}
 	}
 	return strings.Join(lines, "\n")
+}
+
+func (t *DominatorTree) Dotty(cfg *CFG) string {
+	nodes := make([]string, 0, len(cfg.Blocks))
+	edges := make([]string, 0, len(cfg.Blocks))
+	for _, b := range cfg.Blocks {
+		label := strconv.Quote(b.DotLabel())
+		label = strings.Replace(label, "\\n", "\\l", -1)
+		nodes = append(nodes, fmt.Sprintf("n%d [label=%v]", b.Id, label))
+		for _, n := range t.Children(b) {
+			edges = append(edges, fmt.Sprintf("n%d -> n%d", b.Id, n.Id))
+		}
+	}
+	return fmt.Sprintf(`digraph %v {
+label=%v
+labelloc=top
+node [shape="rect", labeljust=l]
+%v
+%v
+}`, strconv.Quote("dom-tree-"+cfg.Name), strconv.Quote("dom-tree-"+cfg.Name), strings.Join(nodes, "\n"), strings.Join(edges, "\n"))
+}
+
+func (f *DominatorFrontier) Frontier(blk *Block) []*Block {
+	frontier := make([]*Block, 0, len(f.frontier[blk]))
+	for blk := range f.frontier[blk] {
+		frontier = append(frontier, blk)
+	}
+	return frontier
 }
 
 func (f *DominatorFrontier) String() string {
