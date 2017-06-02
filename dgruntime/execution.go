@@ -181,6 +181,15 @@ func shutdown(e *Execution) {
 	defer e.m.Unlock()
 
 	if !e.Profile.Empty() {
+		fnPath := pjoin(e.OutputDir, "functions.json")
+		fmt.Println("writing functions to:", fnPath)
+		fn, err := os.Create(fnPath)
+		if err != nil {
+			panic(err)
+		}
+		defer fn.Close()
+		e.Profile.WriteFunctions(fn)
+
 		dotPath := pjoin(e.OutputDir, "flow-graph.dot")
 		fmt.Println("writing flow-graph to:", dotPath)
 		dot, err := os.Create(dotPath)

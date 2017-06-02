@@ -1,6 +1,7 @@
 package dgtypes
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"runtime"
@@ -40,6 +41,12 @@ type Call struct {
 
 func (p *Profile) Empty() bool {
 	return len(p.Flows) == 0
+}
+
+func (p *Profile) WriteFunctions(fout io.Writer) error {
+	e := json.NewEncoder(fout)
+	e.SetIndent("", "  ")
+	return e.Encode(ExportFunctions(p.Funcs))
 }
 
 func (p *Profile) WriteDotty(fout io.Writer) {

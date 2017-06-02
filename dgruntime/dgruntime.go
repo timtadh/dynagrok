@@ -68,14 +68,20 @@ func EnterBlk(bbid int, pos string) {
 	g.Flows[dgtypes.FlowEdge{Src: last, Targ: cur}]++
 	g.Positions[cur] = pos
 	g.Durations[last] += dur
+	//
 	// Masri's Algorithm for dynamic control dependence
+	//
+	// W. Masri and A. Podgurski, “Algorithms and Tool Support for Dynamic
+	// Information Flow Analysis,” Information and Software Technology. Feb.
+	// 2009. https://doi.org/10.1016/j.infsof.2008.05.008
 	if len(fc.CDStack) > 0 && bbid == fc.IPDom[fc.CDStack[len(fc.CDStack)-1]] {
 		fc.CDStack = fc.CDStack[:len(fc.CDStack)-1] // pop the CDStack
 	}
 	if len(fc.CDStack) > 0 {
-		fmt.Printf("%v: dyn-cdp for %d is %d\n", fc.Name, bbid, fc.CDStack[len(fc.CDStack)-1])
+		// fmt.Printf("%v: dyn-cdp for %d is %d\n", fc.Name, bbid, fc.CDStack[len(fc.CDStack)-1])
+		fc.DynCDP[bbid][fc.CDStack[len(fc.CDStack)-1]] = true
 	} else {
-		fmt.Printf("%v: dyn-cdp for %d is null\n", fc.Name, bbid)
+		// fmt.Printf("%v: dyn-cdp for %d is null\n", fc.Name, bbid)
 	}
 	if len(fc.CFG[bbid]) > 1 {
 		if len(fc.CDStack) > 0 && fc.IPDom[bbid] == fc.IPDom[fc.CDStack[len(fc.CDStack)-1]] {
@@ -97,7 +103,7 @@ func EnterFunc(name, pos string, cfg [][]int, ipdom []int) {
 	f := runtime.FuncForPC(pc)
 	fpc := f.Entry()
 	cur := dgtypes.BlkEntrance{In: fpc, BasicBlockId: 0}
-	g.Stack = append(g.Stack, &dgtypes.FuncCall{
+	fc := &dgtypes.FuncCall{
 		Name:     name,
 		FuncPc:   fpc,
 		Last:     cur,
@@ -105,7 +111,12 @@ func EnterFunc(name, pos string, cfg [][]int, ipdom []int) {
 		CFG:      cfg,
 		IPDom:    ipdom,
 		CDStack:  append(make([]int, 0, len(ipdom)), 0),
-	})
+		DynCDP:   make([]map[int]bool, len(cfg)),
+	}
+	g.Stack = append(g.Stack, fc)
+	for i := range fc.DynCDP {
+		fc.DynCDP[i] = make(map[int]bool)
+	}
 	g.Flows[dgtypes.FlowEdge{Src: g.Stack[len(g.Stack)-2].Last, Targ: cur}]++
 	g.Calls[dgtypes.Call{Caller: g.Stack[len(g.Stack)-2].FuncPc, Callee: fpc}]++
 	g.Positions[cur] = pos
