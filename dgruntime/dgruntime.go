@@ -68,9 +68,24 @@ func EnterBlk(bbid int, pos string) {
 	g.Flows[dgtypes.FlowEdge{Src: last, Targ: cur}]++
 	g.Positions[cur] = pos
 	g.Durations[last] += dur
+	// Masri's Algorithm for dynamic control dependence
+	if len(fc.CDStack) > 0 && bbid == fc.IPDom[fc.CDStack[len(fc.CDStack)-1]] {
+		fc.CDStack = fc.CDStack[:len(fc.CDStack)-1] // pop the CDStack
+	}
+	if len(fc.CDStack) > 0 {
+		fmt.Printf("%v: dyn-cdp for %d is %d\n", fc.Name, bbid, fc.CDStack[len(fc.CDStack)-1])
+	} else {
+		fmt.Printf("%v: dyn-cdp for %d is null\n", fc.Name, bbid)
+	}
+	if len(fc.CFG[bbid]) > 1 {
+		if len(fc.CDStack) > 0 && fc.IPDom[bbid] == fc.IPDom[fc.CDStack[len(fc.CDStack)-1]] {
+			fc.CDStack = fc.CDStack[:len(fc.CDStack)-1] // pop the CDStack
+		}
+		fc.CDStack = append(fc.CDStack, bbid)
+	}
 }
 
-func EnterFunc(name, pos string, ipdom []int) {
+func EnterFunc(name, pos string, cfg [][]int, ipdom []int) {
 	execCheck()
 	g := exec.Goroutine(runtime.GoID())
 	// g.m.Lock()
@@ -87,7 +102,9 @@ func EnterFunc(name, pos string, ipdom []int) {
 		FuncPc:   fpc,
 		Last:     cur,
 		LastTime: time.Now(),
+		CFG:      cfg,
 		IPDom:    ipdom,
+		CDStack:  append(make([]int, 0, len(ipdom)), 0),
 	})
 	g.Flows[dgtypes.FlowEdge{Src: g.Stack[len(g.Stack)-2].Last, Targ: cur}]++
 	g.Calls[dgtypes.Call{Caller: g.Stack[len(g.Stack)-2].FuncPc, Callee: fpc}]++

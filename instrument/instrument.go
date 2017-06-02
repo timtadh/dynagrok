@@ -178,18 +178,21 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.
 		}
 	}
 	pdt := cfg.PostDominators()
+	cfgName := "__cfg"
 	ipdomName := "__ipdom"
 	if len(cfg.Blocks) > 0 {
-		*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 0, i.mkIdom(fnAst.Pos(), pdt, ipdomName))
-		*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 1, i.mkEnterFunc(fnAst.Pos(), fnName, ipdomName))
-		*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 2, i.mkExitFunc(fnAst.Pos(), fnName))
+		*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 0, i.mkCfg(fnAst.Pos(), cfg, cfgName))
+		*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 1, i.mkIdom(fnAst.Pos(), pdt, ipdomName))
+		*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 2, i.mkEnterFunc(fnAst.Pos(), fnName, cfgName, ipdomName))
+		*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 3, i.mkExitFunc(fnAst.Pos(), fnName))
 		if pkg.Pkg.Path() == i.entry && fnName == fmt.Sprintf("%v.main", pkg.Pkg.Path()) {
 			*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 0, i.mkShutdown(fnAst.Pos()))
 		}
 	} else {
-		*fnBody = Insert(cfg, nil, *fnBody, 0, i.mkIdom(fnAst.Pos(), pdt, ipdomName))
-		*fnBody = Insert(cfg, nil, *fnBody, 1, i.mkEnterFunc(fnAst.Pos(), fnName, ipdomName))
-		*fnBody = Insert(cfg, nil, *fnBody, 2, i.mkExitFunc(fnAst.Pos(), fnName))
+		*fnBody = Insert(cfg, nil, *fnBody, 0, i.mkCfg(fnAst.Pos(), cfg, cfgName))
+		*fnBody = Insert(cfg, nil, *fnBody, 1, i.mkIdom(fnAst.Pos(), pdt, ipdomName))
+		*fnBody = Insert(cfg, nil, *fnBody, 2, i.mkEnterFunc(fnAst.Pos(), fnName, cfgName, ipdomName))
+		*fnBody = Insert(cfg, nil, *fnBody, 3, i.mkExitFunc(fnAst.Pos(), fnName))
 		if pkg.Pkg.Path() == i.entry && fnName == fmt.Sprintf("%v.main", pkg.Pkg.Path()) {
 			*fnBody = Insert(cfg, nil, *fnBody, 0, i.mkShutdown(fnAst.Pos()))
 		}
@@ -307,9 +310,9 @@ func (i *instrumenter) mkDeferPrint(pos token.Pos, data string) ast.Stmt {
 	return &ast.DeferStmt{Call: e.(*ast.CallExpr)}
 }
 
-func (i *instrumenter) mkEnterFunc(pos token.Pos, name, ipdom string) ast.Stmt {
+func (i *instrumenter) mkEnterFunc(pos token.Pos, name, cfg, ipdom string) ast.Stmt {
 	p := i.program.Fset.Position(pos)
-	s := fmt.Sprintf("dgruntime.EnterFunc(%v, %v, %v)", strconv.Quote(name), strconv.Quote(p.String()), ipdom)
+	s := fmt.Sprintf("dgruntime.EnterFunc(%v, %v, %v, %v)", strconv.Quote(name), strconv.Quote(p.String()), cfg, ipdom)
 	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
 	if err != nil {
 		panic(fmt.Errorf("mkEnterFunc (%v) error: %v", s, err))
@@ -376,6 +379,29 @@ func (i *instrumenter) mkEnterBlkCond(stmt ast.Stmt, expr ast.Expr, bbid int) as
 			Op:    token.LAND,
 			OpPos: pos,
 		}
+	}
+}
+
+func (i *instrumenter) mkCfg(pos token.Pos, cfg *analysis.CFG, varName string) ast.Stmt {
+	nexts := cfg.Nexts()
+	parts := make([]string, 0, len(nexts))
+	for _, next := range nexts {
+		bits := make([]string, 0, len(next))
+		for _, x := range next {
+			bits = append(bits, fmt.Sprintf("%d", x))
+		}
+		parts = append(parts, fmt.Sprintf("[]int{%s}", strings.Join(bits, ", ")))
+	}
+	s := fmt.Sprintf("[][]int{%s}", strings.Join(parts, ", "))
+	arr, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
+	if err != nil {
+		panic(fmt.Errorf("mkCfg (%v) error: %v", s, err))
+	}
+	variable := ast.NewIdent(varName)
+	return &ast.AssignStmt{
+		Lhs: []ast.Expr{variable},
+		Tok: token.DEFINE,
+		Rhs: []ast.Expr{arr},
 	}
 }
 

@@ -68,6 +68,7 @@ Option Flags
 							return errors.Errorf("unexpected type %T", x)
 						}
 						cfg := analysis.BuildCFG(program.Fset, fnName, fn, body)
+						fmt.Fprintln(os.Stderr, cfg.Nexts())
 						// fmt.Fprintln(os.Stderr, cfg.Dominators())
 						// fmt.Fprintln(os.Stderr, cfg.Dominators().Frontier())
 						// fmt.Fprintln(os.Stderr)

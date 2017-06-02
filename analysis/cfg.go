@@ -86,6 +86,20 @@ func BuildCFG(fset *token.FileSet, fnName string, fn ast.Node, body *[]ast.Stmt)
 	return cfg
 }
 
+func (c *CFG) Nexts() [][]int {
+	nexts := make([][]int, len(c.Blocks))
+	for _, blk := range c.Blocks {
+		next := make([]int, 0, len(blk.Next))
+		for _, flow := range blk.Next {
+			if flow.Block != nil {
+				next = append(next, flow.Block.Id)
+			}
+		}
+		nexts[blk.Id] = next
+	}
+	return nexts
+}
+
 func (c *CFG) Dominators() *DominatorTree {
 	if c.domTree == nil {
 		c.domTree = Dominators(c)
