@@ -68,6 +68,24 @@ Option Flags
 							return errors.Errorf("unexpected type %T", x)
 						}
 						cfg := analysis.BuildCFG(program.Fset, fnName, fn, body)
+						rd := analysis.NewReachingDefinitions(cfg, &pkg.Info)
+						for _, blk := range cfg.Blocks {
+							for sid, stmt := range blk.Stmts {
+								loc := &analysis.BlockLocation{blk.Id, sid}
+								gen, kill := rd.GenKill(loc)
+								fmt.Fprintln(os.Stderr, loc, analysis.FmtNode(cfg.FSet, *stmt), gen, kill)
+							}
+						}
+						rd.Solve()
+						fmt.Fprintln(os.Stderr)
+						fmt.Fprintln(os.Stderr)
+						for _, blk := range cfg.Blocks {
+							for sid, _ := range blk.Stmts {
+								loc := &analysis.BlockLocation{blk.Id, sid}
+								fmt.Fprintln(os.Stderr, loc, rd.In(loc), rd.Out(loc))
+							}
+						}
+						fmt.Fprintln(os.Stderr)
 						fmt.Fprintln(os.Stderr, cfg.Nexts())
 						// fmt.Fprintln(os.Stderr, cfg.Dominators())
 						// fmt.Fprintln(os.Stderr, cfg.Dominators().Frontier())

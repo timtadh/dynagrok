@@ -901,7 +901,7 @@ func (b *Block) String() string {
 
 func (b *Block) DotLabel() string {
 	insts := make([]string, 0, len(b.Stmts))
-	insts = append(insts, fmt.Sprintf("blk-%v", b.Id+1))
+	insts = append(insts, fmt.Sprintf("blk-%v", b.Id))
 	for _, s := range b.Stmts {
 		switch stmt := (*s).(type) {
 		default:

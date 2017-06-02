@@ -1,6 +1,9 @@
 package main
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 func main() {
 	for i := 10; i >= -2; i-- {
@@ -14,6 +17,10 @@ func fib(x int) int {
 	}
 	p, c := 0, 1
 	for i := 0; i < x; i++ {
+		{
+			i := 7
+			fmt.Println(i)
+		}
 		time.Sleep(2 * time.Millisecond)
 		n := p + c
 		p, c = c, n
