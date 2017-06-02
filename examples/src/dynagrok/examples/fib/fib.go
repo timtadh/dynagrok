@@ -14,11 +14,14 @@ func fib(x int) int {
 	}
 	p, c := 0, 1
 	for i := 0; i < x; i++ {
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(2 * time.Millisecond)
 		n := p + c
 		p, c = c, n
 	}
 	return c
+}
+
+func empty(x int) {
 }
 
 // func main() {

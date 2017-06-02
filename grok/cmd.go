@@ -3,6 +3,7 @@ package grok
 import (
 	"fmt"
 	"go/ast"
+	"os"
 
 	"github.com/timtadh/data-structures/errors"
 	"github.com/timtadh/dynagrok/analysis"
@@ -70,10 +71,11 @@ Option Flags
 						// fmt.Fprintln(os.Stderr, cfg.Dominators())
 						// fmt.Fprintln(os.Stderr, cfg.Dominators().Frontier())
 						// fmt.Fprintln(os.Stderr)
-						// fmt.Fprintln(os.Stderr, cfg.PostDominators())
+						fmt.Fprintln(os.Stderr, cfg.PostDominators())
 						// fmt.Fprintln(os.Stderr, cfg.PostDominators().Frontier())
 						// fmt.Fprintln(os.Stderr)
 						// fmt.Fprintln(os.Stderr)
+						fmt.Fprintln(os.Stderr, cfg.PostDominators().ImmediateDominators())
 						fmt.Println(cfg.Dotty())
 						fmt.Println(cfg.Dominators().Dotty(cfg))
 						fmt.Println(cfg.PostDominators().Dotty(cfg))

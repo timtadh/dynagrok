@@ -70,7 +70,7 @@ func EnterBlk(bbid int, pos string) {
 	g.Durations[last] += dur
 }
 
-func EnterFunc(name, pos string) {
+func EnterFunc(name, pos string, ipdom []int) {
 	execCheck()
 	g := exec.Goroutine(runtime.GoID())
 	// g.m.Lock()
@@ -87,6 +87,7 @@ func EnterFunc(name, pos string) {
 		FuncPc:   fpc,
 		Last:     cur,
 		LastTime: time.Now(),
+		IPDom:    ipdom,
 	})
 	g.Flows[dgtypes.FlowEdge{Src: g.Stack[len(g.Stack)-2].Last, Targ: cur}]++
 	g.Calls[dgtypes.Call{Caller: g.Stack[len(g.Stack)-2].FuncPc, Callee: fpc}]++

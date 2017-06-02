@@ -10,17 +10,13 @@ import (
 	"go/token"
 	"sort"
 	"strconv"
-)
+	"strings"
 
-import (
 	"github.com/timtadh/data-structures/errors"
-	"golang.org/x/tools/go/ast/astutil"
-	"golang.org/x/tools/go/loader"
-)
-
-import (
 	"github.com/timtadh/dynagrok/analysis"
 	"github.com/timtadh/dynagrok/dgruntime/excludes"
+	"golang.org/x/tools/go/ast/astutil"
+	"golang.org/x/tools/go/loader"
 )
 
 type instrumenter struct {
@@ -181,15 +177,19 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.
 			return nil
 		}
 	}
+	pdt := cfg.PostDominators()
+	ipdomName := "__ipdom"
 	if len(cfg.Blocks) > 0 {
-		*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 0, i.mkEnterFunc(fnAst.Pos(), fnName))
-		*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 1, i.mkExitFunc(fnAst.Pos(), fnName))
+		*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 0, i.mkIdom(fnAst.Pos(), pdt, ipdomName))
+		*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 1, i.mkEnterFunc(fnAst.Pos(), fnName, ipdomName))
+		*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 2, i.mkExitFunc(fnAst.Pos(), fnName))
 		if pkg.Pkg.Path() == i.entry && fnName == fmt.Sprintf("%v.main", pkg.Pkg.Path()) {
 			*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 0, i.mkShutdown(fnAst.Pos()))
 		}
 	} else {
-		*fnBody = Insert(cfg, nil, *fnBody, 0, i.mkEnterFunc(fnAst.Pos(), fnName))
-		*fnBody = Insert(cfg, nil, *fnBody, 1, i.mkExitFunc(fnAst.Pos(), fnName))
+		*fnBody = Insert(cfg, nil, *fnBody, 0, i.mkIdom(fnAst.Pos(), pdt, ipdomName))
+		*fnBody = Insert(cfg, nil, *fnBody, 1, i.mkEnterFunc(fnAst.Pos(), fnName, ipdomName))
+		*fnBody = Insert(cfg, nil, *fnBody, 2, i.mkExitFunc(fnAst.Pos(), fnName))
 		if pkg.Pkg.Path() == i.entry && fnName == fmt.Sprintf("%v.main", pkg.Pkg.Path()) {
 			*fnBody = Insert(cfg, nil, *fnBody, 0, i.mkShutdown(fnAst.Pos()))
 		}
@@ -307,9 +307,9 @@ func (i *instrumenter) mkDeferPrint(pos token.Pos, data string) ast.Stmt {
 	return &ast.DeferStmt{Call: e.(*ast.CallExpr)}
 }
 
-func (i *instrumenter) mkEnterFunc(pos token.Pos, name string) ast.Stmt {
+func (i *instrumenter) mkEnterFunc(pos token.Pos, name, ipdom string) ast.Stmt {
 	p := i.program.Fset.Position(pos)
-	s := fmt.Sprintf("dgruntime.EnterFunc(%v, %v)", strconv.Quote(name), strconv.Quote(p.String()))
+	s := fmt.Sprintf("dgruntime.EnterFunc(%v, %v, %v)", strconv.Quote(name), strconv.Quote(p.String()), ipdom)
 	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
 	if err != nil {
 		panic(fmt.Errorf("mkEnterFunc (%v) error: %v", s, err))
@@ -376,5 +376,24 @@ func (i *instrumenter) mkEnterBlkCond(stmt ast.Stmt, expr ast.Expr, bbid int) as
 			Op:    token.LAND,
 			OpPos: pos,
 		}
+	}
+}
+
+func (i *instrumenter) mkIdom(pos token.Pos, dt *analysis.DominatorTree, varName string) ast.Stmt {
+	idom := dt.ImmediateDominators()
+	parts := make([]string, 0, len(idom))
+	for _, y := range idom {
+		parts = append(parts, fmt.Sprintf("%d", y))
+	}
+	s := fmt.Sprintf("[]int{%s}", strings.Join(parts, ", "))
+	arr, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
+	if err != nil {
+		panic(fmt.Errorf("mkIdom (%v) error: %v", s, err))
+	}
+	variable := ast.NewIdent(varName)
+	return &ast.AssignStmt{
+		Lhs: []ast.Expr{variable},
+		Tok: token.DEFINE,
+		Rhs: []ast.Expr{arr},
 	}
 }

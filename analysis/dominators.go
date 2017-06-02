@@ -76,6 +76,18 @@ func (t *DominatorTree) Frontier() *DominatorFrontier {
 	return t.frontier
 }
 
+func (t *DominatorTree) ImmediateDominators() []int {
+	idom := make([]int, len(t.parent))
+	for child, parent := range t.parent {
+		if parent != nil {
+			idom[child.Id] = parent.Id
+		} else {
+			idom[child.Id] = child.Id
+		}
+	}
+	return idom
+}
+
 func (t *DominatorTree) String() string {
 	type entry struct {
 		n *Block

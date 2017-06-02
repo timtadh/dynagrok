@@ -5,12 +5,14 @@ import "time"
 type Function struct {
 	Name   string
 	FuncPc uintptr
+	IPDom  []int
 	Calls  int
 }
 
 type FuncCall struct {
 	Name     string
 	FuncPc   uintptr
+	IPDom    []int
 	Last     BlkEntrance
 	LastTime time.Time
 }
@@ -19,6 +21,7 @@ func NewFunction(fc *FuncCall) *Function {
 	f := &Function{
 		Name:   fc.Name,
 		FuncPc: fc.FuncPc,
+		IPDom:  fc.IPDom,
 	}
 	f.Update(fc)
 	return f
