@@ -111,6 +111,9 @@ func (rd *ReachingDefinitions) Out(loc *BlockLocation) map[token.Pos]bool {
 }
 
 func (rd *ReachingDefinitions) Solve() {
+	lastLocation := func(blk *Block) BlockLocation {
+		return BlockLocation{blk.Id, len(blk.Stmts) - 1}
+	}
 	different := func(a, b map[token.Pos]bool) bool {
 		if len(a) != len(b) {
 			return true
@@ -141,18 +144,31 @@ func (rd *ReachingDefinitions) Solve() {
 	for len(stack) > 0 {
 		var cur BlockLocation
 		stack, cur = stack[:len(stack)-1], stack[len(stack)-1]
-		res := rd.Flow(&cur, in[cur])
+		blk := rd.cfg.Blocks[cur.Block]
+		input := make(map[token.Pos]bool)
+		if cur.Stmt == 0 {
+			for _, f := range blk.Prev {
+				prev := lastLocation(f.Block)
+				for x := range out[prev] {
+					input[x] = true
+				}
+			}
+		} else {
+			prev := BlockLocation{cur.Block, cur.Stmt - 1}
+			for x := range out[prev] {
+				input[x] = true
+			}
+		}
+		in[cur] = input
+		res := rd.Flow(&cur, input)
 		if different(res, out[cur]) {
 			out[cur] = res
-			blk := rd.cfg.Blocks[cur.Block]
 			if cur.Stmt+1 < len(blk.Stmts) {
 				next := BlockLocation{blk.Id, cur.Stmt + 1}
-				in[next] = out[cur]
 				stack = append(stack, next)
 			} else {
 				for _, n := range blk.Next {
 					next := BlockLocation{n.Block.Id, 0}
-					in[next] = out[cur]
 					stack = append(stack, next)
 				}
 			}

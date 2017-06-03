@@ -21,10 +21,11 @@ func loopFac(x int) int {
 	foo := make(chan int, 1)
 	foo <- 1
 	select {
-	case y := <-foo:
-		println(y)
+	case i := <-foo:
+		println(i)
 	case foo <- x:
-		println(x)
+		i := <-foo
+		println(i)
 	default:
 		println("wiz")
 	}
