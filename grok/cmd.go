@@ -104,6 +104,11 @@ Option Flags
 						// fmt.Fprintln(os.Stderr)
 						fmt.Fprintln(os.Stderr, cfg.PostDominators().ImmediateDominators())
 						fmt.Println(cfg.Dotty())
+						for i, blk := range cfg.Blocks {
+							if blk == nil {
+								fmt.Fprintln(os.Stderr, "nil blk", i, cfg.Name)
+							}
+						}
 						fmt.Println(cfg.Dominators().Dotty(cfg))
 						fmt.Println(cfg.PostDominators().Dotty(cfg))
 						fmt.Println(analysis.ControlDependencies(cfg).Dotty(cfg))

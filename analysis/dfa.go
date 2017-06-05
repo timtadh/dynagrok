@@ -185,7 +185,7 @@ func (d *Definitions) ReachingDefinitions() *ReachingDefinitions {
 	rd := &ReachingDefinitions{
 		Definitions: *d,
 	}
-	rd.in, rd.out = forwardSolveSets(d.cfg, rd.Flow)
+	rd.in, rd.out = ForwardSolveSets(d.cfg, rd.Flow)
 	return rd
 }
 
@@ -236,7 +236,7 @@ func (rd *ReachingDefinitions) GenKill(loc *BlockLocation) (gen, kill *set.Sorte
 	}
 	gen = set.NewSortedSet(len(rd.objs))
 	kill = set.NewSortedSet(len(rd.objs))
-	if loc.Block >= 0 {
+	if loc.Block >= 0 && loc.Block < len(rd.cfg.Blocks) {
 		blk := rd.cfg.Blocks[loc.Block]
 		if loc.Stmt >= 0 && loc.Stmt < len(blk.Stmts) {
 			stmt := blk.Stmts[loc.Stmt]
@@ -255,7 +255,7 @@ func (rd *ReachingDefinitions) GenKill(loc *BlockLocation) (gen, kill *set.Sorte
 				}
 			}
 		}
-	} else {
+	} else if loc.Block < 0 {
 		param := func(fields *ast.FieldList) {
 			if fields == nil {
 				return
@@ -273,7 +273,7 @@ func (rd *ReachingDefinitions) GenKill(loc *BlockLocation) (gen, kill *set.Sorte
 	return gen, kill
 }
 
-func forwardSolveSets(cfg *CFG, flow func(*BlockLocation, *set.SortedSet) *set.SortedSet) (in, out map[BlockLocation]*set.SortedSet) {
+func ForwardSolveSets(cfg *CFG, flow func(*BlockLocation, *set.SortedSet) *set.SortedSet) (in, out map[BlockLocation]*set.SortedSet) {
 	lastLocation := func(blk *Block) BlockLocation {
 		return BlockLocation{blk.Id, len(blk.Stmts) - 1}
 	}
@@ -298,7 +298,7 @@ func forwardSolveSets(cfg *CFG, flow func(*BlockLocation, *set.SortedSet) *set.S
 		var cur BlockLocation
 		stack, cur = stack[:len(stack)-1], stack[len(stack)-1]
 		var blk *Block = nil
-		if cur.Block >= 0 {
+		if cur.Block >= 0 && cur.Block < len(cfg.Blocks) {
 			blk = cfg.Blocks[cur.Block]
 		}
 		input := set.NewSortedSet(10)

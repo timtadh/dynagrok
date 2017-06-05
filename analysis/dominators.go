@@ -46,6 +46,9 @@ func (t *DominatorTree) IDom(blk *Block) *Block {
 // Static Single Assignment Form and the Control Dependence Graph." ACM TOPLAS.
 // https://doi.org/10.1145/115372.1
 func (t *DominatorTree) Frontier() *DominatorFrontier {
+	if t == nil {
+		return nil
+	}
 	if t.frontier != nil {
 		return t.frontier
 	}
@@ -77,6 +80,9 @@ func (t *DominatorTree) Frontier() *DominatorFrontier {
 }
 
 func (t *DominatorTree) ImmediateDominators() []int {
+	if t == nil {
+		return nil
+	}
 	idom := make([]int, len(t.parent))
 	for child, parent := range t.parent {
 		if parent != nil {
@@ -157,18 +163,31 @@ func (f *DominatorFrontier) String() string {
 }
 
 func Dominators(cfg *CFG) *DominatorTree {
+	if len(cfg.Blocks) <= 0 {
+		return nil
+	}
 	return dominators(cfg, len(cfg.Blocks), cfg.Blocks[0],
 		func(blk *Block) []*Block {
+			if blk == nil {
+				return nil
+			}
 			next := make([]*Block, 0, len(blk.Next))
 			for _, flow := range blk.Next {
-				next = append(next, flow.Block)
+				if flow.Block != nil {
+					next = append(next, flow.Block)
+				}
 			}
 			return next
 		},
 		func(blk *Block) []*Block {
+			if blk == nil {
+				return nil
+			}
 			prev := make([]*Block, 0, len(blk.Prev))
 			for _, flow := range blk.Prev {
-				prev = append(prev, flow.Block)
+				if flow.Block != nil {
+					prev = append(prev, flow.Block)
+				}
 			}
 			return prev
 		},
@@ -176,6 +195,9 @@ func Dominators(cfg *CFG) *DominatorTree {
 }
 
 func PostDominators(cfg *CFG) *DominatorTree {
+	if len(cfg.Blocks) <= 0 {
+		return nil
+	}
 	id := len(cfg.Blocks)
 	exit := NewBlock(cfg.FSet, id, nil, -1)
 	exits := make([]*Block, 0, 10)
@@ -192,14 +214,18 @@ func PostDominators(cfg *CFG) *DominatorTree {
 		func(blk *Block) []*Block {
 			prev := make([]*Block, 0, len(blk.Prev))
 			for _, flow := range blk.Prev {
-				prev = append(prev, flow.Block)
+				if flow.Block != nil {
+					prev = append(prev, flow.Block)
+				}
 			}
 			return prev
 		},
 		func(blk *Block) []*Block {
 			next := make([]*Block, 0, len(blk.Next))
 			for _, flow := range blk.Next {
-				next = append(next, flow.Block)
+				if flow.Block != nil {
+					next = append(next, flow.Block)
+				}
 			}
 			return next
 		},
@@ -262,6 +288,7 @@ func dominators(cfg *CFG, V int, root *Block, succ, pred func(*Block) []*Block) 
 			}
 			id++
 		}
+		vertex = vertex[:id]
 	}
 
 	var compress func(int)
