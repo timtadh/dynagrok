@@ -25,6 +25,8 @@ type CFG struct {
 	FSet                      *token.FileSet
 	Name                      string
 	Fn                        ast.Node
+	Receiver                  *ast.FieldList
+	Type                      *ast.FuncType
 	Body                      *[]ast.Stmt
 	Blocks                    []*Block
 	domTree                   *DominatorTree
@@ -73,14 +75,27 @@ const (
 )
 
 func BuildCFG(fset *token.FileSet, fnName string, fn ast.Node, body *[]ast.Stmt) *CFG {
+	var recv *ast.FieldList = nil
+	var fnType *ast.FuncType
+	switch f := fn.(type) {
+	case *ast.FuncDecl:
+		recv = f.Recv
+		fnType = f.Type
+	case *ast.FuncLit:
+		fnType = f.Type
+	default:
+		panic(fmt.Errorf("Unexpected type %T", fn))
+	}
 	cfg := &CFG{
-		FSet:   fset,
-		Name:   fnName,
-		Fn:     fn,
-		Body:   body,
-		Blocks: make([]*Block, 0, 10),
-		nodes:  make(map[uintptr]*Block),
-		labels: make(map[string]*Block),
+		FSet:     fset,
+		Name:     fnName,
+		Fn:       fn,
+		Receiver: recv,
+		Type:     fnType,
+		Body:     body,
+		Blocks:   make([]*Block, 0, 10),
+		nodes:    make(map[uintptr]*Block),
+		labels:   make(map[string]*Block),
 	}
 	cfg.build()
 	return cfg
