@@ -7,32 +7,56 @@ It also performs a number of analyses, such as:
 * Test case pruning
 
 ## Installation
-### Step 1: Compile a compiler
-Dynagrok uses an augmented version of the Go compiler. Rather than messing with the
-Go compiler you use every day, you'll want to have a separate one for use with
-Dynagrok.
+The following process chooses ~/dev/go-research for dynagrok's GOROOT,
+~/dev/dynagrok for dynagrok's GOPATH. You can set these to different locations,
+but make sure you're consistent about it.
 
-#### Install go1.4 
-We'll install this to ~/go1.4 (but you can put it wherever you like, as long as
-you set $GO_BOOTSTRAP to that directory)
+
+### Step 0: Preliminary
+#### 0.1: Install go
+Make sure you have a working go installation, with proper configuration. The
+[official website](https://golang.org) can help with this.
+
+#### 0.2: Install dep
+Dep is the unofficial dependency management tool of Go. It is required to set up
+dynagrok for the first time.
+Run the following command:
+```bash
+go get -u github.com/golang/dep/cmd/dep
+```
+
+### Step 1: Compile a compiler
+For compiling instrumented binaries, Dynagrok uses an augmented version of the
+Go compiler. Rather than messing with the Go compiler you use every day,
+you'll want to have a separate one for use with Dynagrok.
+
+#### 1.1: Install go1.4
+Go compilers compile themselves, but they need help from a bootstrap compiler.
+Go 1.4 is our bootstrap compiler.
+We'll install this to ~/go1.4, but you can put it wherever you like, as long as
+you set $GO_BOOTSTRAP to that directory.
+
 Install the right go1.4 for your platform. Binaries can be found [here](https://golang.org/dl/#go1.4).
 You may follow the instructions [here](https://golang.org/doc/install) but do
 not set your GOROOT or GOPATH to this.
-#### Clone the compiler and checkout the right version
+
+#### 1.2: Clone the compiler and checkout the right version
 We'll clone this to ~/dev
 ```bash
 cd ~/dev
 git clone https://go.googlesource.com/go go-research
-cd go-reserarch
+cd go-research
 git checkout release-branch.go1.8
 ```
-#### Build from source
-From ~/dev/go-research:
+#### 1.3: Build from source
 ``` bash
+cd ~/dev/go-research/src
 ./all.bash
 ```
 ### Step 2: Create an isolated GOPATH
-We'll create this at ~/dev/dynagrok
+We'll create this at ~/dev/dynagrok,
+and it will be the root of the GOPATH for dynagrok, but the project itself will
+live in ~/dev/dynagrok/src/github.com/timtadh/dynagrok
 ```bash
 mkdir -p ~/dev/dynagrok/{src,bin,lib}
 mkdir -p ~/dev/dynagrok/src/github.com/timtadh/
@@ -46,17 +70,33 @@ dep ensure # install dependencies
 git submodule init # install submodules
 git submodule update
 ```
-Edit `.activate` and remove the last line, and then
+The `.activate` script set the environment to their proper values for a dynagrok
+session. **It must be sourced before every session.** The last line is for
+building a sub-utility and ought to be removed.
+
+Edit `.activate` to remove the last line, then run:
 ```bash
 source .activate
 ```
 
 ### Step 4: Test your installation
-Build dynagrok with `make`
-Compile an example program with `make prog` (the default is a linked list
-program)
+Build dynagrok
+```bash
+go install github.com/timtadh/dynagrok
+```
+Compile an example program:
+```bash
+dynagrok -r ~/dev/go-research -d ~/dev/dynagrok/src/github.com/timtadh/dynagrok
+-g ~/dev/dynagrok/src/github.com/timtadh/dynagrok/examples objectstate
+--keep-work -w /tmp/work dynagrok/examples/linkedlist
+```
 
 ## Usage
+At the start of each dynagrok session, make sure to run
+```bash
+source .activate
+```
+`dynagrok --help` should also be helpful for viewing usage information.
 
 ## Under the hood
 
