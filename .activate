@@ -1,4 +1,4 @@
 unset GOROOT
 export GOPATH=$(readlink -e $(pwd)/../../../..)
 export PATH=$GOPATH/bin:$(pwd)/bin:$PATH
-source env/bin/activate
+source env/bin/activate # <-- comment this out!

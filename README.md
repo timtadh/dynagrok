@@ -66,17 +66,21 @@ mkdir -p ~/dev/dynagrok/src/github.com/timtadh/
 ``` bash
 cd ~/dev/dynagrok/src/github.com/timtadh
 git clone http://github.com/timtadh/dynagrok
-dep ensure # install dependencies
-git submodule init # install submodules
-git submodule update
+cd ~/dev/dynagrok/src/github.com/timtadh/dynagrok
+git submodule init # initialize submodules
+git submodule update # install submodules (requires github to have your ssh key)
 ```
-The `.activate` script set the environment to their proper values for a dynagrok
-session. **It must be sourced before every session.** The last line is for
-building a sub-utility and ought to be removed.
+The `.activate` script sets the environment to their proper values for a dynagrok
+session. **It must be sourced before every session.** The last line of the file
+is for building a sub-utility and ought to be removed.
 
-Edit `.activate` to remove the last line, then run:
 ```bash
+vim .activate # Edit `.activate` to remove the last line
 source .activate
+```
+Then,
+```bash
+dep ensure # install remaining dependencies
 ```
 
 ### Step 4: Test your installation
