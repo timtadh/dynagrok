@@ -24,7 +24,7 @@ func GoID() int64 {
 // the built-in Caller() function but is massively less safe calling
 // the compiler intrinsic getcallerpc(.) directly.
 func GetCallerPC(arg0 unsafe.Pointer) uintptr {
-	return uintptr(getcallerpc(arg0))
+	return uintptr(getcallerpc())
 }
 
 func Wacky() string {
