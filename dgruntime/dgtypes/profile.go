@@ -45,7 +45,7 @@ func (p *Profile) Empty() bool {
 
 func (p *Profile) WriteFunctions(fout io.Writer) error {
 	e := json.NewEncoder(fout)
-	e.SetIndent("", "  ")
+	// e.SetIndent("", "  ")
 	return e.Encode(ExportFunctions(p.Funcs))
 }
 
