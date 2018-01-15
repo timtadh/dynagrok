@@ -59,6 +59,14 @@ func EnterBlk(bbid int, pos string) {
 	g.m.Lock()
 	defer g.m.Unlock()
 	fc := g.Stack[len(g.Stack)-1]
+	defer func() {
+		if e := recover(); e != nil {
+			fmt.Println(pos)
+			fmt.Println("E", "fc.CDStack", len(fc.CDStack), fc.CDStack)
+			fmt.Println("E", "fc.IPDom", len(fc.IPDom), fc.IPDom)
+			panic(e)
+		}
+	}()
 	last := fc.Last
 	start := fc.LastTime
 	cur := dgtypes.BlkEntrance{In: fc.FuncPc, BasicBlockId: bbid}

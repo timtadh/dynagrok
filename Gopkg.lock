@@ -21,9 +21,22 @@
 
 [[projects]]
   name = "github.com/timtadh/data-structures"
-  packages = ["errors","exc","hashtable","heap","list","set","test","tree","tree/avl","types"]
-  revision = "cd917ad609bdb63c00235a988ef8031d64d8c9b4"
-  version = "v0.5.0"
+  packages = [
+    "errors",
+    "exc",
+    "hashtable",
+    "heap",
+    "linked",
+    "list",
+    "rand",
+    "set",
+    "test",
+    "tree",
+    "tree/avl",
+    "types"
+  ]
+  revision = "cd0c1de5390876f92ce0762c9c626a569b124f24"
+  version = "v0.5.2"
 
 [[projects]]
   name = "github.com/timtadh/dot"
@@ -51,15 +64,26 @@
 
 [[projects]]
   name = "github.com/timtadh/lexmachine"
-  packages = [".","frontend","inst","machines","queue"]
-  revision = "2b4da623415beffcab7a8f85066e3ed8a4996c16"
-  version = "v0.1.0"
+  packages = [
+    ".",
+    "dfa",
+    "frontend",
+    "inst",
+    "machines",
+    "queue"
+  ]
+  revision = "5e50c8034e9a2802d300355164aac60edcde98ba"
+  version = "v0.2.0"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/tools"
-  packages = ["go/ast/astutil","go/buildutil","go/loader"]
-  revision = "bc6db94186c03835daa5c1c679fba599dc1f3b79"
+  packages = [
+    "go/ast/astutil",
+    "go/buildutil",
+    "go/loader"
+  ]
+  revision = "8ea45f96742f825c49e900f42a01928554b5a6a0"
 
 [solve-meta]
   analyzer-name = "dep"

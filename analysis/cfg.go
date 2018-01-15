@@ -519,12 +519,12 @@ func (c *CFG) visitForStmt(idx int, stmts *[]ast.Stmt, s *ast.Stmt, entry *Block
 	bodyBlk = c.visitBlockStmt(idx, stmts, &body, bodyBlk)
 	c.popLoop()
 
-	if postBlk != nil && bodyBlk != nil {
+	if postBlk != nil && bodyBlk != nil && !bodyBlk.Exits() {
 		bodyBlk.Link(&Flow{
 			Block: postBlk,
 			Type:  Unconditional,
 		})
-	} else if postBlk == nil && bodyBlk != nil {
+	} else if postBlk == nil && bodyBlk != nil && !bodyBlk.Exits() {
 		bodyBlk.Link(&Flow{
 			Block: header,
 			Type:  Unconditional,
