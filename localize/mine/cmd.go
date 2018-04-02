@@ -95,11 +95,36 @@ func NewRunner(c *cmd.Config, o *Options) cmd.Runnable {
 					errors.Logf("DEBUG", "found %d %v", len(subgraphs), n)
 				}
 			}
+			minOrder := func(n *lattice.Node) int {
+				min := -1
+				set := false
+				for _, emb := range n.Embeddings {
+					for c := emb; c != nil; c = c.Prev {
+						nodeAttrs := o.Lattice.NodeAttrs[c.EmbIdx]
+						if o, has := nodeAttrs["order"]; has {
+							os := o.(string)
+							if order, err := strconv.Atoi(os); err == nil {
+								if !set || order < min {
+									set = true
+									min = order
+								}
+							}
+						}
+					}
+				}
+				return min
+			}
 			sort.Slice(subgraphs, func(i, j int) bool {
+				oi := minOrder(subgraphs[i].Node)
+				oj := minOrder(subgraphs[j].Node)
+				if oi >= 0 && oj >= 0 {
+					return (subgraphs[i].Score == subgraphs[j].Score && oi < oj) || subgraphs[i].Score > subgraphs[j].Score
+				}
 				return subgraphs[i].Score > subgraphs[j].Score
 			})
 			fmt.Println()
 			for i, n := range subgraphs {
+				minOrder(n.Node)
 				fmt.Printf("  - subgraph %-5d %v\n", i, n)
 				fmt.Println()
 			}
@@ -239,32 +264,36 @@ func NewOptionParser(c *cmd.Config, o *Options) cmd.Runnable {
 			if len(passingPaths) < 1 {
 				return nil, cmd.Usage(r, 2, "Expected at least one passing test. (see -p)")
 			}
-			if o.Binary == nil {
-				return nil, cmd.Usage(r, 2, "You must supply a binary (see -b)")
-			}
-			ex, err := test.SingleInputExecutor(o.BinArgs, o.Binary)
-			if err != nil {
-				return nil, cmd.Err(2, err)
-			}
-			failing, failingProfiles, err := loadTests(failingPaths, ex)
-			if err != nil {
-				return nil, cmd.Err(1, err)
-			}
-			passing, passingProfiles, err := loadTests(passingPaths, ex)
-			if err != nil {
-				return nil, cmd.Err(1, err)
-			}
-			o.Failing = failing
-			o.Passing = passing
-			o.Lattice, err = lattice.LoadFrom(failingProfiles, passingProfiles)
-			if err != nil {
-				return nil, cmd.Err(3, err)
+			if o.Binary != nil {
+				ex, err := test.SingleInputExecutor(o.BinArgs, o.Binary)
+				if err != nil {
+					return nil, cmd.Err(2, err)
+				}
+				failing, failingProfiles, err := runTests(failingPaths, ex)
+				if err != nil {
+					return nil, cmd.Err(1, err)
+				}
+				passing, passingProfiles, err := runTests(passingPaths, ex)
+				if err != nil {
+					return nil, cmd.Err(1, err)
+				}
+				o.Failing = failing
+				o.Passing = passing
+				o.Lattice, err = lattice.LoadFrom(failingProfiles, passingProfiles)
+				if err != nil {
+					return nil, cmd.Err(3, err)
+				}
+			} else {
+				o.Lattice, err = lattice.LoadDot(failingPaths, passingPaths)
+				if err != nil {
+					return nil, cmd.Err(3, err)
+				}
 			}
 			return args, nil
 		})
 }
 
-func loadTests(paths []string, ex test.Executor) ([]*test.Testcase, *bytes.Buffer, error) {
+func runTests(paths []string, ex test.Executor) ([]*test.Testcase, *bytes.Buffer, error) {
 	var buf bytes.Buffer
 	tests := make([]*test.Testcase, 0, len(paths))
 	count := 0

@@ -110,7 +110,7 @@ func NewRunner(c *cmd.Config, o *Options) cmd.Runnable {
 				}
 				defer ouf.Close()
 			}
-			l, err := lattice.Load(o.FailsPath, o.OksPath)
+			l, err := lattice.Load([]string{o.FailsPath}, []string{o.OksPath})
 			if err != nil {
 				return nil, cmd.Err(2, err)
 			}

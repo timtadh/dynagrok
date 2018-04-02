@@ -6,16 +6,18 @@ import (
 )
 
 type Options struct {
-	ScoreName string
-	Score     ScoreFunc
-	MinerName string
-	Miner     MinerFunc
-	Lattice   *lattice.Lattice
-	Binary    *test.Remote
-	BinArgs   test.Arguments
-	Failing   []*test.Testcase
-	Passing   []*test.Testcase
-	Opts      []MinerOpt
+	ScoreName       string
+	Score           ScoreFunc
+	MinerName       string
+	Miner           MinerFunc
+	Lattice         *lattice.Lattice
+	Binary          *test.Remote
+	BinArgs         test.Arguments
+	Failing         []*test.Testcase
+	Passing         []*test.Testcase
+	PassingProfiles []string
+	FailingProfiles []string
+	Opts            []MinerOpt
 }
 
 func (o *Options) Copy() *Options {

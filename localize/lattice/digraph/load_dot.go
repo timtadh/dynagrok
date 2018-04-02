@@ -16,24 +16,20 @@ import (
 type VertexAttrs map[int]map[string]interface{}
 
 type DotLoader struct {
-	Builder   *Builder
-	Labels    *Labels
-	Attrs     map[int]map[string]interface{}
-	Positions map[int]string
-	FnNames   map[int]string
-	BBIds     map[int]int
-	vidxs     map[int]int
+	Builder *Builder
+	Labels  *Labels
+	Info    *Info
+	Attrs   VertexAttrs
+	vidxs   map[int]int
 }
 
-func LoadDot(positions, fnNames map[int]string, bbids map[int]int, labels *Labels, input io.Reader) (*Indices, error) {
+func LoadDot(info *Info, labels *Labels, attrs VertexAttrs, input io.Reader) (*Indices, error) {
 	l := &DotLoader{
-		Builder:   Build(100, 1000),
-		Labels:    labels,
-		Attrs:     make(VertexAttrs),
-		Positions: positions,
-		FnNames:   fnNames,
-		BBIds:     bbids,
-		vidxs:     make(map[int]int),
+		Builder: Build(100, 1000),
+		Labels:  labels,
+		Attrs:   attrs,
+		Info:    info,
+		vidxs:   make(map[int]int),
 	}
 	return l.load(input)
 }
@@ -63,18 +59,22 @@ func (l *DotLoader) addVertex(id int, color int, label string, attrs map[string]
 		attrs["oid"] = id
 		attrs["color"] = color
 		l.Attrs[vertex.Idx] = attrs
+		var position string
+		var fnName string
+		var block int
 		if pos, has := attrs["position"]; has {
-			l.Positions[color] = pos.(string)
+			position = pos.(string)
 		}
 		if fn, has := attrs["fn_name"]; has {
-			l.FnNames[color] = fn.(string)
+			fnName = fn.(string)
 		}
 		if bbid, has := attrs["bbid"]; has {
-			l.BBIds[color], err = strconv.Atoi(bbid.(string))
+			block, err = strconv.Atoi(bbid.(string))
 			if err != nil {
 				return err
 			}
 		}
+		l.Info.Add(color, block, fnName, position)
 	}
 	return nil
 }
