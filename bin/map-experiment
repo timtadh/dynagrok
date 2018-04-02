@@ -17,12 +17,12 @@ if [[ -z "$goroot" ]]; then
     exit 1
 fi
 
-DYNAGROK=$dgpath/bin/dynagrok
+DYNAGROK=$(which dynagrok)
 MAPTEST=$dgpath/examples/src/dynagrok/examples/avl/testcases/map_tester.py
 
 MUTANTS=20
 RATE=.01
-TESTS=250
+TESTS=50
 
 function run {
   >&2 echo $ "${@}"
