@@ -21,7 +21,20 @@
 
 [[projects]]
   name = "github.com/timtadh/data-structures"
-  packages = ["errors","exc","hashtable","heap","linked","list","rand","set","test","tree","tree/avl","types"]
+  packages = [
+    "errors",
+    "exc",
+    "hashtable",
+    "heap",
+    "linked",
+    "list",
+    "rand",
+    "set",
+    "test",
+    "tree",
+    "tree/avl",
+    "types"
+  ]
   revision = "cd0c1de5390876f92ce0762c9c626a569b124f24"
   version = "v0.5.2"
 
@@ -51,15 +64,26 @@
 
 [[projects]]
   name = "github.com/timtadh/lexmachine"
-  packages = [".","dfa","frontend","inst","machines","queue"]
-  revision = "ebc72e3f3dcb99a11fd2f6b2dbace6ccacb87fdc"
-  version = "v0.2.1"
+  packages = [
+    ".",
+    "dfa",
+    "frontend",
+    "inst",
+    "machines",
+    "queue"
+  ]
+  revision = "1fc6bf654cb92be37fc21e477a19d27f6c639aff"
+  version = "v0.2.2"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/tools"
-  packages = ["go/ast/astutil","go/buildutil","go/loader"]
-  revision = "2ae76fd1560b622911f444c1e66b70a857e1de67"
+  packages = [
+    "go/ast/astutil",
+    "go/buildutil",
+    "go/loader"
+  ]
+  revision = "ac136b6c2db7c4d43955e4bc7174db36dc0539c0"
 
 [solve-meta]
   analyzer-name = "dep"
