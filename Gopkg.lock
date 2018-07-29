@@ -95,7 +95,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:cbb422a4d11d25bc6205f0f2a9a137e73469a1b46c84056f887af81eeea6d63c"
+  digest = "1:5245bbf30a228b22cb61683ba5ad9641b98e0f81a9c4918394f49b40f6aa80f7"
   name = "golang.org/x/tools"
   packages = [
     "go/ast/astutil",
@@ -103,7 +103,7 @@
     "go/loader",
   ]
   pruneopts = ""
-  revision = "ac136b6c2db7c4d43955e4bc7174db36dc0539c0"
+  revision = "8cc4e8a6f4841aa92a8683fca47bc5d64b58875b"
 
 [solve-meta]
   analyzer-name = "dep"
