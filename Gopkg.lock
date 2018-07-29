@@ -3,23 +3,30 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:3769ba35c72b455e88feb7d67b62ce983f7bc6abc0de04daa1d8b61e1112845e"
   name = "github.com/google/shlex"
   packages = ["."]
+  pruneopts = ""
   revision = "6f45313302b9c56850fc17f99e40caebce98c716"
 
 [[projects]]
+  digest = "1:3c818dada3e41bdb0f509f78e6775610f1bb179449ec8c4c86a45fae35460f3f"
   name = "github.com/julienschmidt/httprouter"
   packages = ["."]
+  pruneopts = ""
   revision = "8c199fb6259ffc1af525cc3ad52ee60ba8359669"
   version = "v1.1"
 
 [[projects]]
+  digest = "1:6ad5a829fe22e0d18e4c647ea5a0ea2b6033f420f4bb2366b6821d6d806fafed"
   name = "github.com/timtadh/combos"
   packages = ["."]
+  pruneopts = ""
   revision = "8f75337223504d0fceeb701c3c4a261a13141b61"
   version = "v0.1.0"
 
 [[projects]]
+  digest = "1:0a1775806af0d03cc6833d27c90e0996c935cd83eebc31d6dc31b73376a4829d"
   name = "github.com/timtadh/data-structures"
   packages = [
     "errors",
@@ -33,36 +40,46 @@
     "test",
     "tree",
     "tree/avl",
-    "types"
+    "types",
   ]
+  pruneopts = ""
   revision = "cd0c1de5390876f92ce0762c9c626a569b124f24"
   version = "v0.5.2"
 
 [[projects]]
+  digest = "1:d0df5bc01c4db33b8a0bde9ef8745a75dd9a069896820860fa6d6270a5bdcc46"
   name = "github.com/timtadh/dot"
   packages = ["."]
+  pruneopts = ""
   revision = "e9efd4e2fa330491e6fa0ab717c796abe8f189f7"
   version = "v0.1.0"
 
 [[projects]]
+  digest = "1:10e122eaa5b094b5ad13cbc6f58f1fd8e1403f466c15659055fd53d9d02029d7"
   name = "github.com/timtadh/getopt"
   packages = ["."]
+  pruneopts = ""
   revision = "29f1208d827b977f2e4060ca9923032b34094187"
   version = "v1.0.0"
 
 [[projects]]
   branch = "go1"
+  digest = "1:06aa0014c09c0fbe75eb5146aafa363132f21d7478dee56280e1e56fcce9c125"
   name = "github.com/timtadh/go.matrix"
   packages = ["."]
+  pruneopts = ""
   revision = "885f4f61e20339c45aae48900d0666bd4ae63155"
 
 [[projects]]
   branch = "master"
+  digest = "1:1bc7fa25ecf45f741cd9bffe75cc250252605ac4acc52ca4660084609894a8ee"
   name = "github.com/timtadh/goiso"
   packages = ["bliss"]
+  pruneopts = ""
   revision = "740a65d0c06dc74c2bb34b07092edaf53398088d"
 
 [[projects]]
+  digest = "1:28ec75a1364cfe5872b7c65d842bb5901632057756a5f2783f8660bcfcc71544"
   name = "github.com/timtadh/lexmachine"
   packages = [
     ".",
@@ -70,24 +87,43 @@
     "frontend",
     "inst",
     "machines",
-    "queue"
+    "queue",
   ]
+  pruneopts = ""
   revision = "1fc6bf654cb92be37fc21e477a19d27f6c639aff"
   version = "v0.2.2"
 
 [[projects]]
   branch = "master"
+  digest = "1:cbb422a4d11d25bc6205f0f2a9a137e73469a1b46c84056f887af81eeea6d63c"
   name = "golang.org/x/tools"
   packages = [
     "go/ast/astutil",
     "go/buildutil",
-    "go/loader"
+    "go/loader",
   ]
+  pruneopts = ""
   revision = "ac136b6c2db7c4d43955e4bc7174db36dc0539c0"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "5efbf33063796595bb5f01627890532e878b06f5a1a8dfb776782fc75dd4585b"
+  input-imports = [
+    "github.com/google/shlex",
+    "github.com/julienschmidt/httprouter",
+    "github.com/timtadh/combos",
+    "github.com/timtadh/data-structures/errors",
+    "github.com/timtadh/data-structures/exc",
+    "github.com/timtadh/data-structures/heap",
+    "github.com/timtadh/data-structures/set",
+    "github.com/timtadh/data-structures/test",
+    "github.com/timtadh/data-structures/types",
+    "github.com/timtadh/dot",
+    "github.com/timtadh/getopt",
+    "github.com/timtadh/go.matrix",
+    "github.com/timtadh/goiso/bliss",
+    "golang.org/x/tools/go/ast/astutil",
+    "golang.org/x/tools/go/loader",
+  ]
   solver-name = "gps-cdcl"
   solver-version = 1
