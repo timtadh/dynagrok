@@ -2,7 +2,6 @@ package analysis
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 )
@@ -92,7 +91,7 @@ func (t *DominatorTree) ImmediateDominators() []int {
 			idom = n
 		}
 		if parent != nil {
-			fmt.Fprintln(os.Stderr, len(idom), child.Id, parent.Id)
+			// fmt.Fprintln(os.Stderr, len(idom), child.Id, parent.Id)
 			idom[child.Id] = parent.Id
 		} else {
 			idom[child.Id] = child.Id
