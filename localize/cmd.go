@@ -8,7 +8,7 @@ import (
 	"github.com/timtadh/dynagrok/cmd"
 	discflo "github.com/timtadh/dynagrok/localize/discflo/cmd"
 	"github.com/timtadh/dynagrok/localize/locavore"
-	"github.com/timtadh/dynagrok/localize/mine"
+	mine "github.com/timtadh/dynagrok/localize/mine/cmd"
 	"github.com/timtadh/dynagrok/localize/stat"
 )
 

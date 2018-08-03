@@ -11,7 +11,7 @@ import (
 	"github.com/timtadh/dynagrok/cmd"
 	"github.com/timtadh/dynagrok/localize/discflo"
 	"github.com/timtadh/dynagrok/localize/eval"
-	"github.com/timtadh/dynagrok/localize/mine"
+	"github.com/timtadh/dynagrok/localize/fault"
 	"github.com/timtadh/dynagrok/localize/test"
 	"github.com/timtadh/getopt"
 )
@@ -118,7 +118,7 @@ Eval Methods
 			if faultsPath == "" {
 				return nil, cmd.Errorf(1, "You must supply the `-f` flag and give a path to the faults")
 			}
-			faults, err := mine.LoadFaults(faultsPath)
+			faults, err := fault.LoadFaults(faultsPath)
 			if err != nil {
 				return nil, cmd.Err(1, err)
 			}

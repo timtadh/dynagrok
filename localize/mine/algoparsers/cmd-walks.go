@@ -1,18 +1,20 @@
-package mine
+package algoparsers
 
 import (
 	"fmt"
 	"strconv"
 
 	"github.com/timtadh/dynagrok/cmd"
+	"github.com/timtadh/dynagrok/localize/mine"
+	"github.com/timtadh/dynagrok/localize/mine/opts"
 	"github.com/timtadh/getopt"
 )
 
-type walkOpts struct {
-	walker Walker
+type WalkOpts struct {
+	walker mine.Walker
 }
 
-func NewWalksParser(c *cmd.Config, o *Options, wo *walkOpts) cmd.Runnable {
+func NewWalksParser(c *cmd.Config, o *opts.Options, wo *WalkOpts) cmd.Runnable {
 	return cmd.Cmd(
 		"k-walks",
 		`[options]`,
@@ -37,13 +39,13 @@ Option Flags
 					walks = w
 				}
 			}
-			o.Miner = Walking(wo.walker, walks)
+			o.Miner = mine.Walking(wo.walker, walks)
 			o.MinerName += fmt.Sprintf(" k-walks %v", walks)
 			return args, nil
 		})
 }
 
-func NewWalkTopColorsParser(c *cmd.Config, o *Options, wo *walkOpts) cmd.Runnable {
+func NewWalkTopColorsParser(c *cmd.Config, o *opts.Options, wo *WalkOpts) cmd.Runnable {
 	return cmd.Cmd(
 		"walk-top-colors",
 		`[options]`,
@@ -66,7 +68,7 @@ Option Flags
 			"debug=",
 		},
 		func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
-			opts := make([]TopColorOpt, 0, 10)
+			opts := make([]mine.TopColorOpt, 0, 10)
 			walks := 0
 			percent := 0.0
 			for _, oa := range optargs {
@@ -76,39 +78,39 @@ Option Flags
 					if err != nil {
 						return nil, cmd.Errorf(1, "Could not parse arg to `%v` expected an int (got %v). err: %v", oa.Opt(), oa.Arg(), err)
 					}
-					opts = append(opts, PercentOfColors(p))
+					opts = append(opts, mine.PercentOfColors(p))
 					percent = p
 				case "-w", "--walks-per-color":
 					w, err := strconv.Atoi(oa.Arg())
 					if err != nil {
 						return nil, cmd.Errorf(1, "Could not parse arg to `%v` expected an int (got %v). err: %v", oa.Opt(), oa.Arg(), err)
 					}
-					opts = append(opts, WalksPerColor(w))
+					opts = append(opts, mine.WalksPerColor(w))
 					walks = w
 				case "-m", "--min-groups-walked":
 					m, err := strconv.Atoi(oa.Arg())
 					if err != nil {
 						return nil, cmd.Errorf(1, "Could not parse arg to `%v` expected an int (got %v). err: %v", oa.Opt(), oa.Arg(), err)
 					}
-					opts = append(opts, MinGroupsWalked(m))
+					opts = append(opts, mine.MinGroupsWalked(m))
 				case "-s", "--skip-seen-colors":
-					opts = append(opts, SkipSeenColors())
+					opts = append(opts, mine.SkipSeenColors())
 				case "--debug":
 					d, err := strconv.Atoi(oa.Arg())
 					if err != nil {
 						return nil, cmd.Errorf(1, "Could not parse arg to `%v` expected a int (got %v). err: %v", oa.Opt(), oa.Arg(), err)
 					}
-					opts = append(opts, WTCDebugLevel(d))
+					opts = append(opts, mine.WTCDebugLevel(d))
 				}
 			}
 			// o.Miner = WalkingTopColors(wo.walker, opts...)
-			o.Miner = ParTopColors(wo.walker, opts...)
+			o.Miner = mine.ParTopColors(wo.walker, opts...)
 			o.MinerName += fmt.Sprintf(" walk-top-colors %v:%v", percent, walks)
 			return args, nil
 		})
 }
 
-func NewURWParser(c *cmd.Config, o *Options, wo *walkOpts) cmd.Runnable {
+func NewURWParser(c *cmd.Config, o *opts.Options, wo *WalkOpts) cmd.Runnable {
 	return cmd.Cmd(
 		"urw",
 		`[options]`,
@@ -119,13 +121,13 @@ Option Flags
 		"",
 		[]string{},
 		func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
-			wo.walker = UnweightedRandomWalk()
+			wo.walker = mine.UnweightedRandomWalk()
 			o.MinerName += "urw"
 			return args, nil
 		})
 }
 
-func NewSWRWParser(c *cmd.Config, o *Options, wo *walkOpts) cmd.Runnable {
+func NewSWRWParser(c *cmd.Config, o *opts.Options, wo *WalkOpts) cmd.Runnable {
 	return cmd.Cmd(
 		"swrw",
 		`[options]`,
@@ -139,14 +141,14 @@ Option Flags
 			"sample-non-maximal",
 		},
 		func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
-			opts := make([]SWRWOpt, 0, 10)
+			opts := make([]mine.SWRWOpt, 0, 10)
 			for _, oa := range optargs {
 				switch oa.Opt() {
 				case "--sample-non-maximal":
-					opts = append(opts, SWRWSampleNonMax)
+					opts = append(opts, mine.SWRWSampleNonMax)
 				}
 			}
-			wo.walker = ScoreWeightedRandomWalk(opts...)
+			wo.walker = mine.ScoreWeightedRandomWalk(opts...)
 			o.MinerName += "swrw"
 			return args, nil
 		})

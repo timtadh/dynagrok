@@ -16,6 +16,7 @@ import (
 	"github.com/timtadh/dynagrok/localize/discflo/eval"
 	"github.com/timtadh/dynagrok/localize/discflo/web"
 	"github.com/timtadh/dynagrok/localize/mine"
+	minecmd "github.com/timtadh/dynagrok/localize/mine/cmd"
 	"github.com/timtadh/dynagrok/localize/test"
 )
 
@@ -27,14 +28,14 @@ func NewCommand(c *cmd.Config) cmd.Runnable {
 		cmd.Annotate(
 			cmd.Join(
 				"disc-flo",
-				mine.NewOptionParser(c, &o.Options),
+				minecmd.NewOptionParser(c, &o.Options),
 				NewOptionParser(c, &o),
 			),
 			"disc-flo",
 			"", "[options]",
-			"\nOptions", mine.Notes,
+			"\nOptions", minecmd.Notes,
 		),
-		mine.NewAlgorithmParser(c, &o.Options),
+		minecmd.NewAlgorithmParser(c, &o.Options),
 		cmd.Commands(map[string]cmd.Runnable{
 			"":              NewRunner(c, &o),
 			evaluate.Name(): evaluate,

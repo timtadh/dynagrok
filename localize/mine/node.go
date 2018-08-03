@@ -2,9 +2,8 @@ package mine
 
 import (
 	"fmt"
-)
+	"sort"
 
-import (
 	"github.com/timtadh/dynagrok/localize/lattice"
 	"github.com/timtadh/dynagrok/localize/lattice/subgraph"
 	"github.com/timtadh/dynagrok/localize/test"
@@ -63,4 +62,41 @@ func ColorNode(lat *lattice.Lattice, score *Score, color int) *SearchNode {
 	}
 	colorNode := lattice.NewNode(lat, vsg, embs)
 	return NewSearchNode(colorNode, score.Score(colorNode))
+}
+
+func (nodes SearchNodes) Unique() (unique []*SearchNode) {
+	added := make(map[string]bool)
+	for n, next := nodes(); next != nil; n, next = next() {
+		if n.Node.SubGraph == nil {
+			continue
+		}
+		label := string(n.Node.SubGraph.Label())
+		if added[label] {
+			continue
+		}
+		added[label] = true
+		unique = append(unique, n)
+	}
+	sort.Slice(unique, func(i, j int) bool {
+		return unique[i].Score > unique[j].Score
+	})
+	return unique
+}
+
+func (nodes SearchNodes) Group() [][]*SearchNode {
+	return GroupNodesByScore(nodes.Unique())
+}
+
+func GroupNodesByScore(unique []*SearchNode) [][]*SearchNode {
+	groups := make([][]*SearchNode, 0, 10)
+	for _, n := range unique {
+		lg := len(groups)
+		if lg > 0 && n.Score == groups[lg-1][0].Score {
+			groups[lg-1] = append(groups[lg-1], n)
+		} else {
+			groups = append(groups, make([]*SearchNode, 0, 10))
+			groups[lg] = append(groups[lg], n)
+		}
+	}
+	return groups
 }

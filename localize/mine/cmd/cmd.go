@@ -1,4 +1,4 @@
-package mine
+package cmd
 
 import (
 	"bytes"
@@ -14,6 +14,10 @@ import (
 	"github.com/timtadh/data-structures/errors"
 	"github.com/timtadh/dynagrok/cmd"
 	"github.com/timtadh/dynagrok/localize/lattice"
+	"github.com/timtadh/dynagrok/localize/mine"
+	"github.com/timtadh/dynagrok/localize/mine/algoparsers"
+	evalcmd "github.com/timtadh/dynagrok/localize/mine/eval"
+	"github.com/timtadh/dynagrok/localize/mine/opts"
 	"github.com/timtadh/dynagrok/localize/test"
 	"github.com/timtadh/getopt"
 )
@@ -49,8 +53,8 @@ Notes on Binary Args (-a,--binary-args)
 `
 
 func NewCommand(c *cmd.Config) cmd.Runnable {
-	var o Options
-	cmp := NewCompareParser(c, &o)
+	var o opts.Options
+	cmp := evalcmd.NewCompareParser(c, &o)
 	eval := NewEvalParser(c, &o)
 	return cmd.Concat(
 		cmd.Annotate(
@@ -72,15 +76,15 @@ func NewCommand(c *cmd.Config) cmd.Runnable {
 	)
 }
 
-func NewRunner(c *cmd.Config, o *Options) cmd.Runnable {
+func NewRunner(c *cmd.Config, o *opts.Options) cmd.Runnable {
 	return cmd.BareCmd(
 		func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
 			if o.Score == nil {
 				return nil, cmd.Usage(r, 2, "You must supply a score (see -s or --scores)")
 			}
-			subgraphs := make([]*SearchNode, 0, 10)
+			subgraphs := make([]*mine.SearchNode, 0, 10)
 			added := make(map[string]bool)
-			miner := NewMiner(o.Miner, o.Lattice, o.Score, o.Opts...)
+			miner := mine.NewMiner(o.Miner, o.Lattice, o.Score, o.Opts...)
 			for n, next := miner.Mine(context.TODO())(); next != nil; n, next = next() {
 				if n.Node.SubGraph == nil {
 					continue
@@ -137,15 +141,15 @@ func NewRunner(c *cmd.Config, o *Options) cmd.Runnable {
 		})
 }
 
-func NewAlgorithmParser(c *cmd.Config, o *Options) cmd.Runnable {
-	var wo walkOpts
-	bb := NewBranchAndBoundParser(c, o)
-	sleap := NewSLeapParser(c, o)
-	leap := NewLeapParser(c, o)
-	urw := NewURWParser(c, o, &wo)
-	swrw := NewSWRWParser(c, o, &wo)
-	walks := NewWalksParser(c, o, &wo)
-	topColors := NewWalkTopColorsParser(c, o, &wo)
+func NewAlgorithmParser(c *cmd.Config, o *opts.Options) cmd.Runnable {
+	var wo algoparsers.WalkOpts
+	bb := algoparsers.NewBranchAndBoundParser(c, o)
+	sleap := algoparsers.NewSLeapParser(c, o)
+	leap := algoparsers.NewLeapParser(c, o)
+	urw := algoparsers.NewURWParser(c, o, &wo)
+	swrw := algoparsers.NewSWRWParser(c, o, &wo)
+	walks := algoparsers.NewWalksParser(c, o, &wo)
+	topColors := algoparsers.NewWalkTopColorsParser(c, o, &wo)
 	walkTypes := cmd.Commands(map[string]cmd.Runnable{
 		walks.Name():     walks,
 		topColors.Name(): topColors,
@@ -159,7 +163,7 @@ func NewAlgorithmParser(c *cmd.Config, o *Options) cmd.Runnable {
 	})
 }
 
-func NewOptionParser(c *cmd.Config, o *Options) cmd.Runnable {
+func NewOptionParser(c *cmd.Config, o *opts.Options) cmd.Runnable {
 	return cmd.Cmd(
 		"",
 		`-s <score> -b <binary> -f <failing-tests> -p <passing-tests>`,
@@ -206,16 +210,16 @@ func NewOptionParser(c *cmd.Config, o *Options) cmd.Runnable {
 				switch oa.Opt() {
 				case "--scores":
 					fmt.Println("\nNames of Suspicousness Scores (and Abbrevations):")
-					for name, abbrvs := range ScoreNames {
+					for name, abbrvs := range mine.ScoreNames {
 						fmt.Printf("  - %v : [%v]\n", name, strings.Join(abbrvs, ", "))
 					}
 					return nil, cmd.Errorf(0, "")
 				case "-s", "--score":
 					name := oa.Arg()
-					if n, has := ScoreAbbrvs[oa.Arg()]; has {
+					if n, has := mine.ScoreAbbrvs[oa.Arg()]; has {
 						name = n
 					}
-					if m, has := Scores[name]; has {
+					if m, has := mine.Scores[name]; has {
 						fmt.Println("using method", name)
 						o.Score = m
 						o.ScoreName = name
@@ -247,19 +251,19 @@ func NewOptionParser(c *cmd.Config, o *Options) cmd.Runnable {
 					if err != nil {
 						return nil, cmd.Errorf(1, "Could not parse arg to `%v` expected an int (got %v). err: %v", oa.Opt(), oa.Arg(), err)
 					}
-					o.Opts = append(o.Opts, MaxEdges(m))
+					o.Opts = append(o.Opts, mine.MaxEdges(m))
 				case "--min-edges":
 					m, err := strconv.Atoi(oa.Arg())
 					if err != nil {
 						return nil, cmd.Errorf(1, "Could not parse arg to `%v` expected an int (got %v). err: %v", oa.Opt(), oa.Arg(), err)
 					}
-					o.Opts = append(o.Opts, MinEdges(m))
+					o.Opts = append(o.Opts, mine.MinEdges(m))
 				case "--min-fails":
 					m, err := strconv.Atoi(oa.Arg())
 					if err != nil {
 						return nil, cmd.Errorf(1, "Could not parse arg to `%v` expected an int (got %v). err: %v", oa.Opt(), oa.Arg(), err)
 					}
-					o.Opts = append(o.Opts, MinFails(m))
+					o.Opts = append(o.Opts, mine.MinFails(m))
 				}
 			}
 			if len(failingPaths) < 1 {

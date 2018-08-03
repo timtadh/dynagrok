@@ -1,4 +1,4 @@
-package mine
+package cmd
 
 // Precision and Recall are used by
 //    H. Cheng, D. Lo, Y. Zhou, X. Wang, and X. Yan, “Identifying Bug Signatures
@@ -15,18 +15,17 @@ package mine
 // version of one program with one or more bugs.
 
 import (
-	"bufio"
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/timtadh/dynagrok/cmd"
-	"github.com/timtadh/dynagrok/mutate"
+	"github.com/timtadh/dynagrok/localize/fault"
+	"github.com/timtadh/dynagrok/localize/mine"
+	"github.com/timtadh/dynagrok/localize/mine/opts"
 	"github.com/timtadh/getopt"
 )
 
-func NewEvalParser(c *cmd.Config, o *Options) cmd.Runnable {
+func NewEvalParser(c *cmd.Config, o *opts.Options) cmd.Runnable {
 	return cmd.Cmd(
 		"eval",
 		`[options]`,
@@ -52,19 +51,19 @@ Option Flags
 			if faultsPath == "" {
 				return nil, cmd.Errorf(1, "You must supply the `-f` flag and give a path to the faults")
 			}
-			faults, err := LoadFaults(faultsPath)
+			faults, err := fault.LoadFaults(faultsPath)
 			if err != nil {
 				return nil, cmd.Err(1, err)
 			}
 			for _, f := range faults {
 				fmt.Println(f)
 			}
-			eval := func(name string, m *Miner) {
+			eval := func(name string, m *mine.Miner) {
 				localized := m.Mine(context.TODO()).Group()
 				for _, f := range faults {
 					sum := 0
 					for gid, group := range localized {
-						var first *SearchNode
+						var first *mine.SearchNode
 						var bbid int
 						var fnName, pos string
 						count := 0
@@ -101,65 +100,14 @@ Option Flags
 				}
 			}
 			if o.Score == nil {
-				for name, score := range Scores {
-					m := NewMiner(o.Miner, o.Lattice, score, o.Opts...)
+				for name, score := range mine.Scores {
+					m := mine.NewMiner(o.Miner, o.Lattice, score, o.Opts...)
 					eval("mine-dsg + "+name, m)
 				}
 			} else {
-				m := NewMiner(o.Miner, o.Lattice, o.Score, o.Opts...)
+				m := mine.NewMiner(o.Miner, o.Lattice, o.Score, o.Opts...)
 				eval("mine-dsg + "+o.ScoreName, m)
 			}
 			return nil, nil
 		})
-}
-
-type Fault struct {
-	FnName       string
-	BasicBlockId int
-}
-
-func (f *Fault) String() string {
-	return fmt.Sprintf(`Fault {
-    FnName: %v,
-    BasicBlockId: %d,
-}`, f.FnName, f.BasicBlockId)
-}
-
-func LoadFault(bits []byte) (*Fault, error) {
-	var e mutate.ExportedMut
-	err := json.Unmarshal(bits, &e)
-	if err != nil {
-		return nil, err
-	}
-	f := &Fault{FnName: e.FnName, BasicBlockId: e.BasicBlockId}
-	return f, nil
-}
-
-func LoadFaults(path string) ([]*Fault, error) {
-	fin, failClose, err := cmd.Input(path)
-	if err != nil {
-		return nil, fmt.Errorf("Could not read the list of failures: %v\n%v", path, err)
-	}
-	defer failClose()
-	seen := make(map[Fault]bool)
-	failures := make([]*Fault, 0, 10)
-	s := bufio.NewScanner(fin)
-	for s.Scan() {
-		line := bytes.TrimSpace(s.Bytes())
-		if len(line) == 0 {
-			continue
-		}
-		f, err := LoadFault(line)
-		if err != nil {
-			return nil, fmt.Errorf("Could not load failure: `%v`\nerror: %v", string(line), err)
-		}
-		if !seen[*f] {
-			seen[*f] = true
-			failures = append(failures, f)
-		}
-	}
-	if err := s.Err(); err != nil {
-		return nil, fmt.Errorf("Could not read the failures file: %v, error: %v", path, err)
-	}
-	return failures, nil
 }

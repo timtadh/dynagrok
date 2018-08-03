@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/timtadh/dynagrok/localize/fault"
 	"github.com/timtadh/dynagrok/localize/mine"
 )
 
@@ -33,7 +34,7 @@ type EvalResult interface {
 	Eval() string      // evaluation method used: Ranked List, Markov Chain, Chain + Behavior Jumps, etc...
 	Rank() float64     // the rank score or equivalent
 	RawScore() float64 // the raw score given to this location
-	Fault() *mine.Fault
+	Fault() *fault.Fault
 	Location() *mine.Location
 }
 
@@ -44,7 +45,7 @@ type MarkovEvalResult struct {
 	HT_Rank     float64
 	HittingTime float64
 	loc         *mine.Location
-	fault       *mine.Fault
+	fault       *fault.Fault
 }
 
 func (r *MarkovEvalResult) Method() string {
@@ -67,7 +68,7 @@ func (r *MarkovEvalResult) RawScore() float64 {
 	return r.HittingTime
 }
 
-func (r *MarkovEvalResult) Fault() *mine.Fault {
+func (r *MarkovEvalResult) Fault() *fault.Fault {
 	return r.fault
 }
 
@@ -81,7 +82,7 @@ type RankListEvalResult struct {
 	RankScore      float64
 	Suspiciousness float64
 	Loc            *mine.Location
-	LocalizedFault *mine.Fault
+	LocalizedFault *fault.Fault
 }
 
 func (r *RankListEvalResult) Method() string {
@@ -104,7 +105,7 @@ func (r *RankListEvalResult) RawScore() float64 {
 	return r.Suspiciousness
 }
 
-func (r *RankListEvalResult) Fault() *mine.Fault {
+func (r *RankListEvalResult) Fault() *fault.Fault {
 	return r.LocalizedFault
 }
 

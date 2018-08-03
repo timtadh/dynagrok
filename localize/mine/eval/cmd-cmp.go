@@ -1,14 +1,18 @@
-package mine
+package eval
 
 import (
 	"context"
 	"fmt"
 	"math"
 	"os"
-	"sort"
 	"time"
 
 	"github.com/timtadh/dynagrok/cmd"
+	"github.com/timtadh/dynagrok/localize/eval"
+	"github.com/timtadh/dynagrok/localize/fault"
+	"github.com/timtadh/dynagrok/localize/mine"
+	"github.com/timtadh/dynagrok/localize/mine/algoparsers"
+	"github.com/timtadh/dynagrok/localize/mine/opts"
 	"github.com/timtadh/getopt"
 )
 
@@ -21,16 +25,16 @@ import (
 
 // https://math.stackexchange.com/questions/75968/expectation-of-number-of-trials-before-success-in-an-urn-problem-without-replace
 
-func algorithmParser(c *cmd.Config) func(o *Options, args []string) (*Options, []string, *cmd.Error) {
-	var wo walkOpts
-	return func(o *Options, args []string) (*Options, []string, *cmd.Error) {
-		bb := NewBranchAndBoundParser(c, o)
-		sleap := NewSLeapParser(c, o)
-		leap := NewLeapParser(c, o)
-		urw := NewURWParser(c, o, &wo)
-		swrw := NewSWRWParser(c, o, &wo)
-		walks := NewWalksParser(c, o, &wo)
-		topColors := NewWalkTopColorsParser(c, o, &wo)
+func algorithmParser(c *cmd.Config) func(o *opts.Options, args []string) (*opts.Options, []string, *cmd.Error) {
+	var wo algoparsers.WalkOpts
+	return func(o *opts.Options, args []string) (*opts.Options, []string, *cmd.Error) {
+		bb := algoparsers.NewBranchAndBoundParser(c, o)
+		sleap := algoparsers.NewSLeapParser(c, o)
+		leap := algoparsers.NewLeapParser(c, o)
+		urw := algoparsers.NewURWParser(c, o, &wo)
+		swrw := algoparsers.NewSWRWParser(c, o, &wo)
+		walks := algoparsers.NewWalksParser(c, o, &wo)
+		topColors := algoparsers.NewWalkTopColorsParser(c, o, &wo)
 		walkTypes := cmd.Commands(map[string]cmd.Runnable{
 			walks.Name():     walks,
 			topColors.Name(): topColors,
@@ -57,7 +61,7 @@ func algorithmParser(c *cmd.Config) func(o *Options, args []string) (*Options, [
 	}
 }
 
-func NewCompareParser(c *cmd.Config, o *Options) cmd.Runnable {
+func NewCompareParser(c *cmd.Config, o *opts.Options) cmd.Runnable {
 	parser := algorithmParser(c)
 	return cmd.Concat(
 		cmd.Cmd(
@@ -99,7 +103,7 @@ Option Flags
 				if faultsPath == "" {
 					return nil, cmd.Errorf(1, "You must supply the `-f` flag and give a path to the faults")
 				}
-				faults, err := LoadFaults(faultsPath)
+				faults, err := fault.LoadFaults(faultsPath)
 				if err != nil {
 					return nil, cmd.Err(1, err)
 				}
@@ -115,9 +119,9 @@ Option Flags
 					defer f.Close()
 					ouf = f
 				}
-				opts := make([]*Options, 0, 10)
+				options := make([]*opts.Options, 0, 10)
 				for {
-					var opt *Options
+					var opt *opts.Options
 					var err *cmd.Error
 					opt, args, err = parser(o.Copy(), args)
 					if err != nil {
@@ -126,7 +130,7 @@ Option Flags
 					if opt == nil {
 						break
 					}
-					opts = append(opts, opt)
+					options = append(options, opt)
 				}
 				min := func(a, b int) int {
 					if a < b {
@@ -134,7 +138,7 @@ Option Flags
 					}
 					return b
 				}
-				timeit := func(m *Miner) ([]*SearchNode, time.Duration) {
+				timeit := func(m *mine.Miner) ([]*mine.SearchNode, time.Duration) {
 					ctx, cancel := context.WithTimeout(context.Background(), timeout)
 					defer cancel()
 					s := time.Now()
@@ -142,12 +146,12 @@ Option Flags
 					e := time.Now()
 					return nodes, e.Sub(s)
 				}
-				rankScore := func(nodes []*SearchNode) (int, float64) {
+				rankScore := func(nodes []*mine.SearchNode) (int, float64) {
 					gid := -1
 					min := -1.0
 					for _, f := range faults {
 						sum := 0.0
-						for i, g := range group(nodes) {
+						for i, g := range mine.GroupNodesByScore(nodes) {
 							count := 0
 							for _, n := range g {
 								for _, v := range n.Node.SubGraph.V {
@@ -175,17 +179,47 @@ Option Flags
 					}
 					return gid, min
 				}
-				sum := func(nodes []*SearchNode) float64 {
+				markovEval := func(m *mine.Miner, options *opts.Options, nodes []*mine.SearchNode, method, score, chain string) eval.EvalResults {
+					var states map[int][]int
+					var P [][]float64
+					jumpPr := .5
+					maxStates := 1000
+					finalChainName := chain
+					if method == "CBSFL" {
+						switch chain {
+						case "Ranked-List":
+							groups := eval.CBSFL(options, options.Score)
+							return eval.RankListEval(faults, o.Lattice, method, score, groups)
+						case "Spacial-Jumps":
+							states, P = eval.SpacialJumps(jumpPr, maxStates, m)
+							finalChainName = fmt.Sprintf("%v(%g)", chain, jumpPr)
+						case "Behavioral-Jumps":
+							states, P = eval.BehavioralJumps(jumpPr, maxStates, m)
+							finalChainName = fmt.Sprintf("%v(%g)", chain, jumpPr)
+						case "Behavioral+Spacial-Jumps":
+							states, P = eval.BehavioralAndSpacialJumps(jumpPr, maxStates, m)
+							finalChainName = fmt.Sprintf("%v(%g)", chain, jumpPr)
+						default:
+							panic(fmt.Errorf("no chain named %v", method))
+						}
+					} else if method == "SBBFL" {
+						states, P = eval.DsgMarkovChain(maxStates, nodes)
+					} else {
+						panic("unknown method")
+					}
+					return eval.MarkovEval(faults, options.Lattice, method, score, finalChainName, states, P)
+				}
+				sum := func(nodes []*mine.SearchNode) float64 {
 					sum := 0.0
 					for _, n := range nodes {
 						sum += n.Score
 					}
 					return sum
 				}
-				mean := func(nodes []*SearchNode) float64 {
+				mean := func(nodes []*mine.SearchNode) float64 {
 					return sum(nodes) / float64(len(nodes))
 				}
-				stddev := func(nodes []*SearchNode) float64 {
+				stddev := func(nodes []*mine.SearchNode) float64 {
 					u := mean(nodes)
 					variance := 0.0
 					for _, n := range nodes {
@@ -198,7 +232,7 @@ Option Flags
 					}
 					return math.Sqrt(variance)
 				}
-				stderr := func(X, Y []*SearchNode) float64 {
+				stderr := func(X, Y []*mine.SearchNode) float64 {
 					T := min(len(X), len(Y))
 					variance := 0.0
 					for i := 0; i < T; i++ {
@@ -221,16 +255,18 @@ Option Flags
 						"max-edges", "min-fails", "row", "name", "sum", "mean", "stddev", "stderr (0)", "stderr (1)",
 						"rank-group", "rank-score", "dur (sec)", "duration")
 				}
-				stats := func(maxEdges, minFails, row int, name string, minout int, base1, base2, nodes []*SearchNode, dur time.Duration) {
+				stats := func(m *mine.Miner, opt *opts.Options, maxEdges, minFails, row int, name string, minout int, base1, base2, nodes []*mine.SearchNode, dur time.Duration) {
 					clamp := nodes[:minout]
 					gid, score := rankScore(nodes)
+					fmt.Println(name)
+					markovEval(m, opt, nodes, "SBBFL", opt.ScoreName, "")
 					fmt.Fprintf(ouf,
 						"%9v, %9v, %3v, %-27v, %10.5g, %10.5g, %10.5g, %11.5g, %11.5g, %11v, %11.5g, %11.5g, %11v\n",
 						maxEdges, minFails, row, name,
 						sum(clamp), mean(clamp), stddev(clamp), stderr(base1, nodes), stderr(base2, nodes), gid, score,
 						dur.Seconds(), dur)
 				}
-				output := func(name string, nodes []*SearchNode) {
+				output := func(name string, nodes []*mine.SearchNode) {
 					fmt.Println()
 					fmt.Println(name)
 					for i, n := range nodes {
@@ -242,10 +278,12 @@ Option Flags
 				maxEdges := 0
 				minFails := 0
 				minout := -1
-				outputs := make([][]*SearchNode, 0, len(opts))
-				times := make([]time.Duration, 0, len(opts))
-				for _, opt := range opts {
-					a := NewMiner(opt.Miner, opt.Lattice, opt.Score, opt.Opts...)
+				outputs := make([][]*mine.SearchNode, 0, len(options))
+				times := make([]time.Duration, 0, len(options))
+				miners := make([]*mine.Miner, 0, len(options))
+				for _, opt := range options {
+					a := mine.NewMiner(opt.Miner, opt.Lattice, opt.Score, opt.Opts...)
+					miners = append(miners, a)
 					A, aTime := timeit(a)
 					outputs = append(outputs, A)
 					times = append(times, aTime)
@@ -256,51 +294,26 @@ Option Flags
 					minFails = a.MinFails
 				}
 				for i := range outputs {
-					output(opts[i].MinerName, outputs[i][:minout])
+					output(options[i].MinerName, outputs[i][:minout])
 				}
 				statsHeader()
 				for i := range outputs {
-					stats(maxEdges, minFails, i, opts[i].MinerName, minout, outputs[0], outputs[1], outputs[i], times[i])
+					stats(miners[i], options[i], maxEdges, minFails, i, options[i].MinerName, minout, outputs[0], outputs[1], outputs[i], times[i])
+				}
+				fmt.Println("CBSFL")
+				scoresSeen := make(map[string]bool)
+				for i := range outputs {
+					if scoresSeen[options[i].ScoreName] {
+						continue
+					}
+					scoresSeen[options[i].ScoreName] = true
+					markovEval(miners[i], options[i], outputs[i], "CBSFL", options[i].ScoreName, "Ranked-List")
+					markovEval(miners[i], options[i], outputs[i], "CBSFL", options[i].ScoreName, "Behavioral-Jumps")
+					markovEval(miners[i], options[i], outputs[i], "CBSFL", options[i].ScoreName, "Spacial-Jumps")
+					markovEval(miners[i], options[i], outputs[i], "CBSFL", options[i].ScoreName, "Behavioral+Spacial-Jumps")
 				}
 				fmt.Println()
 				return args, nil
 			}),
 	)
-}
-
-func (nodes SearchNodes) Unique() (unique []*SearchNode) {
-	added := make(map[string]bool)
-	for n, next := nodes(); next != nil; n, next = next() {
-		if n.Node.SubGraph == nil {
-			continue
-		}
-		label := string(n.Node.SubGraph.Label())
-		if added[label] {
-			continue
-		}
-		added[label] = true
-		unique = append(unique, n)
-	}
-	sort.Slice(unique, func(i, j int) bool {
-		return unique[i].Score > unique[j].Score
-	})
-	return unique
-}
-
-func (nodes SearchNodes) Group() [][]*SearchNode {
-	return group(nodes.Unique())
-}
-
-func group(unique []*SearchNode) [][]*SearchNode {
-	groups := make([][]*SearchNode, 0, 10)
-	for _, n := range unique {
-		lg := len(groups)
-		if lg > 0 && n.Score == groups[lg-1][0].Score {
-			groups[lg-1] = append(groups[lg-1], n)
-		} else {
-			groups = append(groups, make([]*SearchNode, 0, 10))
-			groups[lg] = append(groups[lg], n)
-		}
-	}
-	return groups
 }

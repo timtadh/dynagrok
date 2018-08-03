@@ -1,15 +1,16 @@
-package mine
+package opts
 
 import (
 	"github.com/timtadh/dynagrok/localize/lattice"
+	"github.com/timtadh/dynagrok/localize/mine"
 	"github.com/timtadh/dynagrok/localize/test"
 )
 
 type Options struct {
 	ScoreName       string
-	Score           ScoreFunc
+	Score           mine.ScoreFunc
 	MinerName       string
-	Miner           MinerFunc
+	Miner           mine.MinerFunc
 	Lattice         *lattice.Lattice
 	Binary          *test.Remote
 	BinArgs         test.Arguments
@@ -17,7 +18,7 @@ type Options struct {
 	Passing         []*test.Testcase
 	PassingProfiles []string
 	FailingProfiles []string
-	Opts            []MinerOpt
+	Opts            []mine.MinerOpt
 }
 
 func (o *Options) Copy() *Options {

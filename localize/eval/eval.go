@@ -14,8 +14,10 @@ import (
 
 	"github.com/timtadh/dynagrok/localize/discflo"
 	"github.com/timtadh/dynagrok/localize/discflo/web/models"
+	"github.com/timtadh/dynagrok/localize/fault"
 	"github.com/timtadh/dynagrok/localize/lattice"
 	"github.com/timtadh/dynagrok/localize/mine"
+	"github.com/timtadh/dynagrok/localize/mine/opts"
 	matrix "github.com/timtadh/go.matrix"
 )
 
@@ -37,13 +39,13 @@ var Chains = map[string][]string{
 	},
 }
 
-func Evaluate(faults []*mine.Fault, o *discflo.Options, score mine.ScoreFunc, evalName, methodName, scoreName, chainName string, maxStates int, jumpPrs []float64) (EvalResults, error) {
+func Evaluate(faults []*fault.Fault, o *discflo.Options, score mine.ScoreFunc, evalName, methodName, scoreName, chainName string, maxStates int, jumpPrs []float64) (EvalResults, error) {
 	m := mine.NewMiner(o.Miner, o.Lattice, score, o.Opts...)
 	switch evalName {
 	case "RankList":
 		var groups [][]ColorScore
 		if methodName == "CBSFL" {
-			groups = CBSFL(o, score)
+			groups = CBSFL(&o.Options, score)
 		} else if strings.HasPrefix(methodName, "DISCFLO") {
 			groups = Discflo(o, score)
 		} else {
@@ -74,7 +76,7 @@ func Evaluate(faults []*mine.Fault, o *discflo.Options, score mine.ScoreFunc, ev
 					return nil, fmt.Errorf("no chain named %v", methodName)
 				}
 			} else if methodName == "SBBFL" {
-				colors, P = DsgMarkovChain(maxStates, m)
+				colors, P = DsgMarkovChain(maxStates, m.Mine(context.TODO()).Unique())
 				return MarkovEval(faults, o.Lattice, methodName, scoreName, chainName, colors, P), nil
 			} else if strings.HasPrefix(methodName, "DISCFLO") {
 				var err error
@@ -100,7 +102,7 @@ type ColorScore struct {
 	Score float64
 }
 
-func CBSFL(o *discflo.Options, s mine.ScoreFunc) [][]ColorScore {
+func CBSFL(o *opts.Options, s mine.ScoreFunc) [][]ColorScore {
 	miner := mine.NewMiner(o.Miner, o.Lattice, s, o.Opts...)
 	groups := make([][]ColorScore, 0, 10)
 	for _, group := range mine.LocalizeNodes(miner.Score).Group() {
@@ -130,7 +132,7 @@ func Discflo(o *discflo.Options, s mine.ScoreFunc) [][]ColorScore {
 	return groups
 }
 
-func RankListEval(faults []*mine.Fault, lat *lattice.Lattice, methodName, scoreName string, groups [][]ColorScore) (results EvalResults) {
+func RankListEval(faults []*fault.Fault, lat *lattice.Lattice, methodName, scoreName string, groups [][]ColorScore) (results EvalResults) {
 	for _, f := range faults {
 		sum := 0
 		for gid, group := range groups {
@@ -168,7 +170,7 @@ func RankListEval(faults []*mine.Fault, lat *lattice.Lattice, methodName, scoreN
 	return results
 }
 
-func MarkovEval(faults []*mine.Fault, lat *lattice.Lattice, methodName, scoreName, chainName string, colorStates map[int][]int, P [][]float64) (results EvalResults) {
+func MarkovEval(faults []*fault.Fault, lat *lattice.Lattice, methodName, scoreName, chainName string, colorStates map[int][]int, P [][]float64) (results EvalResults) {
 	group := func(order []int, scores map[int]float64) [][]int {
 		sort.Slice(order, func(i, j int) bool {
 			return scores[order[i]] < scores[order[j]]
@@ -499,8 +501,8 @@ func BehavioralAndSpacialJumps(jumpPr float64, max int, m *mine.Miner) (blockSta
 	return RankListWithJumpsMarkovChain(max, colors, jumpPr, jumps)
 }
 
-func DsgMarkovChain(max int, m *mine.Miner) (blockStates map[int][]int, P [][]float64) {
-	groups := m.Mine(context.TODO()).Group()
+func DsgMarkovChain(max int, nodes []*mine.SearchNode) (blockStates map[int][]int, P [][]float64) {
+	groups := mine.GroupNodesByScore(nodes)
 	type graph struct {
 		gid int
 		nid int
@@ -660,6 +662,9 @@ func ExpectedHittingTime(x, y int, transitions [][]float64) float64 {
 }
 
 func ParPyEHT(start int, states []int, transitions [][]float64) (map[int]float64, error) {
+	if states == nil {
+		panic("states is nil")
+	}
 	cpus := runtime.NumCPU()
 	work := make([][]int, cpus)
 	for i, state := range states {
@@ -672,14 +677,18 @@ func ParPyEHT(start int, states []int, transitions [][]float64) (map[int]float64
 	}
 	hits := make(map[int]float64, len(states))
 	results := make(chan result)
+	expected := 0
 	for w := range work {
-		go func(mine []int) {
-			hits, err := PyExpectedHittingTimes(start, mine, transitions)
-			results <- result{hits, err}
-		}(work[w])
+		if len(work[w]) > 0 {
+			expected++
+			go func(mine []int) {
+				hits, err := PyExpectedHittingTimes(start, mine, transitions)
+				results <- result{hits, err}
+			}(work[w])
+		}
 	}
 	var err error
-	for i := 0; i < cpus; i++ {
+	for i := 0; i < expected; i++ {
 		r := <-results
 		if r.err != nil {
 			err = r.err
@@ -696,6 +705,9 @@ func ParPyEHT(start int, states []int, transitions [][]float64) (map[int]float64
 }
 
 func PyExpectedHittingTimes(start int, states []int, transitions [][]float64) (map[int]float64, error) {
+	if states == nil {
+		panic("states is nil")
+	}
 	type data struct {
 		Start       int
 		States      []int

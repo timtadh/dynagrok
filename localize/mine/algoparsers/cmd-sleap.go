@@ -1,14 +1,16 @@
-package mine
+package algoparsers
 
 import (
 	"fmt"
 	"strconv"
 
 	"github.com/timtadh/dynagrok/cmd"
+	"github.com/timtadh/dynagrok/localize/mine"
+	"github.com/timtadh/dynagrok/localize/mine/opts"
 	"github.com/timtadh/getopt"
 )
 
-func NewSLeapParser(c *cmd.Config, o *Options) cmd.Runnable {
+func NewSLeapParser(c *cmd.Config, o *opts.Options) cmd.Runnable {
 	return cmd.Cmd(
 		"s-leap",
 		`[options]`,
@@ -56,7 +58,7 @@ Option Flags
 					sigma = s
 				}
 			}
-			o.Miner = SLeap(topk, sigma, -1, SLeapMaximal(maximal), SLeapDebug(debug)).Mine
+			o.Miner = mine.SLeap(topk, sigma, -1, mine.SLeapMaximal(maximal), mine.SLeapDebug(debug)).Mine
 			o.MinerName = fmt.Sprintf("sLeap %v", sigma)
 			if maximal {
 				o.MinerName += " (maximal)"

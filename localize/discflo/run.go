@@ -2,10 +2,11 @@ package discflo
 
 import (
 	"github.com/timtadh/dynagrok/localize/mine"
+	"github.com/timtadh/dynagrok/localize/mine/opts"
 )
 
 type Options struct {
-	mine.Options
+	opts.Options
 	DiscfloOpts []DiscfloOption
 }
 
