@@ -101,7 +101,7 @@ func (l *SimpleLoader) vertex(rest []string) error {
 	if err != nil {
 		return err
 	}
-	if len(tokens) != 5 {
+	if len(tokens) < 5 {
 		return errors.Errorf("line in unexpected format (expected 5 tokens): `%v`", tokens)
 	}
 	id, err := strconv.Atoi(tokens[0])
@@ -136,7 +136,7 @@ func (l *SimpleLoader) edge(rest []string) error {
 	if err != nil {
 		return err
 	}
-	if len(tokens) != 3 {
+	if len(tokens) < 3 {
 		return errors.Errorf("line in unexpected format (expected 3 tokens): `%v`", tokens)
 	}
 	src, err := strconv.Atoi(tokens[0])
