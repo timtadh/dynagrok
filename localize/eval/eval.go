@@ -76,7 +76,7 @@ func Evaluate(faults []*fault.Fault, o *discflo.Options, score mine.ScoreFunc, e
 					return nil, fmt.Errorf("no chain named %v", methodName)
 				}
 			} else if methodName == "SBBFL" {
-				colors, P = DsgMarkovChain(maxStates, m.Mine(context.TODO()).Unique())
+				colors, P = DsgMarkovChain(maxStates, m.Mine(context.TODO()).Unique(), 0, nil)
 				return MarkovEval(faults, o.Lattice, methodName, scoreName, chainName, colors, P), nil
 			} else if strings.HasPrefix(methodName, "DISCFLO") {
 				var err error
@@ -463,10 +463,10 @@ func SpacialJumps(jumpPr float64, max int, m *mine.Miner) (blockStates map[int][
 	return RankListWithJumpsMarkovChain(max, colors, jumpPr, jumps)
 }
 
-func BehavioralAndSpacialJumps(jumpPr float64, max int, m *mine.Miner) (blockStates map[int][]int, P [][]float64) {
+func BehavioralAndSpacialJumpMatrix(m *mine.Miner) (groupsToColors [][]int, jumps map[int]map[int]bool) {
 	groups := mine.LocalizeNodes(m.Score).Group()
-	colors := make([][]int, 0, len(groups))
-	jumps := make(map[int]map[int]bool)
+	groupsToColors = make([][]int, 0, len(groups))
+	jumps = make(map[int]map[int]bool)
 	fnBlks := make(map[string][]int)
 	for _, group := range groups {
 		colorGroup := make([]int, 0, len(group))
@@ -486,7 +486,7 @@ func BehavioralAndSpacialJumps(jumpPr float64, max int, m *mine.Miner) (blockSta
 				jumps[n.Color][e.SrcColor] = true
 			}
 		}
-		colors = append(colors, colorGroup)
+		groupsToColors = append(groupsToColors, colorGroup)
 	}
 	for _, blks := range fnBlks {
 		for _, a := range blks {
@@ -498,10 +498,15 @@ func BehavioralAndSpacialJumps(jumpPr float64, max int, m *mine.Miner) (blockSta
 			}
 		}
 	}
-	return RankListWithJumpsMarkovChain(max, colors, jumpPr, jumps)
+	return groupsToColors, jumps
 }
 
-func DsgMarkovChain(max int, nodes []*mine.SearchNode) (blockStates map[int][]int, P [][]float64) {
+func BehavioralAndSpacialJumps(jumpPr float64, max int, m *mine.Miner) (blockStates map[int][]int, P [][]float64) {
+	groupsToColors, jumps := BehavioralAndSpacialJumpMatrix(m)
+	return RankListWithJumpsMarkovChain(max, groupsToColors, jumpPr, jumps)
+}
+
+func DsgMarkovChain(max int, nodes []*mine.SearchNode, jumpPr float64, jumps map[int]map[int]bool) (blockStates map[int][]int, P [][]float64) {
 	groups := mine.GroupNodesByScore(nodes)
 	type graph struct {
 		gid int
@@ -562,7 +567,7 @@ func DsgMarkovChain(max int, nodes []*mine.SearchNode) (blockStates map[int][]in
 			for color := range unique {
 				for _, blockState := range blockStates[color] {
 					P[graphState][blockState] = (1. / 2.) * 1 / float64(len(unique))
-					P[blockState][graphState] = 1 / float64(graphsPerColor[color])
+					P[blockState][graphState] = (1 / float64(graphsPerColor[color])) * (1 - jumpPr)
 				}
 			}
 		}
@@ -570,6 +575,27 @@ func DsgMarkovChain(max int, nodes []*mine.SearchNode) (blockStates map[int][]in
 			prev := groupStates[gid-1]
 			P[groupState][prev] = (1. / 2.) * float64(graphs-1) / float64(graphs)
 			P[prev][groupState] = (1. / 2.) * 1 / float64(graphs)
+		}
+	}
+	if jumpPr > 0 {
+		for a, aStates := range blockStates {
+			aTotal := 0
+			for b := range jumps[a] {
+				for range aStates {
+					for range blockStates[b] {
+						aTotal++
+					}
+				}
+			}
+			for b, bStates := range blockStates {
+				if jumps[a][b] {
+					for _, A := range aStates {
+						for _, B := range bStates {
+							P[A][B] = jumpPr * (1 / float64(aTotal))
+						}
+					}
+				}
+			}
 		}
 	}
 	first := groupStates[0]

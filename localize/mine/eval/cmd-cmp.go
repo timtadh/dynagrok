@@ -203,7 +203,16 @@ Option Flags
 							panic(fmt.Errorf("no chain named %v", method))
 						}
 					} else if method == "SBBFL" {
-						states, P = eval.DsgMarkovChain(maxStates, nodes)
+						switch chain {
+						case "Ranked-List":
+							states, P = eval.DsgMarkovChain(maxStates, nodes, 0, nil)
+						case "Behavioral+Spacial-Jumps":
+							_, jumps := eval.BehavioralAndSpacialJumpMatrix(m)
+							states, P = eval.DsgMarkovChain(maxStates, nodes, jumpPr, jumps)
+							finalChainName = fmt.Sprintf("%v(%g)", chain, jumpPr)
+						default:
+							panic(fmt.Errorf("no chain named %v", chain))
+						}
 					} else {
 						panic("unknown method")
 					}
@@ -259,7 +268,8 @@ Option Flags
 					clamp := nodes[:minout]
 					gid, score := rankScore(nodes)
 					fmt.Println(name)
-					markovEval(m, opt, nodes, "SBBFL", opt.ScoreName, "")
+					markovEval(m, opt, nodes, "SBBFL", opt.ScoreName, "Ranked-List")
+					markovEval(m, opt, nodes, "SBBFL", opt.ScoreName, "Behavioral+Spacial-Jumps")
 					fmt.Fprintf(ouf,
 						"%9v, %9v, %3v, %-27v, %10.5g, %10.5g, %10.5g, %11.5g, %11.5g, %11v, %11.5g, %11.5g, %11v\n",
 						maxEdges, minFails, row, name,
