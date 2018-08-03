@@ -124,8 +124,12 @@ func NewRunner(c *cmd.Config, o *Options) cmd.Runnable {
 			})
 			fmt.Println()
 			for i, n := range subgraphs {
-				minOrder(n.Node)
-				fmt.Printf("  - subgraph %-5d %v\n", i, n)
+				m := minOrder(n.Node)
+				if m >= 0 {
+					fmt.Printf("  - subgraph (%d) %-5d %v\n", m, i, n)
+				} else {
+					fmt.Printf("  - subgraph %-5d %v\n", i, n)
+				}
 				fmt.Println()
 			}
 			fmt.Println()
