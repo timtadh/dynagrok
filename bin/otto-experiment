@@ -34,7 +34,7 @@ if [[ -z "$TARGET" ]]; then
 	TARGET=/tmp/mutants
 fi
 
-DYNAGROK=$dgpath/bin/dynagrok
+DYNAGROK=$(which dynagrok)
 
 function run {
   >&2 echo $ "${@}"
@@ -68,21 +68,26 @@ for ((i=1;i<=$COUNT;i++)); do
     run mkdir -p $fails/tests $fails/failures
     t=1
     IFS=$'\n'
-    for path in $(ls $dgpath/examples/src/github.com/robertkrimen/otto/test/test-*.js); do
+    for path in $(ls $dgpath/examples/src/github.com/robertkrimen/otto/test/test-*.js | awk 'BEGIN {srand()} !/^$/ { if (rand() <= .10) print $0}'); do
         echo "running test $t $path"
         export DGPROF=$tests/$t
+        if [[ $t -gt 25 ]]; then
+          echo "found at least 25 test stopping testing this mutant"
+          break
+        fi
         run mkdir -p $DGPROF
-        run timeout 1s $mut -test=true $path > /dev/null
+        run timeout 5s $mut -test=true $path > /dev/null
         if [[ $? -eq 124 ]]; then
             echo "skipping test it timed out"
         elif [[ -f $DGPROF/failures ]]; then
+            t=$((t+1))
             run cp $path $fails/tests/$t-$(basename $path | tr ' ' '-')
             run cp $DGPROF/failures $fails/failures/$t
         else
+            t=$((t+1))
             run cp $path $oks/tests/$t-$(basename $path | tr ' ' '-')
         fi
         run rm -r $DGPROF
-        t=$((t+1))
     done
     run rm -r $tests
     sleep .02
