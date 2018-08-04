@@ -136,18 +136,20 @@ Option Flags
 					} else if sflType == "SBBFL" {
 						switch chain {
 						case "Ranked-List":
-							states, P = eval.DsgMarkovChain(maxStates, nodes, 0, nil)
+							return eval.SBBFLRankListEval(m, faults, nodes, method, score)
+						case "Markov-Ranked-List":
+							states, P = eval.DsgMarkovChain(maxStates, m, nodes, 0, nil)
 						case "Spacial-Jumps":
 							_, jumps := eval.SpacialJumpMatrix(m)
-							states, P = eval.DsgMarkovChain(maxStates, nodes, jumpPr, jumps)
+							states, P = eval.DsgMarkovChain(maxStates, m, nodes, jumpPr, jumps)
 							finalChainName = fmt.Sprintf("%v(%g)", chain, jumpPr)
 						case "Behavioral-Jumps":
 							_, jumps := eval.BehavioralJumpMatrix(m)
-							states, P = eval.DsgMarkovChain(maxStates, nodes, jumpPr, jumps)
+							states, P = eval.DsgMarkovChain(maxStates, m, nodes, jumpPr, jumps)
 							finalChainName = fmt.Sprintf("%v(%g)", chain, jumpPr)
 						case "Behavioral+Spacial-Jumps":
 							_, jumps := eval.BehavioralAndSpacialJumpMatrix(m)
-							states, P = eval.DsgMarkovChain(maxStates, nodes, jumpPr, jumps)
+							states, P = eval.DsgMarkovChain(maxStates, m, nodes, jumpPr, jumps)
 							finalChainName = fmt.Sprintf("%v(%g)", chain, jumpPr)
 						default:
 							panic(fmt.Errorf("no chain named %v", chain))
@@ -171,26 +173,29 @@ Option Flags
 						minout = len(A)
 					}
 				}
+				var results eval.EvalResults
 				if false {
 					fmt.Println("Control")
 					markovEval(miners[0], options[0], outputs[0], "Control", "control", "", "Control")
 				}
-				fmt.Println("CBSFL")
-				scoresSeen := make(map[string]bool)
-				var results eval.EvalResults
-				for i := range outputs {
-					if scoresSeen[options[i].ScoreName] {
-						continue
+				if true {
+					fmt.Println("CBSFL")
+					scoresSeen := make(map[string]bool)
+					for i := range outputs {
+						if scoresSeen[options[i].ScoreName] {
+							continue
+						}
+						scoresSeen[options[i].ScoreName] = true
+						results = append(results, markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Ranked-List").Avg())
+						results = append(results, markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Behavioral-Jumps").Avg())
+						results = append(results, markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Spacial-Jumps").Avg())
+						results = append(results, markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Behavioral+Spacial-Jumps").Avg())
 					}
-					scoresSeen[options[i].ScoreName] = true
-					results = append(results, markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Ranked-List").Avg())
-					results = append(results, markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Behavioral-Jumps").Avg())
-					results = append(results, markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Spacial-Jumps").Avg())
-					results = append(results, markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Behavioral+Spacial-Jumps").Avg())
 				}
 				fmt.Println("SBBFL")
 				for i := range outputs {
 					results = append(results, markovEval(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Ranked-List").Avg())
+					results = append(results, markovEval(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Markov-Ranked-List").Avg())
 					results = append(results, markovEval(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Spacial-Jumps").Avg())
 					results = append(results, markovEval(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Behavioral-Jumps").Avg())
 					results = append(results, markovEval(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Behavioral+Spacial-Jumps").Avg())

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"math/rand"
 	"os/exec"
 	"runtime"
 	"sort"
@@ -76,7 +77,7 @@ func Evaluate(faults []*fault.Fault, o *discflo.Options, score mine.ScoreFunc, e
 					return nil, fmt.Errorf("no chain named %v", methodName)
 				}
 			} else if methodName == "SBBFL" {
-				colors, P = DsgMarkovChain(maxStates, m.Mine(context.TODO()).Unique(), 0, nil)
+				colors, P = DsgMarkovChain(maxStates, m, m.Mine(context.TODO()).Unique(), 0, nil)
 				return MarkovEval(faults, o.Lattice, methodName, scoreName, chainName, colors, P), nil
 			} else if strings.HasPrefix(methodName, "DISCFLO") {
 				var err error
@@ -170,6 +171,58 @@ func RankListEval(faults []*fault.Fault, lat *lattice.Lattice, methodName, score
 	return results
 }
 
+func SBBFLRankListEval(m *mine.Miner, faults []*fault.Fault, nodes []*mine.SearchNode, methodName, scoreName string) EvalResults {
+	min := -1.0
+	minScore := -1.0
+	gid := 0
+	var fault *fault.Fault
+	groups := mine.GroupNodesByScore(nodes)
+	for _, f := range faults {
+		sum := 0.0
+		for i, g := range groups {
+			count := 0
+			for _, n := range g {
+				for _, v := range n.Node.SubGraph.V {
+					b, fn, _ := m.Lattice.Info.Get(v.Color)
+					if fn == f.FnName && b == f.BasicBlockId {
+						count++
+						break
+					}
+				}
+			}
+			if count > 0 {
+				r := float64(len(g) - count)
+				b := float64(count)
+				score := ((b + r + 1) / (b + 1)) + sum
+				if min <= 0 || score < min {
+					gid = i
+					fault = f
+					min = score
+					minScore = g[0].Score
+				}
+			}
+			sum += float64(len(g))
+		}
+	}
+	if min <= 0 {
+		min = math.Inf(1)
+	}
+	r := &RankListEvalResult{
+		MethodName:     methodName,
+		ScoreName:      scoreName,
+		RankScore:      min,
+		Suspiciousness: minScore,
+		LocalizedFault: fault,
+	}
+	fmt.Printf(
+		"   %v + %v {\n        rank: %v, gid: %v group-size: %v\n        score: %v\n    }\n",
+		methodName, scoreName,
+		r.Rank(), gid, len(groups[gid]),
+		r.RawScore(),
+	)
+	return EvalResults{r}
+}
+
 func MarkovEval(faults []*fault.Fault, lat *lattice.Lattice, methodName, scoreName, chainName string, colorStates map[int][]int, P [][]float64) (results EvalResults) {
 	group := func(order []int, scores map[int]float64) [][]int {
 		sort.Slice(order, func(i, j int) bool {
@@ -208,44 +261,11 @@ func MarkovEval(faults []*fault.Fault, lat *lattice.Lattice, methodName, scoreNa
 	if !found {
 		return nil
 	}
+	scores := getHitScores(colorStates, P)
+
 	order := make([]int, 0, len(colorStates))
-	states := make([]int, 0, len(colorStates))
-	for color, group := range colorStates {
+	for color := range colorStates {
 		order = append(order, color)
-		for _, state := range group {
-			states = append(states, state)
-		}
-	}
-	scores := make(map[int]float64)
-	hittingTimes, err := ParPyEHT(0, states, P)
-	if err != nil {
-		fmt.Println(err)
-		fmt.Println("falling back on go implementation of hittingTime computation")
-		for color, states := range colorStates {
-			for _, state := range states {
-				hit := ExpectedHittingTime(0, state, P)
-				if min, has := scores[color]; !has || hit < min {
-					scores[color] = hit
-				}
-			}
-		}
-	} else {
-		for color, states := range colorStates {
-			for _, state := range states {
-				hit, has := hittingTimes[state]
-				if !has {
-					continue
-				}
-				if min, has := scores[color]; !has || hit < min {
-					scores[color] = hit
-				}
-			}
-		}
-	}
-	for color, hit := range scores {
-		if hit <= 0 {
-			scores[color] = math.Inf(1)
-		}
 	}
 	grouped := group(order, scores)
 	ranks := make(map[int]float64)
@@ -300,6 +320,67 @@ func MarkovEval(faults []*fault.Fault, lat *lattice.Lattice, methodName, scoreNa
 		}
 	}
 	return results
+}
+
+func getHitScores(colorStates map[int][]int, P [][]float64) map[int]float64 {
+	scores := make(map[int]float64)
+	if len(P) > 500 {
+		hittingTimes := EsimateEspectedHittingTimes(500, 0, 100000, P)
+		for color, states := range colorStates {
+			for _, state := range states {
+				// hit, has := hittingTimes[state]
+				// if !has {
+				// 	continue
+				// }
+				if state < len(hittingTimes) {
+					hit := hittingTimes[state]
+					if min, has := scores[color]; !has || hit < min {
+						scores[color] = hit
+					}
+				}
+			}
+		}
+	} else {
+		states := make([]int, 0, len(colorStates))
+		order := make([]int, 0, len(colorStates))
+		for color, group := range colorStates {
+			order = append(order, color)
+			for _, state := range group {
+				states = append(states, state)
+			}
+		}
+		hittingTimes, err := ParPyEHT(0, states, P)
+		if err != nil {
+			fmt.Println(err)
+			fmt.Println("falling back on go implementation of hittingTime computation")
+			for color, states := range colorStates {
+				for _, state := range states {
+					hit := ExpectedHittingTime(0, state, P)
+					if min, has := scores[color]; !has || hit < min {
+						scores[color] = hit
+					}
+				}
+			}
+		} else {
+			for color, states := range colorStates {
+				for _, state := range states {
+					hit, has := hittingTimes[state]
+					if !has {
+						continue
+					}
+					if min, has := scores[color]; !has || hit < min {
+						scores[color] = hit
+					}
+				}
+			}
+		}
+	}
+	for color, hit := range scores {
+		if hit <= 0 {
+			scores[color] = math.Inf(1)
+		}
+	}
+	return scores
 }
 
 func DiscfloMarkovChain(jumpPr float64, max int, o *discflo.Options, score mine.ScoreFunc) (blockStates map[int][]int, P [][]float64, err error) {
@@ -574,7 +655,8 @@ func ControlChain(jumps map[int]map[int]bool) (blockStates map[int][]int, P [][]
 	return blockStates, P
 }
 
-func DsgMarkovChain(max int, nodes []*mine.SearchNode, jumpPr float64, jumps map[int]map[int]bool) (blockStates map[int][]int, P [][]float64) {
+func DsgMarkovChain(max int, m *mine.Miner, nodes []*mine.SearchNode, jumpPr float64, jumps map[int]map[int]bool) (blockStates map[int][]int, P [][]float64) {
+	labels := m.Lattice.Labels.Labels()
 	groups := mine.GroupNodesByScore(nodes)
 	type graph struct {
 		gid int
@@ -610,6 +692,16 @@ func DsgMarkovChain(max int, nodes []*mine.SearchNode, jumpPr float64, jumps map
 				}
 				graphsPerColor[color]++
 			}
+		}
+	}
+	for color := range labels {
+		if states >= max {
+			fmt.Println("warning hit max states", states, max)
+			break
+		}
+		if _, has := blockStates[color]; !has {
+			blockStates[color] = append(blockStates[color], states)
+			states++
 		}
 	}
 	if maxGid < 0 {
@@ -759,7 +851,7 @@ func ParPyEHT(start int, states []int, transitions [][]float64) (map[int]float64
 	if states == nil {
 		panic("states is nil")
 	}
-	cpus := runtime.NumCPU() - 1
+	cpus := runtime.NumCPU() / 2
 	work := make([][]int, cpus)
 	for i, state := range states {
 		w := i % len(work)
@@ -846,4 +938,114 @@ func PyExpectedHittingTimes(start int, states []int, transitions [][]float64) (m
 		hits[state] = time
 	}
 	return hits, nil
+}
+
+func EsimateEspectedHittingTimes(walks, start, maxLength int, transitions [][]float64) []float64 {
+	estimates := make([]float64, 0, len(transitions))
+	samples := RandomWalksForHittingTimes(walks, start, maxLength, transitions)
+	fmt.Println("sample count", len(samples))
+	distributions := transpose(samples)
+	for _, distribution := range distributions {
+		estimates = append(estimates, estExpectedTime(distribution))
+	}
+	return estimates
+}
+
+func transpose(samples [][]uint64) (distributions [][]uint64) {
+	distributions = make([][]uint64, len(samples[0]))
+	for i := range distributions {
+		distributions[i] = make([]uint64, len(samples))
+	}
+	for i, sample := range samples {
+		for j, value := range sample {
+			distributions[j][i] = value
+		}
+	}
+	return distributions
+}
+
+func estExpectedTime(distribution []uint64) float64 {
+	sort.Slice(distribution, func(i, j int) bool {
+		return distribution[i] < distribution[j]
+	})
+	total := 0.0
+	for _, s := range distribution {
+		total += float64(s)
+	}
+	maxTime := int(distribution[len(distribution)-1])
+	cumulative := func(t int) float64 {
+		sum := 0.0
+		for i := 0; i < len(distribution); i++ {
+			if distribution[i] < uint64(t) {
+				sum += 1
+			}
+		}
+		return (1 / float64(len(distribution))) * sum
+	}
+	var sum float64
+	for i := 0; i < len(distribution)-1; i++ {
+		sum += float64(distribution[i+1]-distribution[i]) * cumulative(int(distribution[i]))
+	}
+	est := float64(maxTime) - sum
+	return est
+}
+
+func RandomWalksForHittingTimes(walks int, start int, maxLength int, transitions [][]float64) [][]uint64 {
+	cpus := runtime.NumCPU() / 2
+	results := make(chan []uint64)
+	count := 0
+	for i := 0; i < cpus; i++ {
+		prev := count
+		count += walks / cpus
+		if count >= walks {
+			count = walks
+		}
+		go func(mywalks int) {
+			for w := 0; w < mywalks; w++ {
+				results <- RandomWalkHittingTime(start, maxLength, transitions)
+			}
+		}(count - prev)
+	}
+	var distribution [][]uint64
+	for i := 0; i < count; i++ {
+		distribution = append(distribution, <-results)
+	}
+	return distribution
+}
+
+func RandomWalkHittingTime(start int, maxLength int, transitions [][]float64) []uint64 {
+	c := start
+	found := make(map[int]bool)
+	times := make([]uint64, len(transitions))
+	for i := uint64(0); i < uint64(maxLength); i++ {
+		if len(found) >= len(transitions) {
+			break
+		}
+		if !found[c] {
+			times[c] = i
+			found[c] = true
+		}
+		c = weightedSample(transitions[c])
+	}
+	if len(found) != len(transitions) {
+		for c := range times {
+			if !found[c] {
+				times[c] = uint64(maxLength)
+			}
+		}
+	}
+	return times
+}
+
+func weightedSample(weights []float64) int {
+	var total float64
+	for _, w := range weights {
+		total += w
+	}
+	i := 0
+	r := total * rand.Float64()
+	for ; i < len(weights)-1 && r > weights[i]; i++ {
+		r -= weights[i]
+	}
+	return i
 }

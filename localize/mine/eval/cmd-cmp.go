@@ -208,18 +208,18 @@ Option Flags
 					} else if sflType == "SBBFL" {
 						switch chain {
 						case "Ranked-List":
-							states, P = eval.DsgMarkovChain(maxStates, nodes, 0, nil)
+							states, P = eval.DsgMarkovChain(maxStates, m, nodes, 0, nil)
 						case "Spacial-Jumps":
 							_, jumps := eval.SpacialJumpMatrix(m)
-							states, P = eval.DsgMarkovChain(maxStates, nodes, jumpPr, jumps)
+							states, P = eval.DsgMarkovChain(maxStates, m, nodes, jumpPr, jumps)
 							finalChainName = fmt.Sprintf("%v(%g)", chain, jumpPr)
 						case "Behavioral-Jumps":
 							_, jumps := eval.BehavioralJumpMatrix(m)
-							states, P = eval.DsgMarkovChain(maxStates, nodes, jumpPr, jumps)
+							states, P = eval.DsgMarkovChain(maxStates, m, nodes, jumpPr, jumps)
 							finalChainName = fmt.Sprintf("%v(%g)", chain, jumpPr)
 						case "Behavioral+Spacial-Jumps":
 							_, jumps := eval.BehavioralAndSpacialJumpMatrix(m)
-							states, P = eval.DsgMarkovChain(maxStates, nodes, jumpPr, jumps)
+							states, P = eval.DsgMarkovChain(maxStates, m, nodes, jumpPr, jumps)
 							finalChainName = fmt.Sprintf("%v(%g)", chain, jumpPr)
 						default:
 							panic(fmt.Errorf("no chain named %v", chain))

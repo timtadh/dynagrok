@@ -18,7 +18,7 @@ func (results EvalResults) String() string {
 			continue
 		}
 		parts = append(parts,
-			fmt.Sprintf("%v, %v, %v, %v, %v, %v",
+			fmt.Sprintf("%v, %v, %v, %v",
 				result.Rank(),
 				result.Method(),
 				result.Score(),
