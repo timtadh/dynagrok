@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+if ! go install github.com/timtadh/dynagrok
+then
+  exit 1
+fi
+
+MIN_FAILS=2
+MAX_EDGES=25
+TIMEOUT=10s
+
+METRIC=rf1
+MUT=$1
+FAILING=$(wc -l ./testcases/avl-expr/$MUT/fails/tests/* |
+          egrep -v 'total' | sort -n | sed 's/ \+/ /g;s/^ *[0-9]\+ //' | head -n 20 | xargs | tr ' ' ,)
+PASSING=$(wc -l ./testcases/avl-expr/$MUT/oks/tests/*   |
+          egrep -v 'total' | sort -n | sed 's/ \+/ /g;s/^ *[0-9]\+ //' | tail -n 20 | xargs | tr ' ' ,)
+OUTPUT=/tmp/dynagrok/avl-$MUT.eval-out
+
+dynagrok \
+    localize mine-dsg \
+    -f $FAILING \
+    -p $PASSING \
+    -b ./testcases/avl-expr/$MUT/avl \
+    --min-fails=$MIN_FAILS \
+    --max-edges=$MAX_EDGES \
+    --min-edges=0 \
+    -s $METRIC \
+    eval \
+    -o $OUTPUT \
+    -t $TIMEOUT \
+    -f ./testcases/avl-expr/$MUT/mutations \
+    swrw walk-top-colors -p .2 -w 2
+    # swrw walk-top-colors -p .2 -w 10 \
+    # swrw walk-top-colors -p 1 -w 2 \
+    # swrw walk-top-colors -p 1 -w 10
+
+cat $OUTPUT

@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+if ! go install github.com/timtadh/dynagrok
+then
+  exit 1
+fi
+
+
+MIN_FAILS=2
+MAX_EDGES=25
+TIMEOUT=10s
+
+METRIC=rf1
+MUT=$1
+FAILING=$(wc -l ./data/gc-1.10.1/$MUT/fails/tests/* |
+          egrep -v 'total' | sort -n | sed 's/ \+/ /g;s/^ *[0-9]\+ //' | head -n 20 | xargs | tr ' ' ,)
+PASSING=$(wc -l ./data/gc-1.10.1/$MUT/oks/tests/*   |
+          egrep -v 'total' | sort -n | sed 's/ \+/ /g;s/^ *[0-9]\+ //' | tail -n 20 | xargs | tr ' ' ,)
+OUTDIR=/tmp/dynagrok
+OUTPUT=$OUTDIR/compiler-$MUT.eval-out
+
+mkdir -p $OUTDIR
+
+dynagrok \
+    localize mine-dsg \
+    -f $FAILING \
+    -p $PASSING \
+    -b ./data/gc-1.10.1/$MUT/compiler \
+    -a '\-o /dev/null $test' \
+    --min-fails=$MIN_FAILS \
+    --max-edges=$MAX_EDGES \
+    --min-edges=0 \
+    -s $METRIC \
+    eval \
+    -o $OUTPUT \
+    -t $TIMEOUT \
+    -f ./data/gc-1.10.1/$MUT/mutations \
+    swrw walk-top-colors -p 1 -w 2
+    # swrw walk-top-colors -p .2 -w 10 \
+    # swrw walk-top-colors -p 1 -w 2 \
+    # swrw walk-top-colors -p 1 -w 10
+
+cat $OUTPUT
