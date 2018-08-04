@@ -114,7 +114,7 @@ func MinOkProbability(o *MinerConfig, lat *lattice.Lattice, n *lattice.Node) (mi
 func LocalizeNodes(score *Score) ScoredLocations {
 	lat := score.lat
 	result := make(ScoredLocations, 0, len(lat.Fail.ColorIndex))
-	for color, _ := range lat.Fail.ColorIndex {
+	for color, _ := range lat.Labels.Labels() {
 		n := ColorNode(lat, score, color)
 		bbid, fnName, pos := lat.Info.Get(color)
 		result = append(result, &ScoredLocation{

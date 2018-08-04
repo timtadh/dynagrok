@@ -187,6 +187,27 @@ func MarkovEval(faults []*fault.Fault, lat *lattice.Lattice, methodName, scoreNa
 		}
 		return groups
 	}
+	faultColors := make(map[int]bool)
+	for _, f := range faults {
+		for color := range lat.Labels.Labels() {
+			b, fn, _ := lat.Info.Get(color)
+			if fn == f.FnName && b == f.BasicBlockId {
+				faultColors[color] = true
+			}
+		}
+	}
+	if len(faultColors) <= 0 {
+		return nil
+	}
+	found := false
+	for f := range faultColors {
+		if len(colorStates[f]) > 0 {
+			found = true
+		}
+	}
+	if !found {
+		return nil
+	}
 	order := make([]int, 0, len(colorStates))
 	states := make([]int, 0, len(colorStates))
 	for color, group := range colorStates {
@@ -738,7 +759,7 @@ func ParPyEHT(start int, states []int, transitions [][]float64) (map[int]float64
 	if states == nil {
 		panic("states is nil")
 	}
-	cpus := runtime.NumCPU()
+	cpus := runtime.NumCPU() - 1
 	work := make([][]int, cpus)
 	for i, state := range states {
 		w := i % len(work)

@@ -22,6 +22,10 @@ func (f *Fault) String() string {
 }`, f.FnName, f.BasicBlockId)
 }
 
+func (f *Fault) Equals(o *Fault) bool {
+	return f.FnName == o.FnName && f.BasicBlockId == o.BasicBlockId
+}
+
 func LoadFault(bits []byte) (*Fault, error) {
 	var e mutate.ExportedMut
 	err := json.Unmarshal(bits, &e)
