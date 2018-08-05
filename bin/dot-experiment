@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+
+if ! go install github.com/timtadh/dynagrok; then
+    echo "failed to compile dynagrok"
+    exit 1
+fi
+
+dgpath=$1
+if [[ -z "$dgpath" ]]; then
+	echo "must supply the path to dynagrok's source tree as the first arg"
+	exit 1
+fi
+
+goroot=$2
+if [[ -z "$goroot" ]]; then
+	echo "must supply a GOROOT (which is a git checkout) as the second arg"
+	exit 1
+fi
+
+RATE=$3
+if [[ -z "$RATE" ]]; then
+	echo "must supply a mutation rate as arg 3"
+	exit 1
+fi
+
+COUNT=$4
+if [[ -z "$COUNT" ]]; then
+	echo "must supply the number mutants to make as arg 4"
+	exit 1
+fi
+
+TARGET=$5
+if [[ -z "$TARGET" ]]; then
+	TARGET=/tmp/mutants
+fi
+
+DYNAGROK=$dgpath/bin/dynagrok
+
+function run {
+  >&2 echo $ "${@}"
+  "${@}"
+}
+
+BUILD=/tmp/dot-build
+
+run mkdir -p $TARGET
+run rm -r  $BUILD/goroot/src/dgruntime $BUILD/gopath
+
+for ((i=1;i<=$COUNT;i++)); do
+    mutdir=$TARGET/m$i
+    mut=$mutdir/dot
+    tests=$mutdir/tests
+    oks=$mutdir/oks
+    fails=$mutdir/fails
+    run rm -r $mutdir
+    run mkdir -p $mutdir
+     if ! run \
+          $DYNAGROK -r $goroot -d $dgpath -g $dgpath/examples \
+             mutate --keep-work -w $BUILD --instrument -r $RATE \
+                    --mutation=branch -o $mut dynagrok/examples/dot
+     then
+         echo "creating the $i dot mutant failed"
+         exit 1
+     fi
+    run cp $BUILD/mutations $mutdir/mutations
+    run rm -r $BUILD/mutations $BUILD/gopath
+    run mkdir -p $oks/tests
+    run mkdir -p $fails/tests $fails/failures
+    t=1
+    for path in $(cat $dgpath/dotfiles | awk 'BEGIN {srand()} !/^$/ { if (rand() <= .01) print $0}'); do
+        echo "running test $t $path"
+        export DGPROF=$tests/$t
+        run mkdir -p $DGPROF
+        cat $path | run timeout 1s $mut > /dev/null
+        if [[ $? -eq 124 ]]; then
+            echo "skipping test it timed out"
+        elif [[ -f $DGPROF/failures ]]; then
+            run cp $path $fails/tests/
+            run cp $DGPROF/failures $fails/failures/$t
+        else
+            run cp $path $oks/tests/
+        fi
+        run rm -r $DGPROF
+        t=$((t+1))
+    done
+    run rm -r $tests
+    sleep .02
+    if ! [ "$(ls -A $oks/tests)" ] || ! [ "$(ls -A $fails/tests)" ]; then
+        echo "mutant either always failed or always worked"
+        echo "removing it"
+        run rm -rf $mutdir
+        i=$((i-1))
+        echo "retrying"
+        continue
+    fi
+done

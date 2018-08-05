@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+
+dgpath=$1
+if [[ -z "$dgpath" ]]; then
+	echo "must supply the path to dynagrok's source tree as the first arg"
+	exit 1
+fi
+
+goldroot=$2
+if [[ -z "$goldroot" ]]; then
+	echo "must supply a gold GOROOT (which is a git checkout) as the second arg"
+	exit 1
+fi
+
+
+goroot=$3
+if [[ -z "$goroot" ]]; then
+	echo "must supply a subject GOROOT (which is a git checkout) as arg 3"
+	exit 1
+fi
+
+DIR=$4
+if [[ -z "$DIR" ]]; then
+	echo "must supply the path to the compilers directory as arg 3"
+	exit 1
+fi
+
+function run {
+  >&2 echo $ "${@}"
+  "${@}"
+}
+
+COMPILER=$DIR/compiler
+OKTESTS=$dgpath/examples/compiler-tests/oks
+ERRTESTS=$dgpath/examples/compiler-tests/errors/compiles
+
+OKS=$DIR/oks
+FAILS=$DIR/failed
+run rm -rf $OKS $FAILS $DIR/tests
+run mkdir -p $OKS/tests $OKS/profiles
+run mkdir -p $FAILS/tests $FAILS/profiles $FAILS/failures
+t=$((0))
+## for path in $(find $OKTESTS -type f -name "*.go" | sort); do
+## 	echo "running test $t $path"
+## 	export DGPROF=$DIR/tests/$t
+## 	run mkdir -p $DGPROF
+## 	if $COMPILER -o /tmp/program $path; then
+## 		run cp $path $OKS/tests/$t.go
+## 		run cp $DGPROF/flow-graph.txt $OKS/profiles/$t.txt
+## 	else
+## 		run cp $path $FAILS/tests/$t.go
+## 		run cp $DGPROF/flow-graph.txt $FAILS/profiles/$t.txt
+## 	fi
+## 	t=$((t+1))
+## done
+for path in $(find $ERRTESTS -type f -name "*.go" | sort); do
+	export GOROOT=$goldroot
+	if run $goldroot/bin/go tool compile -o /dev/null $path; then
+		continue
+	fi
+	echo "running test $t $path"
+	export GOROOT=$goroot
+	export DGPROF=$DIR/tests/$t
+	run mkdir -p $DGPROF
+	if ! run $COMPILER -o /dev/null $path; then
+		run cp $path $OKS/tests/$t.go
+		run cp $DGPROF/flow-graph.txt $OKS/profiles/$t.txt
+	else
+		run cp $path $FAILS/tests/$t.go
+		run cp $DGPROF/flow-graph.txt $FAILS/profiles/$t.txt
+	fi
+	t=$((t+1))
+done
+run rm -r $DIR/tests
+
