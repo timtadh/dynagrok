@@ -53,9 +53,8 @@ func RankListEval(faults []*fault.Fault, lat *lattice.Lattice, methodName, score
 		for gid, group := range groups {
 			for _, cs := range group {
 				bbid, fnName, pos := lat.Info.Get(cs.Color)
-				// if fnName == f.FnName && bbid == f.BasicBlockId {
-				fmt.Println(pos)
-				if pos == f.Position {
+				// if pos == f.Position {
+				if fnName == f.FnName && bbid == f.BasicBlockId {
 					fmt.Printf(
 						"   %v + %v {\n        rank: %v, gid: %v, group-size: %v\n        score: %v,\n        fn: %v (%d),\n        pos: %v\n    }\n",
 						methodName, scoreName,

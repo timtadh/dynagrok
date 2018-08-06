@@ -26,13 +26,13 @@ dynagrok \
     --max-edges=$MAX_EDGES \
     --min-edges=0 \
     -s $METRIC \
-    compare \
+    eval \
     -o $OUTPUT \
     -t $TIMEOUT \
     -f ./testcases/avl-expr/$MUT/mutations \
-    swrw walk-top-colors -p .2 -w 10 \
-     swrw walk-top-colors -p 1 -w 2 \
     swrw walk-top-colors -p .2 -w 2
+    # swrw walk-top-colors -p .2 -w 10 \
+    # swrw walk-top-colors -p 1 -w 2 \
     # swrw walk-top-colors -p 1 -w 10
 
 cat $OUTPUT
