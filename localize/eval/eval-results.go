@@ -52,7 +52,7 @@ func (results EvalResults) Avg() EvalResult {
 		if eval != r.Eval() {
 			eval = ""
 		}
-		if !fault.Equals(r.Fault()) {
+		if fault == nil || r.Fault() == nil || !fault.Equals(r.Fault()) {
 			fault = nil
 			location = nil
 		}

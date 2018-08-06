@@ -22,6 +22,7 @@ func CBSFL(o *opts.Options, s mine.ScoreFunc) [][]ColorScore {
 	for _, group := range mine.LocalizeNodes(miner.Score).Group() {
 		colorGroup := make([]ColorScore, 0, len(group))
 		for _, n := range group {
+			// fmt.Println(n)
 			colorGroup = append(colorGroup, ColorScore{n.Color, n.Score})
 		}
 		groups = append(groups, colorGroup)
@@ -52,7 +53,9 @@ func RankListEval(faults []*fault.Fault, lat *lattice.Lattice, methodName, score
 		for gid, group := range groups {
 			for _, cs := range group {
 				bbid, fnName, pos := lat.Info.Get(cs.Color)
-				if fnName == f.FnName && bbid == f.BasicBlockId {
+				// if fnName == f.FnName && bbid == f.BasicBlockId {
+				fmt.Println(pos)
+				if pos == f.Position {
 					fmt.Printf(
 						"   %v + %v {\n        rank: %v, gid: %v, group-size: %v\n        score: %v,\n        fn: %v (%d),\n        pos: %v\n    }\n",
 						methodName, scoreName,

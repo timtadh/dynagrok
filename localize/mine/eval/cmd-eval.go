@@ -187,9 +187,9 @@ Option Flags
 						}
 						scoresSeen[options[i].ScoreName] = true
 						results = append(results, markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Ranked-List").Avg())
-						results = append(results, markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Behavioral-Jumps").Avg())
-						results = append(results, markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Spacial-Jumps").Avg())
-						results = append(results, markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Behavioral+Spacial-Jumps").Avg())
+						// results = append(results, markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Behavioral-Jumps").Avg())
+						// results = append(results, markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Spacial-Jumps").Avg())
+						// results = append(results, markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Behavioral+Spacial-Jumps").Avg())
 					}
 				}
 				if false {
