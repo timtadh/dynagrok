@@ -192,15 +192,20 @@ Option Flags
 						results = append(results, markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Behavioral+Spacial-Jumps").Avg())
 					}
 				}
-				fmt.Println("SBBFL")
-				for i := range outputs {
-					results = append(results, markovEval(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Ranked-List").Avg())
-					results = append(results, markovEval(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Markov-Ranked-List").Avg())
-					results = append(results, markovEval(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Spacial-Jumps").Avg())
-					results = append(results, markovEval(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Behavioral-Jumps").Avg())
-					results = append(results, markovEval(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Behavioral+Spacial-Jumps").Avg())
+				if false {
+					fmt.Println("SBBFL")
+					for i := range outputs {
+						results = append(results, markovEval(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Ranked-List").Avg())
+						results = append(results, markovEval(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Markov-Ranked-List").Avg())
+						results = append(results, markovEval(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Spacial-Jumps").Avg())
+						results = append(results, markovEval(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Behavioral-Jumps").Avg())
+						results = append(results, markovEval(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Behavioral+Spacial-Jumps").Avg())
+					}
 				}
 				fmt.Fprintln(ouf, results)
+				for _, r := range results {
+					fmt.Printf("%T %v\n", r, r)
+				}
 				return args, nil
 			}),
 	)

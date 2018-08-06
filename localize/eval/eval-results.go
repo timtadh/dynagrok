@@ -116,6 +116,31 @@ func (r *genericEvalResult) Location() *mine.Location {
 	return r.location
 }
 
+func (r *genericEvalResult) String() string {
+	return resultString(r)
+}
+
+func resultString(r EvalResult) string {
+	name := make([]string, 0, 5)
+	if r.Method() != "" {
+		name = append(name, r.Method())
+	}
+	if r.Score() != "" {
+		name = append(name, r.Score())
+	}
+	return fmt.Sprintf(`%v {
+    rank: %v,
+    score: %v,
+    fault: %v
+    location: %v
+}`,
+		strings.Join(name, " + "),
+		r.Rank(),
+		r.RawScore(),
+		leftPad(r.Fault().String(), 1, 4),
+		leftPad(r.Location().String(), 1, 4))
+}
+
 type MarkovEvalResult struct {
 	MethodName  string
 	ScoreName   string
@@ -154,6 +179,10 @@ func (r *MarkovEvalResult) Location() *mine.Location {
 	return r.loc
 }
 
+func (r *MarkovEvalResult) String() string {
+	return resultString(r)
+}
+
 type RankListEvalResult struct {
 	MethodName     string
 	ScoreName      string
@@ -189,4 +218,21 @@ func (r *RankListEvalResult) Fault() *fault.Fault {
 
 func (r *RankListEvalResult) Location() *mine.Location {
 	return r.Loc
+}
+
+func (r *RankListEvalResult) String() string {
+	return resultString(r)
+}
+
+func leftPad(s string, skip, padding int) string {
+	split := strings.Split(s, "\n")
+	lines := make([]string, 0, len(split))
+	for i, part := range split {
+		if i < skip {
+			lines = append(lines, part)
+		} else {
+			lines = append(lines, fmt.Sprintf("%v%v", strings.Repeat(" ", padding), part))
+		}
+	}
+	return strings.Join(lines, "\n")
 }

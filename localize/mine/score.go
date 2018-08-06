@@ -146,11 +146,20 @@ type ScoredLocation struct {
 type ScoredLocations []*ScoredLocation
 
 func (l *Location) String() string {
-	return fmt.Sprintf("%v, %v, %v", l.Position, l.FnName, l.BasicBlockId)
+	return fmt.Sprintf(`location {
+    position: %v,
+    fn-name: %v,
+    basic-block-id: %v
+}`, l.Position, l.FnName, l.BasicBlockId)
 }
 
 func (l *ScoredLocation) String() string {
-	return fmt.Sprintf("%v, %v", l.Location.String(), l.Score)
+	return fmt.Sprintf(`scored location {
+    position: %v,
+    fn-name: %v,
+    basic-block-id: %v,
+    score: %v
+}`, l.Position, l.FnName, l.BasicBlockId, l.Score)
 }
 
 func (r ScoredLocations) String() string {
