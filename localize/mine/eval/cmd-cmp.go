@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/timtadh/dynagrok/cmd"
-	"github.com/timtadh/dynagrok/localize/eval"
 	"github.com/timtadh/dynagrok/localize/fault"
 	"github.com/timtadh/dynagrok/localize/mine"
 	"github.com/timtadh/dynagrok/localize/mine/algoparsers"
@@ -179,56 +178,6 @@ Option Flags
 					}
 					return gid, min
 				}
-				markovEval := func(m *mine.Miner, options *opts.Options, nodes []*mine.SearchNode, sflType, method, score, chain string) eval.EvalResults {
-					var states map[int][]int
-					var P [][]float64
-					jumpPr := .5
-					maxStates := 1000
-					finalChainName := chain
-					if sflType == "Control" {
-						_, jumps := eval.BehavioralAndSpacialJumpMatrix(m)
-						states, P = eval.ControlChain(jumps)
-					} else if sflType == "CBSFL" {
-						switch chain {
-						case "Ranked-List":
-							groups := eval.CBSFL(options, options.Score)
-							return eval.RankListEval(faults, o.Lattice, method, score, groups)
-						case "Spacial-Jumps":
-							states, P = eval.SpacialJumps(jumpPr, maxStates, m)
-							finalChainName = fmt.Sprintf("%v(%g)", chain, jumpPr)
-						case "Behavioral-Jumps":
-							states, P = eval.BehavioralJumps(jumpPr, maxStates, m)
-							finalChainName = fmt.Sprintf("%v(%g)", chain, jumpPr)
-						case "Behavioral+Spacial-Jumps":
-							states, P = eval.BehavioralAndSpacialJumps(jumpPr, maxStates, m)
-							finalChainName = fmt.Sprintf("%v(%g)", chain, jumpPr)
-						default:
-							panic(fmt.Errorf("no chain named %v", method))
-						}
-					} else if sflType == "SBBFL" {
-						switch chain {
-						case "Ranked-List":
-							states, P = eval.DsgMarkovChain(maxStates, m, nodes, 0, nil)
-						case "Spacial-Jumps":
-							_, jumps := eval.SpacialJumpMatrix(m)
-							states, P = eval.DsgMarkovChain(maxStates, m, nodes, jumpPr, jumps)
-							finalChainName = fmt.Sprintf("%v(%g)", chain, jumpPr)
-						case "Behavioral-Jumps":
-							_, jumps := eval.BehavioralJumpMatrix(m)
-							states, P = eval.DsgMarkovChain(maxStates, m, nodes, jumpPr, jumps)
-							finalChainName = fmt.Sprintf("%v(%g)", chain, jumpPr)
-						case "Behavioral+Spacial-Jumps":
-							_, jumps := eval.BehavioralAndSpacialJumpMatrix(m)
-							states, P = eval.DsgMarkovChain(maxStates, m, nodes, jumpPr, jumps)
-							finalChainName = fmt.Sprintf("%v(%g)", chain, jumpPr)
-						default:
-							panic(fmt.Errorf("no chain named %v", chain))
-						}
-					} else {
-						panic("unknown sfl type")
-					}
-					return eval.HTRank(faults, options.Lattice, method, score, finalChainName, states, P)
-				}
 				sum := func(nodes []*mine.SearchNode) float64 {
 					sum := 0.0
 					for _, n := range nodes {
@@ -275,18 +224,14 @@ Option Flags
 						"max-edges", "min-fails", "row", "name", "sum", "mean", "stddev", "stderr (0)", "stderr (1)",
 						"rank-group", "rank-score", "dur (sec)", "duration")
 				}
-				stats := func(m *mine.Miner, opt *opts.Options, maxEdges, minFails, row int, name string, minout int, base, nodes []*mine.SearchNode, dur time.Duration) {
+				stats := func(m *mine.Miner, opt *opts.Options, maxEdges, minFails, row int, name string, minout int, base1, base2, nodes []*mine.SearchNode, dur time.Duration) {
 					clamp := nodes[:minout]
 					gid, score := rankScore(nodes)
 					fmt.Println(name)
-					markovEval(m, opt, nodes, "SBBFL", name, opt.ScoreName, "Ranked-List")
-					markovEval(m, opt, nodes, "SBBFL", name, opt.ScoreName, "Spacial-Jumps")
-					markovEval(m, opt, nodes, "SBBFL", name, opt.ScoreName, "Behavioral-Jumps")
-					markovEval(m, opt, nodes, "SBBFL", name, opt.ScoreName, "Behavioral+Spacial-Jumps")
 					fmt.Fprintf(ouf,
 						"%9v, %9v, %3v, %-27v, %10.5g, %10.5g, %10.5g, %11.5g, %11.5g, %11v, %11.5g, %11.5g, %11v\n",
 						maxEdges, minFails, row, name,
-						sum(clamp), mean(clamp), stddev(clamp), stderr(base, nodes), gid, score,
+						sum(clamp), mean(clamp), stddev(clamp), stderr(base1, nodes), stderr(base2, nodes), gid, score,
 						dur.Seconds(), dur)
 				}
 				output := func(name string, nodes []*mine.SearchNode) {
@@ -319,25 +264,9 @@ Option Flags
 				for i := range outputs {
 					output(options[i].MinerName, outputs[i][:minout])
 				}
-				if false {
-					fmt.Println("Control")
-					markovEval(miners[0], options[0], outputs[0], "Control", "control", "", "Control")
-				}
-				fmt.Println("CBSFL")
-				scoresSeen := make(map[string]bool)
-				for i := range outputs {
-					if scoresSeen[options[i].ScoreName] {
-						continue
-					}
-					scoresSeen[options[i].ScoreName] = true
-					markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Ranked-List")
-					markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Behavioral-Jumps")
-					markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Spacial-Jumps")
-					markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Behavioral+Spacial-Jumps")
-				}
 				statsHeader()
 				for i := range outputs {
-					stats(miners[i], options[i], maxEdges, minFails, i, options[i].MinerName, minout, outputs[0], outputs[i], times[i])
+					stats(miners[i], options[i], maxEdges, minFails, i, options[i].MinerName, minout, outputs[0], outputs[1], outputs[i], times[i])
 				}
 				fmt.Println()
 				return args, nil

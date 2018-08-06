@@ -13,7 +13,6 @@ import (
 import (
 	"github.com/timtadh/dynagrok/cmd"
 	"github.com/timtadh/dynagrok/localize/discflo"
-	"github.com/timtadh/dynagrok/localize/discflo/eval"
 	"github.com/timtadh/dynagrok/localize/discflo/web"
 	"github.com/timtadh/dynagrok/localize/mine"
 	minecmd "github.com/timtadh/dynagrok/localize/mine/cmd"
@@ -22,7 +21,6 @@ import (
 
 func NewCommand(c *cmd.Config) cmd.Runnable {
 	var o discflo.Options
-	evaluate := eval.NewCommand(c, &o)
 	web := web.NewCommand(c, &o)
 	return cmd.Concat(
 		cmd.Annotate(
@@ -37,9 +35,8 @@ func NewCommand(c *cmd.Config) cmd.Runnable {
 		),
 		minecmd.NewAlgorithmParser(c, &o.Options),
 		cmd.Commands(map[string]cmd.Runnable{
-			"":              NewRunner(c, &o),
-			evaluate.Name(): evaluate,
-			web.Name():      web,
+			"":         NewRunner(c, &o),
+			web.Name(): web,
 		}),
 	)
 }
