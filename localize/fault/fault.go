@@ -11,19 +11,21 @@ import (
 )
 
 type Fault struct {
+	Position     string
 	FnName       string
 	BasicBlockId int
 }
 
 func (f *Fault) String() string {
 	return fmt.Sprintf(`Fault {
+    Position: %v,
     FnName: %v,
     BasicBlockId: %d,
-}`, f.FnName, f.BasicBlockId)
+}`, f.Position, f.FnName, f.BasicBlockId)
 }
 
 func (f *Fault) Equals(o *Fault) bool {
-	return f.FnName == o.FnName && f.BasicBlockId == o.BasicBlockId
+	return f.Position == o.Position && f.FnName == o.FnName && f.BasicBlockId == o.BasicBlockId
 }
 
 func LoadFault(bits []byte) (*Fault, error) {
@@ -32,7 +34,7 @@ func LoadFault(bits []byte) (*Fault, error) {
 	if err != nil {
 		return nil, err
 	}
-	f := &Fault{FnName: e.FnName, BasicBlockId: e.BasicBlockId}
+	f := &Fault{FnName: e.FnName, BasicBlockId: e.BasicBlockId, Position: e.SrcPosition.String()}
 	return f, nil
 }
 
