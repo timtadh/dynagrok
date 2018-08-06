@@ -157,7 +157,7 @@ Option Flags
 					} else {
 						panic("unknown sfl type")
 					}
-					return eval.MarkovEval(faults, options.Lattice, method, score, finalChainName, states, P)
+					return eval.HTRank(faults, options.Lattice, method, score, finalChainName, states, P)
 				}
 				minout := -1
 				outputs := make([][]*mine.SearchNode, 0, len(options))
