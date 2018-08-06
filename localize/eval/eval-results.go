@@ -128,6 +128,9 @@ func resultString(r EvalResult) string {
 	if r.Score() != "" {
 		name = append(name, r.Score())
 	}
+	if r.Eval() != "" {
+		name = append(name, r.Eval())
+	}
 	return fmt.Sprintf(`%v {
     rank: %v,
     score: %v,
@@ -137,8 +140,8 @@ func resultString(r EvalResult) string {
 		strings.Join(name, " + "),
 		r.Rank(),
 		r.RawScore(),
-		leftPad(r.Fault().String(), 1, 4),
-		leftPad(r.Location().String(), 1, 4))
+		leftPad(fmt.Sprintf("%v", r.Fault()), 1, 4),
+		leftPad(fmt.Sprintf("%v", r.Location()), 1, 4))
 }
 
 type MarkovEvalResult struct {

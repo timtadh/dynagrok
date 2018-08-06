@@ -118,7 +118,7 @@ func HTRank(faults []*fault.Fault, lat *lattice.Lattice, methodName, scoreName, 
 
 func getHitScores(colorStates map[int][]int, P [][]float64) map[int]float64 {
 	scores := make(map[int]float64)
-	if len(P) > 500 {
+	if len(P) > 100 {
 		hittingTimes := EsimateEspectedHittingTimes(500, 0, 100000, P)
 		for color, states := range colorStates {
 			for _, state := range states {
@@ -383,7 +383,7 @@ func estExpectedTime(distribution []uint64) float64 {
 
 func RandomWalksForHittingTimes(walks int, start int, maxLength int, transitions [][]float64) [][]uint64 {
 	cpus := runtime.NumCPU() / 2
-	results := make(chan []uint64)
+	results := make(chan []uint64, 1000)
 	count := 0
 	for i := 0; i < cpus; i++ {
 		prev := count
