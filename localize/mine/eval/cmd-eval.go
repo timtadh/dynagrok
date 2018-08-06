@@ -42,16 +42,20 @@ Option Flags
     -t,--time-out=<seconds>           Timeout for each algorithm (default 120 seconds)
     -f,--faults=<path>                Path to a fault file.
     -o,--output=<path>                Place to write CSV of evaluation
+    -d,--data-source=<source>         Source of data for analysis: dynagrok (default), defect4j
+                                      Note: dynagrok is almost always what you want.
 `,
-			"o:f:t:",
+			"o:f:t:d:",
 			[]string{
 				"output=",
 				"faults=",
 				"time-out=",
+				"data-source=",
 			},
 			func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
 				outputPath := ""
 				faultsPath := ""
+				dataSource := "dynagrok"
 				timeout := 120 * time.Second
 				for _, oa := range optargs {
 					switch oa.Opt() {
@@ -59,10 +63,17 @@ Option Flags
 						outputPath = oa.Arg()
 					case "-f", "--faults":
 						faultsPath = oa.Arg()
+					case "-d", "--data-source":
+						switch oa.Arg() {
+						case "dynagrok", "defect4j":
+							dataSource = oa.Arg()
+						default:
+							return nil, cmd.Errorf(1, "Flag %v expected a either dynagrok or defect4j got %q.", oa.Opt, oa.Arg())
+						}
 					case "-t", "--time-out":
 						t, err := time.ParseDuration(oa.Arg())
 						if err != nil {
-							return nil, cmd.Errorf(1, "For flag %v expected a duration got %v. err: %v", oa.Opt, oa.Arg(), err)
+							return nil, cmd.Errorf(1, "Flag %v expected a duration got %q. err: %v", oa.Opt, oa.Arg(), err)
 						}
 						timeout = t
 					}
@@ -108,6 +119,13 @@ Option Flags
 					return nodes, e.Sub(s)
 				}
 				markovEval := func(m *mine.Miner, options *opts.Options, nodes []*mine.SearchNode, sflType, method, score, chain string) eval.EvalResults {
+					lattice := options.Lattice
+					var evaluator *eval.Evaluator
+					if dataSource == "dynagrok" {
+						evaluator = eval.NewEvaluator(lattice, eval.NewDynagrokFaultIdentifier(lattice, faults))
+					} else if dataSource == "defect4j" {
+						evaluator = eval.NewEvaluator(lattice, eval.NewDefect4J_FaultIdentifier(lattice, faults))
+					}
 					var states map[int][]int
 					var P [][]float64
 					jumpPr := .5
@@ -120,7 +138,7 @@ Option Flags
 						switch chain {
 						case "Ranked-List":
 							groups := eval.CBSFL(options, options.Score)
-							return eval.RankListEval(faults, o.Lattice, method, score, groups)
+							return evaluator.RankListEval(method, score, groups)
 						case "Spacial-Jumps":
 							states, P = eval.SpacialJumps(jumpPr, maxStates, m)
 							finalChainName = fmt.Sprintf("%v(%g)", chain, jumpPr)
@@ -136,7 +154,7 @@ Option Flags
 					} else if sflType == "SBBFL" {
 						switch chain {
 						case "Ranked-List":
-							return eval.SBBFLRankListEval(m, faults, nodes, method, score)
+							return evaluator.SBBFLRankListEval(nodes, method, score)
 						case "Markov-Ranked-List":
 							states, P = eval.DsgMarkovChain(maxStates, m, nodes, 0, nil)
 						case "Spacial-Jumps":
@@ -157,7 +175,7 @@ Option Flags
 					} else {
 						panic("unknown sfl type")
 					}
-					return eval.HTRank(faults, options.Lattice, method, score, finalChainName, states, P)
+					return evaluator.HTRank(method, score, finalChainName, states, P)
 				}
 				filterAppend := func(filter func(r eval.EvalResult) bool) func(slice eval.EvalResults, items ...eval.EvalResult) eval.EvalResults {
 					return func(slice eval.EvalResults, items ...eval.EvalResult) eval.EvalResults {
@@ -201,19 +219,23 @@ Option Flags
 						}
 						scoresSeen[options[i].ScoreName] = true
 						results = nonNilAppend(results, markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Ranked-List").Avg())
-						results = nonNilAppend(results, markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Behavioral-Jumps").Avg())
-						results = nonNilAppend(results, markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Spacial-Jumps").Avg())
-						results = nonNilAppend(results, markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Behavioral+Spacial-Jumps").Avg())
+						if true {
+							results = nonNilAppend(results, markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Behavioral-Jumps").Avg())
+							results = nonNilAppend(results, markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Spacial-Jumps").Avg())
+							results = nonNilAppend(results, markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Behavioral+Spacial-Jumps").Avg())
+						}
 					}
 				}
 				if true {
 					fmt.Println("SBBFL")
 					for i := range outputs {
 						results = nonNilAppend(results, markovEval(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Ranked-List").Avg())
-						results = nonNilAppend(results, markovEval(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Markov-Ranked-List").Avg())
-						results = nonNilAppend(results, markovEval(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Spacial-Jumps").Avg())
-						results = nonNilAppend(results, markovEval(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Behavioral-Jumps").Avg())
-						results = nonNilAppend(results, markovEval(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Behavioral+Spacial-Jumps").Avg())
+						if true {
+							results = nonNilAppend(results, markovEval(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Markov-Ranked-List").Avg())
+							results = nonNilAppend(results, markovEval(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Spacial-Jumps").Avg())
+							results = nonNilAppend(results, markovEval(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Behavioral-Jumps").Avg())
+							results = nonNilAppend(results, markovEval(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Behavioral+Spacial-Jumps").Avg())
+						}
 					}
 				}
 				fmt.Fprintln(ouf, results)

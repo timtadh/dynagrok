@@ -11,13 +11,11 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/timtadh/dynagrok/localize/fault"
-	"github.com/timtadh/dynagrok/localize/lattice"
 	"github.com/timtadh/dynagrok/localize/mine"
 	matrix "github.com/timtadh/go.matrix"
 )
 
-func HTRank(faults []*fault.Fault, lat *lattice.Lattice, methodName, scoreName, chainName string, colorStates map[int][]int, P [][]float64) (results EvalResults) {
+func (e *Evaluator) HTRank(methodName, scoreName, chainName string, colorStates map[int][]int, P [][]float64) (results EvalResults) {
 	group := func(order []int, scores map[int]float64) [][]int {
 		sort.Slice(order, func(i, j int) bool {
 			return scores[order[i]] < scores[order[j]]
@@ -35,12 +33,9 @@ func HTRank(faults []*fault.Fault, lat *lattice.Lattice, methodName, scoreName, 
 		return groups
 	}
 	faultColors := make(map[int]bool)
-	for _, f := range faults {
-		for color := range lat.Labels.Labels() {
-			b, fn, _ := lat.Info.Get(color)
-			if fn == f.FnName && b == f.BasicBlockId {
-				faultColors[color] = true
-			}
+	for color := range e.lattice.Labels.Labels() {
+		if e.Fault(color) != nil {
+			faultColors[color] = true
 		}
 	}
 	if len(faultColors) <= 0 {
@@ -64,53 +59,40 @@ func HTRank(faults []*fault.Fault, lat *lattice.Lattice, methodName, scoreName, 
 	grouped := group(order, scores)
 	ranks := make(map[int]float64)
 	total := 0
-	for gid, group := range grouped {
+	for _, group := range grouped {
 		count := 0
 		for _, color := range group {
-			score := scores[color]
 			count++
 			ranks[color] = float64(total) + float64(len(group))/2
-			b, fn, pos := lat.Info.Get(color)
-			if false {
-				fmt.Printf(
-					"    {\n        group: %v, size: %d,\n        rank: %v, hitting time: %v,\n        fn: %v (%d),\n        pos: %v\n    }\n",
-					gid, len(group),
-					ranks[color],
-					score,
-					fn, b, pos,
-				)
-			}
 		}
 		total += len(group)
 	}
-	for _, f := range faults {
-		for color, score := range scores {
-			b, fn, pos := lat.Info.Get(color)
-			if fn == f.FnName && b == f.BasicBlockId {
-				fmt.Printf(
-					"    %v + %v + Markov%v {\n        rank: %v,\n        hitting time: %v,\n        fn: %v (%d),\n        pos: %v\n    }\n",
-					methodName, scoreName, chainName,
-					ranks[color],
-					score,
-					fn, b, pos,
-				)
-				r := &MarkovEvalResult{
-					MethodName:  methodName,
-					ScoreName:   scoreName,
-					ChainName:   chainName,
-					HT_Rank:     ranks[color],
-					HittingTime: score,
-					fault:       f,
-					loc: &mine.Location{
-						Color:        color,
-						BasicBlockId: b,
-						FnName:       fn,
-						Position:     pos,
-					},
-				}
-				results = append(results, r)
-				break
+	for color, score := range scores {
+		if f := e.Fault(color); f != nil {
+			b, fn, pos := e.lattice.Info.Get(color)
+			fmt.Printf(
+				"    %v + %v + Markov%v {\n        rank: %v,\n        hitting time: %v,\n        fn: %v (%d),\n        pos: %v\n    }\n",
+				methodName, scoreName, chainName,
+				ranks[color],
+				score,
+				fn, b, pos,
+			)
+			r := &MarkovEvalResult{
+				MethodName:  methodName,
+				ScoreName:   scoreName,
+				ChainName:   chainName,
+				HT_Rank:     ranks[color],
+				HittingTime: score,
+				fault:       f,
+				loc: &mine.Location{
+					Color:        color,
+					BasicBlockId: b,
+					FnName:       fn,
+					Position:     pos,
+				},
 			}
+			results = append(results, r)
+			break
 		}
 	}
 	return results
@@ -118,7 +100,7 @@ func HTRank(faults []*fault.Fault, lat *lattice.Lattice, methodName, scoreName, 
 
 func getHitScores(colorStates map[int][]int, P [][]float64) map[int]float64 {
 	scores := make(map[int]float64)
-	if len(P) > 100 {
+	if len(P) > 1000 {
 		hittingTimes := EsimateEspectedHittingTimes(500, 0, 100000, P)
 		for color, states := range colorStates {
 			for _, state := range states {
@@ -172,6 +154,8 @@ func getHitScores(colorStates map[int][]int, P [][]float64) map[int]float64 {
 	for color, hit := range scores {
 		if hit <= 0 {
 			scores[color] = math.Inf(1)
+		} else {
+			scores[color] = math.Round(hit)
 		}
 	}
 	return scores

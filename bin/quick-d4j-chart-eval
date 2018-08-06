@@ -27,6 +27,7 @@ dynagrok \
     --min-edges=0 \
     -s $METRIC \
     eval \
+    --data-source=defect4j \
     -o $OUTPUT \
     -t $TIMEOUT \
     -f $BASE/fault \

@@ -11,6 +11,70 @@ import (
 	"github.com/timtadh/dynagrok/localize/mine/opts"
 )
 
+type FaultIdentifier interface {
+	Fault(color int) *fault.Fault
+}
+
+type Evaluator struct {
+	lattice *lattice.Lattice
+	fi      FaultIdentifier
+}
+
+func NewEvaluator(lattice *lattice.Lattice, fi FaultIdentifier) *Evaluator {
+	return &Evaluator{
+		lattice: lattice,
+		fi:      fi,
+	}
+}
+
+func (e *Evaluator) Fault(color int) *fault.Fault {
+	return e.fi.Fault(color)
+}
+
+type DynagrokFaultIdentifier struct {
+	faults  []*fault.Fault
+	lattice *lattice.Lattice
+}
+
+func NewDynagrokFaultIdentifier(lattice *lattice.Lattice, faults []*fault.Fault) *DynagrokFaultIdentifier {
+	return &DynagrokFaultIdentifier{
+		faults:  faults,
+		lattice: lattice,
+	}
+}
+
+func (d *DynagrokFaultIdentifier) Fault(color int) *fault.Fault {
+	bbid, fnName, _ := d.lattice.Info.Get(color)
+	for _, f := range d.faults {
+		if fnName == f.FnName && bbid == f.BasicBlockId {
+			return f
+		}
+	}
+	return nil
+}
+
+type Defect4J_FaultIdentifier struct {
+	faults  []*fault.Fault
+	lattice *lattice.Lattice
+}
+
+func NewDefect4J_FaultIdentifier(lattice *lattice.Lattice, faults []*fault.Fault) *Defect4J_FaultIdentifier {
+	return &Defect4J_FaultIdentifier{
+		faults:  faults,
+		lattice: lattice,
+	}
+}
+
+func (d *Defect4J_FaultIdentifier) Fault(color int) *fault.Fault {
+	_, _, pos := d.lattice.Info.Get(color)
+	for _, f := range d.faults {
+		if pos == f.Position {
+			return f
+		}
+	}
+	return nil
+}
+
 type ColorScore struct {
 	Color int
 	Score float64
@@ -47,77 +111,73 @@ func Discflo(o *discflo.Options, s mine.ScoreFunc) [][]ColorScore {
 	return groups
 }
 
-func RankListEval(faults []*fault.Fault, lat *lattice.Lattice, methodName, scoreName string, groups [][]ColorScore) (results EvalResults) {
-	for _, f := range faults {
-		sum := 0
-		for gid, group := range groups {
-			for _, cs := range group {
-				bbid, fnName, pos := lat.Info.Get(cs.Color)
-				// if pos == f.Position {
-				if fnName == f.FnName && bbid == f.BasicBlockId {
-					fmt.Printf(
-						"   %v + %v {\n        rank: %v, gid: %v, group-size: %v\n        score: %v,\n        fn: %v (%d),\n        pos: %v\n    }\n",
-						methodName, scoreName,
-						float64(sum)+float64(len(group))/2, gid, len(group),
-						cs.Score,
-						fnName,
-						bbid,
-						pos,
-					)
-					r := &RankListEvalResult{
-						MethodName:     methodName,
-						ScoreName:      scoreName,
-						RankScore:      float64(sum) + float64(len(group))/2,
-						Suspiciousness: cs.Score,
-						LocalizedFault: f,
-						Loc: &mine.Location{
-							Color:        cs.Color,
-							BasicBlockId: bbid,
-							FnName:       fnName,
-							Position:     pos,
-						},
-					}
-					results = append(results, r)
+func (e *Evaluator) RankListEval(methodName, scoreName string, groups [][]ColorScore) (results EvalResults) {
+	sum := 0
+	for gid, group := range groups {
+		for _, cs := range group {
+			if f := e.Fault(cs.Color); f != nil {
+				bbid, fnName, pos := e.lattice.Info.Get(cs.Color)
+				fmt.Printf(
+					"   %v + %v {\n        rank: %v, gid: %v, group-size: %v\n        score: %v,\n        fn: %v (%d),\n        pos: %v\n    }\n",
+					methodName, scoreName,
+					float64(sum)+float64(len(group))/2, gid, len(group),
+					cs.Score,
+					fnName,
+					bbid,
+					pos,
+				)
+				r := &RankListEvalResult{
+					MethodName:     methodName,
+					ScoreName:      scoreName,
+					RankScore:      float64(sum) + float64(len(group))/2,
+					Suspiciousness: cs.Score,
+					LocalizedFault: f,
+					Loc: &mine.Location{
+						Color:        cs.Color,
+						BasicBlockId: bbid,
+						FnName:       fnName,
+						Position:     pos,
+					},
 				}
+				results = append(results, r)
 			}
-			sum += len(group)
 		}
+		sum += len(group)
 	}
 	return results
 }
 
-func SBBFLRankListEval(m *mine.Miner, faults []*fault.Fault, nodes []*mine.SearchNode, methodName, scoreName string) EvalResults {
+func (e *Evaluator) SBBFLRankListEval(nodes []*mine.SearchNode, methodName, scoreName string) EvalResults {
 	min := -1.0
 	minScore := -1.0
 	gid := 0
-	var fault *fault.Fault
+	var minFault *fault.Fault
 	groups := mine.GroupNodesByScore(nodes)
-	for _, f := range faults {
-		sum := 0.0
-		for i, g := range groups {
-			count := 0
-			for _, n := range g {
-				for _, v := range n.Node.SubGraph.V {
-					b, fn, _ := m.Lattice.Info.Get(v.Color)
-					if fn == f.FnName && b == f.BasicBlockId {
-						count++
-						break
-					}
+	sum := 0.0
+	for i, g := range groups {
+		count := 0
+		var f *fault.Fault
+		for _, n := range g {
+			for _, v := range n.Node.SubGraph.V {
+				if x := e.Fault(v.Color); x != nil {
+					f = x
+					count++
+					break
 				}
 			}
-			if count > 0 {
-				r := float64(len(g) - count)
-				b := float64(count)
-				score := ((b + r + 1) / (b + 1)) + sum
-				if min <= 0 || score < min {
-					gid = i
-					fault = f
-					min = score
-					minScore = g[0].Score
-				}
-			}
-			sum += float64(len(g))
 		}
+		if count > 0 {
+			r := float64(len(g) - count)
+			b := float64(count)
+			score := ((b + r + 1) / (b + 1)) + sum
+			if min <= 0 || score < min {
+				gid = i
+				minFault = f
+				min = score
+				minScore = g[0].Score
+			}
+		}
+		sum += float64(len(g))
 	}
 	if min <= 0 {
 		min = math.Inf(1)
@@ -127,7 +187,7 @@ func SBBFLRankListEval(m *mine.Miner, faults []*fault.Fault, nodes []*mine.Searc
 		ScoreName:      scoreName,
 		RankScore:      min,
 		Suspiciousness: minScore,
-		LocalizedFault: fault,
+		LocalizedFault: minFault,
 	}
 	fmt.Printf(
 		"   %v + %v {\n        rank: %v, gid: %v group-size: %v\n        score: %v\n    }\n",
