@@ -225,6 +225,9 @@ func ParPyEHT(start int, states []int, transitions [][]float64) (map[int]float64
 		panic("states is nil")
 	}
 	cpus := runtime.NumCPU() / 2
+	if cpus <= 0 {
+		cpus = 2
+	}
 	work := make([][]int, cpus)
 	for i, state := range states {
 		w := i % len(work)
