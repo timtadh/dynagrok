@@ -100,7 +100,7 @@ func (e *Evaluator) HTRank(methodName, scoreName, chainName string, colorStates 
 
 func getHitScores(colorStates map[int][]int, P [][]float64) map[int]float64 {
 	scores := make(map[int]float64)
-	if len(P) > 1000 {
+	if len(P) > 10 {
 		hittingTimes := EsimateEspectedHittingTimes(500, 0, 100000, P)
 		for color, states := range colorStates {
 			for _, state := range states {
@@ -369,7 +369,7 @@ func RandomWalksForHittingTimes(walks int, start int, maxLength int, transitions
 	cpus := runtime.NumCPU() / 2
 	results := make(chan []uint64, 1000)
 	count := 0
-	for i := 0; i < cpus; i++ {
+	for count < walks {
 		prev := count
 		count += walks / cpus
 		if count >= walks {
