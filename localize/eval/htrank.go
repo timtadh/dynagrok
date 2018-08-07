@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"math/rand"
+	"os"
 	"os/exec"
 	"runtime"
 	"sort"
@@ -100,14 +102,10 @@ func (e *Evaluator) HTRank(methodName, scoreName, chainName string, colorStates 
 
 func getHitScores(colorStates map[int][]int, P [][]float64) map[int]float64 {
 	scores := make(map[int]float64)
-	if len(P) > 10 {
-		hittingTimes := EsimateEspectedHittingTimes(500, 0, 100000, P)
+	if len(P) > 10000 {
+		hittingTimes := EsimateEspectedHittingTimes(500, 0, 10000000000, P)
 		for color, states := range colorStates {
 			for _, state := range states {
-				// hit, has := hittingTimes[state]
-				// if !has {
-				// 	continue
-				// }
 				if state < len(hittingTimes) {
 					hit := hittingTimes[state]
 					if min, has := scores[color]; !has || hit < min {
@@ -283,7 +281,7 @@ func PyExpectedHittingTimes(start int, states []int, transitions [][]float64) (m
 	c := exec.Command("hitting-times")
 	c.Stdin = inbuf
 	c.Stdout = &outbuf
-	c.Stderr = &errbuf
+	c.Stderr = io.MultiWriter(os.Stderr, &errbuf)
 	err = c.Start()
 	if err != nil {
 		return nil, err
@@ -292,12 +290,8 @@ func PyExpectedHittingTimes(start int, states []int, transitions [][]float64) (m
 	if err != nil {
 		return nil, fmt.Errorf("py hitting time err: %v\n`%v`\n`%v`", err, errbuf.String(), outbuf.String())
 	}
-	stderr := errbuf.String()
-	if len(stderr) > 0 {
-		return nil, fmt.Errorf("py hitting time err: %v", stderr)
-	}
 	if !c.ProcessState.Success() {
-		return nil, fmt.Errorf("failed to have python compute hitting times: %v", outbuf.String())
+		return nil, fmt.Errorf("failed to have python compute hitting times: %v\n %v", errbuf.String(), outbuf.String())
 	}
 	var times map[string]float64
 	err = json.Unmarshal(outbuf.Bytes(), &times)

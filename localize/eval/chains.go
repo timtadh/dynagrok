@@ -267,14 +267,16 @@ func ControlChain(jumps map[int]map[int]bool) (blockStates map[int][]int, P [][]
 		P = append(P, make([]float64, states))
 	}
 	returnPr := 0.01
-	for a, aJumps := range jumps {
+	for A, aJumps := range jumps {
+		a := blockStates[A][0]
 		P[start][a] = 1 / float64(len(blockStates))
 		if len(aJumps) <= 0 {
 			P[a][start] = 1
 		} else {
 			P[a][start] = returnPr
 		}
-		for b := range aJumps {
+		for B := range aJumps {
+			b := blockStates[B][0]
 			P[a][b] = (1 / float64(len(aJumps))) * (1 - returnPr)
 		}
 	}

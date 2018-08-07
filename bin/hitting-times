@@ -49,17 +49,18 @@ def inverse(A):
     # return linalg.spsolve(A, I)
 
 def lusolve(lu, B):
-    if False and B.shape[0] < 30000:
+    if B.shape[0] < 30000:
         X = sparse.csc_matrix(lu.solve(B))
     else:
+        # print >>sys.stderr, ("total cols: %d" % B.shape[1])
         cols = list()
         for j in xrange(B.shape[1]):
-            # if j % 1000 == 0:
+            # if j % 10 == 0:
             #     print >>sys.stderr, ("X_%d" % j),
             col = lu.solve(B[:,j])
             cols.append(sparse.csc_matrix(col))
         X = sparse.hstack(cols)
-    #print >>sys.stderr, "X",
+    # print >>sys.stderr, ""
     return X
 
 
