@@ -302,7 +302,7 @@ func NewOptionParser(c *cmd.Config, o *opts.Options) cmd.Runnable {
 func runTests(paths []string, ex test.Executor) ([]*test.Testcase, *bytes.Buffer, error) {
 	var buf bytes.Buffer
 	tests := make([]*test.Testcase, 0, len(paths))
-	count := 0
+pathLoop:
 	for i, path := range paths {
 		fmt.Println("loading test", i, path)
 		if f, err := os.Open(path); err != nil {
@@ -314,6 +314,7 @@ func runTests(paths []string, ex test.Executor) ([]*test.Testcase, *bytes.Buffer
 				return nil, nil, fmt.Errorf("Could not read test %v, err: %v", path, err)
 			}
 			var t *test.Testcase
+			count := 0
 			for {
 				t = test.Test(path, ex, bits)
 				err = t.Execute()
@@ -322,10 +323,12 @@ func runTests(paths []string, ex test.Executor) ([]*test.Testcase, *bytes.Buffer
 				}
 				if !t.Usable() {
 					count++
-					if count < 10 {
+					if count < 25 {
 						continue
+					} else {
+						errors.Logf("WARNING", "Can't use test %d", i)
+						continue pathLoop
 					}
-					return nil, nil, fmt.Errorf("Can't use test %d", i)
 				} else {
 					break
 				}
