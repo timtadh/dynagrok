@@ -106,7 +106,7 @@ func (e *Evaluator) HTRank(methodName, scoreName, chainName string, colorStates 
 func getHitScores(colorStates map[int][]int, P [][]float64) map[int]float64 {
 	scores := make(map[int]float64)
 	if len(P) > 1000 {
-		hittingTimes := EsimateEspectedHittingTimes(500, 0, 100000, P)
+		hittingTimes := EsimateEspectedHittingTimes(500, 0, 1000000, P)
 		for color, states := range colorStates {
 			for _, state := range states {
 				if state < len(hittingTimes) {
