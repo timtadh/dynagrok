@@ -224,7 +224,7 @@ func ParPyEHT(start int, states []int, transitions [][]float64) (map[int]float64
 	if states == nil {
 		panic("states is nil")
 	}
-	cpus := runtime.NumCPU() / 2
+	cpus := runtime.NumCPU() - 1
 	if cpus <= 0 {
 		cpus = 2
 	}
@@ -363,7 +363,10 @@ func estExpectedTime(distribution []uint64) float64 {
 }
 
 func RandomWalksForHittingTimes(walks int, start int, maxLength int, transitions [][]float64) [][]uint64 {
-	cpus := runtime.NumCPU() / 2
+	cpus := runtime.NumCPU() - 1
+	if cpus <= 0 {
+		cpus = 2
+	}
 	results := make(chan []uint64, 1000)
 	count := 0
 	for count < walks {
