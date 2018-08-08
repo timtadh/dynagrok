@@ -1,6 +1,7 @@
 package eval
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -12,19 +13,18 @@ type EvalResults []EvalResult
 
 func (results EvalResults) String() string {
 	parts := make([]string, 0, len(results))
-	parts = append(parts, "Rank, FL Method, Score Name, Eval Method")
 	for _, result := range results {
-		if result == nil {
-			continue
+		data := map[string]interface{}{
+			"rank":   result.Rank(),
+			"method": result.Method(),
+			"score":  result.Score(),
+			"eval":   result.Eval(),
 		}
-		parts = append(parts,
-			fmt.Sprintf("%v, %v, %v, %v",
-				result.Rank(),
-				result.Method(),
-				result.Score(),
-				result.Eval(),
-			),
-		)
+		bits, err := json.Marshal(data)
+		if err != nil {
+			panic(err)
+		}
+		parts = append(parts, string(bits))
 	}
 	return strings.Join(parts, "\n")
 }
