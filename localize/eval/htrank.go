@@ -69,6 +69,7 @@ func (e *Evaluator) HTRank(methodName, scoreName, chainName string, colorStates 
 		}
 		total += len(group)
 	}
+	var min *MarkovEvalResult
 	for color, score := range scores {
 		if f := e.Fault(color); f != nil {
 			b, fn, pos := e.lattice.Info.Get(color)
@@ -93,11 +94,13 @@ func (e *Evaluator) HTRank(methodName, scoreName, chainName string, colorStates 
 					Position:     pos,
 				},
 			}
-			results = append(results, r)
+			if min == nil || r.HT_Rank < min.HT_Rank {
+				min = r
+			}
 			break
 		}
 	}
-	return results
+	return EvalResults{min}
 }
 
 func getHitScores(colorStates map[int][]int, P [][]float64) map[int]float64 {
