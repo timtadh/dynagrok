@@ -3,6 +3,7 @@ package eval
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/timtadh/dynagrok/localize/fault"
@@ -14,8 +15,12 @@ type EvalResults []EvalResult
 func (results EvalResults) String() string {
 	parts := make([]string, 0, len(results))
 	for _, result := range results {
+		rank := result.Rank()
+		if math.IsInf(rank, 0) {
+			rank = -1.0
+		}
 		data := map[string]interface{}{
-			"rank":   result.Rank(),
+			"rank":   rank,
 			"method": result.Method(),
 			"score":  result.Score(),
 			"eval":   result.Eval(),
