@@ -113,6 +113,7 @@ func Discflo(o *discflo.Options, s mine.ScoreFunc) [][]ColorScore {
 
 func (e *Evaluator) RankListEval(methodName, scoreName string, groups [][]ColorScore) (results EvalResults) {
 	sum := 0
+	var min *RankListEvalResult
 	for gid, group := range groups {
 		for _, cs := range group {
 			if f := e.Fault(cs.Color); f != nil {
@@ -139,12 +140,14 @@ func (e *Evaluator) RankListEval(methodName, scoreName string, groups [][]ColorS
 						Position:     pos,
 					},
 				}
-				results = append(results, r)
+				if min == nil || r.RankScore < min.RankScore {
+					min = r
+				}
 			}
 		}
 		sum += len(group)
 	}
-	return results
+	return EvalResults{min}
 }
 
 func (e *Evaluator) SBBFLRankListEval(nodes []*mine.SearchNode, methodName, scoreName string) EvalResults {
