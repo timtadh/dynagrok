@@ -179,6 +179,8 @@ func NewOptionParser(c *cmd.Config, o *opts.Options) cmd.Runnable {
 -p,--passing-tests=<path>         A non-failing profile or profiles. (May be
                                   specified multiple times or with a comma
                                   separated list).
+--profile-format=<format>         The format for profiles: dot, simple
+                                  default: dot
 --max-edges=<int>                 Maximal number of edges in a mined pattern
 --min-edges=<int>                 Minimum number of edges in a mined pattern
 --min-fails=<int>                 Minimum number of failures associated with
@@ -192,6 +194,7 @@ func NewOptionParser(c *cmd.Config, o *opts.Options) cmd.Runnable {
 			"binary-args=",
 			"passing-tests=",
 			"failing-tests=",
+			"profile-format=",
 			"max-edges=",
 			"min-edges=",
 			"min-fails=",
@@ -202,6 +205,7 @@ func NewOptionParser(c *cmd.Config, o *opts.Options) cmd.Runnable {
 				return nil, cmd.Errorf(3, "Unexpected error: %v", err)
 			}
 			o.BinArgs = ba
+			profileFormat := "dot"
 			var passingPaths []string
 			var failingPaths []string
 			for _, oa := range optargs {
@@ -243,6 +247,13 @@ func NewOptionParser(c *cmd.Config, o *opts.Options) cmd.Runnable {
 				case "-p", "--passing-tests":
 					for _, path := range strings.Split(oa.Arg(), ",") {
 						passingPaths = append(passingPaths, path)
+					}
+				case "--profile-format":
+					switch oa.Arg() {
+					case "dot", "simple":
+						profileFormat = oa.Arg()
+					default:
+						return nil, cmd.Errorf(1, "Could not parse arg to %q expected an 'dot' or 'simple' got %q.", oa.Opt(), oa.Arg())
 					}
 				case "--max-edges":
 					m, err := strconv.Atoi(oa.Arg())
@@ -290,9 +301,19 @@ func NewOptionParser(c *cmd.Config, o *opts.Options) cmd.Runnable {
 					return nil, cmd.Err(3, err)
 				}
 			} else {
-				o.Lattice, err = lattice.LoadDot(failingPaths, passingPaths)
-				if err != nil {
-					return nil, cmd.Err(3, err)
+				switch profileFormat {
+				case "dot":
+					o.Lattice, err = lattice.LoadDot(failingPaths, passingPaths)
+					if err != nil {
+						return nil, cmd.Err(3, err)
+					}
+				case "simple":
+					o.Lattice, err = lattice.Load(failingPaths, passingPaths)
+					if err != nil {
+						return nil, cmd.Err(3, err)
+					}
+				default:
+					return nil, cmd.Errorf(1, "unexpected profile format %v", profileFormat)
 				}
 			}
 			return args, nil

@@ -11,9 +11,9 @@ TIMEOUT=10s
 
 METRIC=rf1
 MUT=$1
-FAILING=$(wc -l ./testcases/avl-expr/$MUT/fails/tests/* |
+FAILING=$(wc -l ./testcases/avl-expr/$MUT/fails/profiles/* |
           egrep -v 'total' | sort -n | sed 's/ \+/ /g;s/^ *[0-9]\+ //' | head -n 20 | xargs | tr ' ' ,)
-PASSING=$(wc -l ./testcases/avl-expr/$MUT/oks/tests/*   |
+PASSING=$(wc -l ./testcases/avl-expr/$MUT/oks/profiles/*   |
           egrep -v 'total' | sort -n | sed 's/ \+/ /g;s/^ *[0-9]\+ //' | tail -n 20 | xargs | tr ' ' ,)
 OUTPUT=/tmp/dynagrok/avl-$MUT.eval-out
 
@@ -21,7 +21,7 @@ dynagrok \
     localize mine-dsg \
     -f $FAILING \
     -p $PASSING \
-    -b ./testcases/avl-expr/$MUT/avl \
+    --profile-format=simple \
     --min-fails=$MIN_FAILS \
     --max-edges=$MAX_EDGES \
     --min-edges=0 \
