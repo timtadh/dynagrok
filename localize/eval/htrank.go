@@ -2,6 +2,8 @@ package eval
 
 import (
 	"bytes"
+	crand "crypto/rand"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -380,8 +382,13 @@ func RandomWalksForHittingTimes(walks int, start int, maxLength int, transitions
 			count = walks
 		}
 		go func(mywalks int) {
+			seed := make([]byte, 8)
+			if _, err := crand.Read(seed); err != nil {
+				panic(err)
+			}
+			random := rand.New(rand.NewSource(int64(binary.BigEndian.Uint64(seed))))
 			for w := 0; w < mywalks; w++ {
-				results <- RandomWalkHittingTime(start, maxLength, transitions)
+				results <- RandomWalkHittingTime(random, start, maxLength, transitions)
 			}
 		}(count - prev)
 	}
@@ -392,7 +399,7 @@ func RandomWalksForHittingTimes(walks int, start int, maxLength int, transitions
 	return distribution
 }
 
-func RandomWalkHittingTime(start int, maxLength int, transitions [][]float64) []uint64 {
+func RandomWalkHittingTime(random *rand.Rand, start int, maxLength int, transitions [][]float64) []uint64 {
 	c := start
 	found := make(map[int]bool)
 	times := make([]uint64, len(transitions))
@@ -404,7 +411,7 @@ func RandomWalkHittingTime(start int, maxLength int, transitions [][]float64) []
 			times[c] = i
 			found[c] = true
 		}
-		c = weightedSample(transitions[c])
+		c = weightedSample(random, transitions[c])
 	}
 	if len(found) != len(transitions) {
 		for c := range times {
@@ -416,13 +423,13 @@ func RandomWalkHittingTime(start int, maxLength int, transitions [][]float64) []
 	return times
 }
 
-func weightedSample(weights []float64) int {
+func weightedSample(random *rand.Rand, weights []float64) int {
 	var total float64
 	for _, w := range weights {
 		total += w
 	}
 	i := 0
-	r := total * rand.Float64()
+	r := total * random.Float64()
 	for ; i < len(weights)-1 && r > weights[i]; i++ {
 		r -= weights[i]
 	}
