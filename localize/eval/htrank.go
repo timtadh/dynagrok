@@ -52,7 +52,7 @@ func (e *Evaluator) HTRank(methodName, scoreName, chainName string, colorStates 
 	if !found {
 		return nil
 	}
-	scores := getHitScores(colorStates, P)
+	scores := getHitScores(e.maxStatesForExact, colorStates, P)
 
 	order := make([]int, 0, len(colorStates))
 	for color := range colorStates {
@@ -103,9 +103,10 @@ func (e *Evaluator) HTRank(methodName, scoreName, chainName string, colorStates 
 	return EvalResults{min}
 }
 
-func getHitScores(colorStates map[int][]int, P [][]float64) map[int]float64 {
+func getHitScores(maxStatesForExact int, colorStates map[int][]int, P [][]float64) map[int]float64 {
 	scores := make(map[int]float64)
-	if len(P) > 1000 {
+	if len(P) > maxStatesForExact {
+		fmt.Printf("falling back on estimation of hittingTime computation (%v > %v)\n", len(P), maxStatesForExact)
 		hittingTimes := EsimateEspectedHittingTimes(500, 0, 1000000, P)
 		for color, states := range colorStates {
 			for _, state := range states {
@@ -370,7 +371,7 @@ func RandomWalksForHittingTimes(walks int, start int, maxLength int, transitions
 	if cpus <= 0 {
 		cpus = 2
 	}
-	results := make(chan []uint64, 1000)
+	results := make(chan []uint64, walks)
 	count := 0
 	for count < walks {
 		prev := count

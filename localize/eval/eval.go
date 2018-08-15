@@ -16,15 +16,29 @@ type FaultIdentifier interface {
 }
 
 type Evaluator struct {
-	lattice *lattice.Lattice
-	fi      FaultIdentifier
+	lattice           *lattice.Lattice
+	fi                FaultIdentifier
+	maxStatesForExact int
 }
 
-func NewEvaluator(lattice *lattice.Lattice, fi FaultIdentifier) *Evaluator {
-	return &Evaluator{
-		lattice: lattice,
-		fi:      fi,
+type EvaluatorOption func(*Evaluator)
+
+func MaxStatesForExactHTRank(max int) EvaluatorOption {
+	return func(e *Evaluator) {
+		e.maxStatesForExact = max
 	}
+}
+
+func NewEvaluator(lattice *lattice.Lattice, fi FaultIdentifier, opts ...EvaluatorOption) *Evaluator {
+	e := &Evaluator{
+		lattice:           lattice,
+		fi:                fi,
+		maxStatesForExact: 1000,
+	}
+	for _, opt := range opts {
+		opt(e)
+	}
+	return e
 }
 
 func (e *Evaluator) Fault(color int) *fault.Fault {

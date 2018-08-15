@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/timtadh/dynagrok/cmd"
@@ -44,6 +45,7 @@ Option Flags
     -o,--output=<path>                Place to write CSV of evaluation
     -d,--data-source=<source>         Source of data for analysis: dynagrok (default), defect4j
                                       Note: dynagrok is almost always what you want.
+    --max-states-for-exact-htrank     Maximum number of states in the chain to use exact rank
 `,
 			"o:f:t:d:",
 			[]string{
@@ -51,12 +53,14 @@ Option Flags
 				"faults=",
 				"time-out=",
 				"data-source=",
+				"max-states-for-exact-htrank=",
 			},
 			func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
 				outputPath := ""
 				faultsPath := ""
 				dataSource := "dynagrok"
 				timeout := 120 * time.Second
+				evalOpts := make([]eval.EvaluatorOption, 0, 10)
 				for _, oa := range optargs {
 					switch oa.Opt() {
 					case "-o", "--output":
@@ -68,14 +72,20 @@ Option Flags
 						case "dynagrok", "defect4j":
 							dataSource = oa.Arg()
 						default:
-							return nil, cmd.Errorf(1, "Flag %v expected a either dynagrok or defect4j got %q.", oa.Opt, oa.Arg())
+							return nil, cmd.Errorf(1, "Flag %v expected a either dynagrok or defect4j got %q.", oa.Opt(), oa.Arg())
 						}
 					case "-t", "--time-out":
 						t, err := time.ParseDuration(oa.Arg())
 						if err != nil {
-							return nil, cmd.Errorf(1, "Flag %v expected a duration got %q. err: %v", oa.Opt, oa.Arg(), err)
+							return nil, cmd.Errorf(1, "Flag %v expected a duration got %q. err: %v", oa.Opt(), oa.Arg(), err)
 						}
 						timeout = t
+					case "--max-states-for-exact-htrank":
+						states, err := strconv.Atoi(oa.Arg())
+						if err != nil {
+							return nil, cmd.Errorf(1, "Flag %v expected an int but got %q. err: %v", oa.Opt(), oa.Arg(), err)
+						}
+						evalOpts = append(evalOpts, eval.MaxStatesForExactHTRank(states))
 					}
 				}
 				if faultsPath == "" {
@@ -122,9 +132,9 @@ Option Flags
 					lattice := options.Lattice
 					var evaluator *eval.Evaluator
 					if dataSource == "dynagrok" {
-						evaluator = eval.NewEvaluator(lattice, eval.NewDynagrokFaultIdentifier(lattice, faults))
+						evaluator = eval.NewEvaluator(lattice, eval.NewDynagrokFaultIdentifier(lattice, faults), evalOpts...)
 					} else if dataSource == "defect4j" {
-						evaluator = eval.NewEvaluator(lattice, eval.NewDefect4J_FaultIdentifier(lattice, faults))
+						evaluator = eval.NewEvaluator(lattice, eval.NewDefect4J_FaultIdentifier(lattice, faults), evalOpts...)
 					}
 					var states map[int][]int
 					var P [][]float64
