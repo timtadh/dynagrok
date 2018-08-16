@@ -32,6 +32,8 @@ dynagrok \
     --min-edges=0 \
     -s $METRIC \
     eval \
+    --max-states-for-exact-htrank=10000 \
+    --parallelism=4 \
     -o $OUTPUT \
     -t $TIMEOUT \
     -f ./data/gc-1.10.1/$MUT/mutations \

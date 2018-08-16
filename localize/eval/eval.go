@@ -3,6 +3,7 @@ package eval
 import (
 	"fmt"
 	"math"
+	"runtime"
 
 	"github.com/timtadh/dynagrok/localize/discflo"
 	"github.com/timtadh/dynagrok/localize/fault"
@@ -16,6 +17,7 @@ type FaultIdentifier interface {
 }
 
 type Evaluator struct {
+	parallelism       int
 	lattice           *lattice.Lattice
 	fi                FaultIdentifier
 	maxStatesForExact int
@@ -29,6 +31,12 @@ func MaxStatesForExactHTRank(max int) EvaluatorOption {
 	}
 }
 
+func Parallelism(p int) EvaluatorOption {
+	return func(e *Evaluator) {
+		e.parallelism = p
+	}
+}
+
 func NewEvaluator(lattice *lattice.Lattice, fi FaultIdentifier, opts ...EvaluatorOption) *Evaluator {
 	e := &Evaluator{
 		lattice:           lattice,
@@ -39,6 +47,22 @@ func NewEvaluator(lattice *lattice.Lattice, fi FaultIdentifier, opts ...Evaluato
 		opt(e)
 	}
 	return e
+}
+
+func (e *Evaluator) Workers() int {
+	cpus := runtime.NumCPU() - 1
+	if cpus < 1 {
+		cpus = 1
+	}
+	if e.parallelism == 0 {
+		return cpus
+	} else if e.parallelism < 0 {
+		return 1
+	} else if e.parallelism > cpus+1 {
+		return cpus + 1
+	} else {
+		return e.parallelism
+	}
 }
 
 func (e *Evaluator) Fault(color int) *fault.Fault {

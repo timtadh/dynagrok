@@ -39,13 +39,14 @@ func NewEvalParser(c *cmd.Config, o *opts.Options) cmd.Runnable {
 Compare a walk based method against leap, s-leap, or branch and bound.
 
 Option Flags
-    -h,--help                         Show this message
-    -t,--time-out=<seconds>           Timeout for each algorithm (default 120 seconds)
-    -f,--faults=<path>                Path to a fault file.
-    -o,--output=<path>                Place to write CSV of evaluation
-    -d,--data-source=<source>         Source of data for analysis: dynagrok (default), defect4j
-                                      Note: dynagrok is almost always what you want.
-    --max-states-for-exact-htrank     Maximum number of states in the chain to use exact rank
+    -h,--help                            Show this message
+    -t,--time-out=<seconds>              Timeout for each algorithm (default 120 seconds)
+    -f,--faults=<path>                   Path to a fault file.
+    -o,--output=<path>                   Place to write CSV of evaluation
+    -d,--data-source=<source>            Source of data for analysis: dynagrok (default), defect4j
+                                         Note: dynagrok is almost always what you want.
+    --max-states-for-exact-htrank=<int>  Maximum number of states in the chain to use exact rank
+    --parallelism=<int>                  Number of cores to use for HTrank computation
 `,
 			"o:f:t:d:",
 			[]string{
@@ -54,6 +55,7 @@ Option Flags
 				"time-out=",
 				"data-source=",
 				"max-states-for-exact-htrank=",
+				"parallelism=",
 			},
 			func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
 				outputPath := ""
@@ -86,6 +88,12 @@ Option Flags
 							return nil, cmd.Errorf(1, "Flag %v expected an int but got %q. err: %v", oa.Opt(), oa.Arg(), err)
 						}
 						evalOpts = append(evalOpts, eval.MaxStatesForExactHTRank(states))
+					case "--parallelism":
+						p, err := strconv.Atoi(oa.Arg())
+						if err != nil {
+							return nil, cmd.Errorf(1, "Flag %v expected an int but got %q. err: %v", oa.Opt(), oa.Arg(), err)
+						}
+						evalOpts = append(evalOpts, eval.Parallelism(p))
 					}
 				}
 				if faultsPath == "" {
@@ -216,7 +224,7 @@ Option Flags
 					}
 				}
 				var results eval.EvalResults
-				if true {
+				if false {
 					fmt.Println("Control")
 					results = nonNilAppend(results, markovEval(miners[0], options[0], outputs[0], "Control", "control", "", "Control")...)
 				}
@@ -230,13 +238,15 @@ Option Flags
 						scoresSeen[options[i].ScoreName] = true
 						results = nonNilAppend(results, markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Ranked-List").Avg())
 						if true {
-							results = nonNilAppend(results, markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Behavioral-Jumps").Avg())
 							results = nonNilAppend(results, markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Spacial-Jumps").Avg())
-							results = nonNilAppend(results, markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Behavioral+Spacial-Jumps").Avg())
+							if false {
+								results = nonNilAppend(results, markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Behavioral-Jumps").Avg())
+								results = nonNilAppend(results, markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Behavioral+Spacial-Jumps").Avg())
+							}
 						}
 					}
 				}
-				if true {
+				if false {
 					fmt.Println("SBBFL")
 					for i := range outputs {
 						results = nonNilAppend(results, markovEval(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Ranked-List").Avg())

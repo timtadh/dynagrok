@@ -11,7 +11,6 @@ import (
 	"math/rand"
 	"os"
 	"os/exec"
-	"runtime"
 	"sort"
 	"strconv"
 
@@ -54,7 +53,7 @@ func (e *Evaluator) HTRank(methodName, scoreName, chainName string, colorStates 
 	if !found {
 		return nil
 	}
-	scores := getHitScores(e.maxStatesForExact, colorStates, P)
+	scores := getHitScores(e.Workers(), e.maxStatesForExact, colorStates, P)
 
 	order := make([]int, 0, len(colorStates))
 	for color := range colorStates {
@@ -105,11 +104,11 @@ func (e *Evaluator) HTRank(methodName, scoreName, chainName string, colorStates 
 	return EvalResults{min}
 }
 
-func getHitScores(maxStatesForExact int, colorStates map[int][]int, P [][]float64) map[int]float64 {
+func getHitScores(workers, maxStatesForExact int, colorStates map[int][]int, P [][]float64) map[int]float64 {
 	scores := make(map[int]float64)
 	if len(P) > maxStatesForExact {
 		fmt.Printf("falling back on estimation of hittingTime computation (%v > %v)\n", len(P), maxStatesForExact)
-		hittingTimes := EsimateEspectedHittingTimes(500, 0, 1000000, P)
+		hittingTimes := EsimateEspectedHittingTimes(workers, 500, 0, 1000000, P)
 		for color, states := range colorStates {
 			for _, state := range states {
 				if state < len(hittingTimes) {
@@ -129,7 +128,7 @@ func getHitScores(maxStatesForExact int, colorStates map[int][]int, P [][]float6
 				states = append(states, state)
 			}
 		}
-		hittingTimes, err := ParPyEHT(0, states, P)
+		hittingTimes, err := ParPyEHT(workers, 0, states, P)
 		if err != nil {
 			fmt.Println(err)
 			fmt.Println("falling back on go implementation of hittingTime computation")
@@ -226,13 +225,9 @@ func ExpectedHittingTime(x, y int, transitions [][]float64) float64 {
 	return Nc.Get(x, 0)
 }
 
-func ParPyEHT(start int, states []int, transitions [][]float64) (map[int]float64, error) {
+func ParPyEHT(cpus, start int, states []int, transitions [][]float64) (map[int]float64, error) {
 	if states == nil {
 		panic("states is nil")
-	}
-	cpus := runtime.NumCPU() - 1
-	if cpus <= 0 {
-		cpus = 2
 	}
 	work := make([][]int, cpus)
 	for i, state := range states {
@@ -318,9 +313,9 @@ func PyExpectedHittingTimes(start int, states []int, transitions [][]float64) (m
 	return hits, nil
 }
 
-func EsimateEspectedHittingTimes(walks, start, maxLength int, transitions [][]float64) []float64 {
+func EsimateEspectedHittingTimes(workers, walks, start, maxLength int, transitions [][]float64) []float64 {
 	estimates := make([]float64, 0, len(transitions))
-	samples := RandomWalksForHittingTimes(walks, start, maxLength, transitions)
+	samples := RandomWalksForHittingTimes(workers, walks, start, maxLength, transitions)
 	fmt.Println("sample count", len(samples))
 	distributions := transpose(samples)
 	for _, distribution := range distributions {
@@ -368,11 +363,7 @@ func estExpectedTime(distribution []uint64) float64 {
 	return est
 }
 
-func RandomWalksForHittingTimes(walks int, start int, maxLength int, transitions [][]float64) [][]uint64 {
-	cpus := runtime.NumCPU() - 1
-	if cpus <= 0 {
-		cpus = 2
-	}
+func RandomWalksForHittingTimes(cpus, walks, start, maxLength int, transitions [][]float64) [][]uint64 {
 	results := make(chan []uint64, walks)
 	count := 0
 	for count < walks {
