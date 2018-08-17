@@ -15,6 +15,9 @@ type EvalResults []EvalResult
 func (results EvalResults) String() string {
 	parts := make([]string, 0, len(results))
 	for _, result := range results {
+		if result == nil {
+			continue
+		}
 		rank := result.Rank()
 		if math.IsInf(rank, 0) {
 			rank = -1.0

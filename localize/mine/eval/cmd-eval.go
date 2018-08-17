@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"reflect"
 	"strconv"
 	"time"
 
@@ -246,7 +247,7 @@ Option Flags
 					}
 				}
 				nonNilAppend := filterAppend(func(r eval.EvalResult) bool {
-					return r == nil
+					return r == nil || reflect.ValueOf(r).IsNil()
 				})
 				minout := -1
 				outputs := make([][]*mine.SearchNode, 0, len(options))
@@ -299,7 +300,7 @@ Option Flags
 						}
 					}
 				}
-				fmt.Fprintln(ouf, results)
+				fmt.Fprintln(ouf, results.String())
 				return args, nil
 			}),
 	)
