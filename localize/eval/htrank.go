@@ -98,7 +98,6 @@ func (e *Evaluator) HTRank(methodName, scoreName, chainName string, colorStates 
 			if min == nil || r.HT_Rank < min.HT_Rank {
 				min = r
 			}
-			break
 		}
 	}
 	return EvalResults{min}
