@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/timtadh/data-structures/errors"
 	"github.com/timtadh/dynagrok/cmd"
 	"github.com/timtadh/dynagrok/localize/eval"
 	"github.com/timtadh/dynagrok/localize/fault"
@@ -45,7 +46,10 @@ Option Flags
     -o,--output=<path>                   Place to write CSV of evaluation
     -d,--data-source=<source>            Source of data for analysis: dynagrok (default), defect4j
                                          Note: dynagrok is almost always what you want.
+    --htrank-method=<method>             Computation method for HTrank: auto, exact, estimate
+                                         default: auto
     --max-states-for-exact-htrank=<int>  Maximum number of states in the chain to use exact rank
+                                         only applies when --htrank-method=auto
     --parallelism=<int>                  Number of cores to use for HTrank computation
 `,
 			"o:f:t:d:",
@@ -54,6 +58,7 @@ Option Flags
 				"faults=",
 				"time-out=",
 				"data-source=",
+				"htrank-method=",
 				"max-states-for-exact-htrank=",
 				"parallelism=",
 			},
@@ -82,6 +87,16 @@ Option Flags
 							return nil, cmd.Errorf(1, "Flag %v expected a duration got %q. err: %v", oa.Opt(), oa.Arg(), err)
 						}
 						timeout = t
+					case "--htrank-method":
+						switch oa.Arg() {
+						case "auto":
+						case "exact":
+							evalOpts = append(evalOpts, eval.ForceExactHTRank)
+						case "estimate":
+							evalOpts = append(evalOpts, eval.ForceEstimateHTRank)
+						default:
+							return nil, cmd.Errorf(1, "Flag %v expected: `auto`, `exact`, or `estimate` got %q.", oa.Opt(), oa.Arg())
+						}
 					case "--max-states-for-exact-htrank":
 						states, err := strconv.Atoi(oa.Arg())
 						if err != nil {
@@ -148,7 +163,8 @@ Option Flags
 					e := time.Now()
 					return nodes, e.Sub(s)
 				}
-				markovEval := func(m *mine.Miner, options *opts.Options, nodes []*mine.SearchNode, sflType, method, score, chain string) eval.EvalResults {
+				evaluate := func(m *mine.Miner, options *opts.Options, nodes []*mine.SearchNode, sflType, method, score, chain string) eval.EvalResults {
+					errors.Logf("INFO", "evaluating %v %v %v %v", sflType, method, score, chain)
 					lattice := options.Lattice
 					var evaluator *eval.Evaluator
 					if dataSource == "dynagrok" {
@@ -159,7 +175,7 @@ Option Flags
 					var states map[int][]int
 					var P [][]float64
 					jumpPr := .5
-					maxStates := 10000
+					maxStates := 20000
 					finalChainName := chain
 					if sflType == "Control" {
 						_, jumps := eval.BehavioralAndSpacialJumpMatrix(m)
@@ -207,6 +223,17 @@ Option Flags
 					}
 					return evaluator.HTRank(method, score, finalChainName, states, P)
 				}
+				extractResult := func(results eval.EvalResults) (result eval.EvalResult) {
+					if len(results) > 1 {
+						result = results.Avg()
+					} else if len(results) < 1 {
+						result = nil
+					} else {
+						result = results[0]
+					}
+					errors.Logf("INFO", "computed:\n%v\n", result)
+					return result
+				}
 				filterAppend := func(filter func(r eval.EvalResult) bool) func(slice eval.EvalResults, items ...eval.EvalResult) eval.EvalResults {
 					return func(slice eval.EvalResults, items ...eval.EvalResult) eval.EvalResults {
 						out := slice
@@ -238,7 +265,7 @@ Option Flags
 				var results eval.EvalResults
 				if false {
 					fmt.Println("Control")
-					results = nonNilAppend(results, markovEval(miners[0], options[0], outputs[0], "Control", "control", "", "Control")...)
+					results = nonNilAppend(results, extractResult(evaluate(miners[0], options[0], outputs[0], "Control", "control", "", "Control")))
 				}
 				if true {
 					fmt.Println("CBSFL")
@@ -248,32 +275,31 @@ Option Flags
 							continue
 						}
 						scoresSeen[options[i].ScoreName] = true
-						results = nonNilAppend(results, markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Ranked-List").Avg())
+						results = nonNilAppend(results, extractResult(evaluate(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Ranked-List")))
 						if true {
-							results = nonNilAppend(results, markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Spacial-Jumps").Avg())
+							results = nonNilAppend(results, extractResult(evaluate(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Spacial-Jumps")))
 							if true {
-								results = nonNilAppend(results, markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Behavioral-Jumps").Avg())
-								results = nonNilAppend(results, markovEval(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Behavioral+Spacial-Jumps").Avg())
+								results = nonNilAppend(results, extractResult(evaluate(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Behavioral-Jumps")))
+								results = nonNilAppend(results, extractResult(evaluate(miners[i], options[i], outputs[i], "CBSFL", "cbsfl", options[i].ScoreName, "Behavioral+Spacial-Jumps")))
 							}
 						}
 					}
 				}
-				if false {
+				if true {
 					fmt.Println("SBBFL")
 					for i := range outputs {
-						results = nonNilAppend(results, markovEval(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Ranked-List").Avg())
+						results = nonNilAppend(results, extractResult(evaluate(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Ranked-List")))
 						if true {
-							results = nonNilAppend(results, markovEval(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Markov-Ranked-List").Avg())
-							results = nonNilAppend(results, markovEval(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Spacial-Jumps").Avg())
-							results = nonNilAppend(results, markovEval(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Behavioral-Jumps").Avg())
-							results = nonNilAppend(results, markovEval(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Behavioral+Spacial-Jumps").Avg())
+							results = nonNilAppend(results, extractResult(evaluate(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Markov-Ranked-List")))
+							if true {
+								results = nonNilAppend(results, extractResult(evaluate(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Spacial-Jumps")))
+								results = nonNilAppend(results, extractResult(evaluate(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Behavioral-Jumps")))
+								results = nonNilAppend(results, extractResult(evaluate(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Behavioral+Spacial-Jumps")))
+							}
 						}
 					}
 				}
 				fmt.Fprintln(ouf, results)
-				for _, r := range results {
-					fmt.Printf("%v\n", r)
-				}
 				return args, nil
 			}),
 	)

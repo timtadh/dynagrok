@@ -20,10 +20,11 @@ func (results EvalResults) String() string {
 			rank = -1.0
 		}
 		data := map[string]interface{}{
-			"rank":   rank,
-			"method": result.Method(),
-			"score":  result.Score(),
-			"eval":   result.Eval(),
+			"rank":                    rank,
+			"method":                  result.Method(),
+			"score":                   result.Score(),
+			"eval":                    result.Eval(),
+			"rank-computation-method": result.RankComputationMethod(),
 		}
 		bits, err := json.Marshal(data)
 		if err != nil {
@@ -43,6 +44,7 @@ func (results EvalResults) Avg() EvalResult {
 	score := results[0].Score()
 	fault := results[0].Fault()
 	location := results[0].Location()
+	rankComputationMethod := results[0].RankComputationMethod()
 	scoreSum := 0.0
 	rankSum := 0.0
 	for _, r := range results {
@@ -63,34 +65,37 @@ func (results EvalResults) Avg() EvalResult {
 		}
 	}
 	return &genericEvalResult{
-		method:   method,
-		score:    score,
-		eval:     eval,
-		rank:     rankSum / float64(len(results)),
-		rawScore: scoreSum / float64(len(results)),
-		fault:    fault,
-		location: location,
+		method:                method,
+		score:                 score,
+		eval:                  eval,
+		rank:                  rankSum / float64(len(results)),
+		rawScore:              scoreSum / float64(len(results)),
+		rankComputationMethod: rankComputationMethod,
+		fault:                 fault,
+		location:              location,
 	}
 }
 
 type EvalResult interface {
-	Method() string    // fault localization method: eg. CBSFL, SBBFL, DISCFLO
-	Score() string     // name of score used: Precision, RF1
-	Eval() string      // evaluation method used: Ranked List, Markov Chain, Chain + Behavior Jumps, etc...
-	Rank() float64     // the rank score or equivalent
-	RawScore() float64 // the raw score given to this location
+	Method() string                // fault localization method: eg. CBSFL, SBBFL, DISCFLO
+	Score() string                 // name of score used: Precision, RF1
+	Eval() string                  // evaluation method used: Ranked List, Markov Chain, Chain + Behavior Jumps, etc...
+	Rank() float64                 // the rank score or equivalent
+	RawScore() float64             // the raw score given to this location
+	RankComputationMethod() string // the method used to compute the rank (exact, estimate)
 	Fault() *fault.Fault
 	Location() *mine.Location
 }
 
 type genericEvalResult struct {
-	method   string  // fault localization method: eg. CBSFL, SBBFL, DISCFLO
-	score    string  // name of score used: Precision, RF1
-	eval     string  // evaluation method used: Ranked List, Markov Chain, Chain + Behavior Jumps, etc...
-	rank     float64 // the rank score or equivalent
-	rawScore float64 // the raw score given to this location
-	fault    *fault.Fault
-	location *mine.Location
+	method                string  // fault localization method: eg. CBSFL, SBBFL, DISCFLO
+	score                 string  // name of score used: Precision, RF1
+	eval                  string  // evaluation method used: Ranked List, Markov Chain, Chain + Behavior Jumps, etc...
+	rank                  float64 // the rank score or equivalent
+	rawScore              float64 // the raw score given to this location
+	rankComputationMethod string
+	fault                 *fault.Fault
+	location              *mine.Location
 }
 
 func (r *genericEvalResult) Method() string {
@@ -117,6 +122,10 @@ func (r *genericEvalResult) Fault() *fault.Fault {
 	return r.fault
 }
 
+func (r *genericEvalResult) RankComputationMethod() string {
+	return r.rankComputationMethod
+}
+
 func (r *genericEvalResult) Location() *mine.Location {
 	return r.location
 }
@@ -139,24 +148,27 @@ func resultString(r EvalResult) string {
 	return fmt.Sprintf(`%v {
     rank: %v,
     score: %v,
+    rank-computation: %v,
     fault: %v
     location: %v
 }`,
 		strings.Join(name, " + "),
 		r.Rank(),
 		r.RawScore(),
+		r.RankComputationMethod(),
 		leftPad(fmt.Sprintf("%v", r.Fault()), 1, 4),
 		leftPad(fmt.Sprintf("%v", r.Location()), 1, 4))
 }
 
 type MarkovEvalResult struct {
-	MethodName  string
-	ScoreName   string
-	ChainName   string
-	HT_Rank     float64
-	HittingTime float64
-	loc         *mine.Location
-	fault       *fault.Fault
+	MethodName    string
+	ScoreName     string
+	ChainName     string
+	HT_Rank       float64
+	HittingTime   float64
+	HT_RankMethod string
+	loc           *mine.Location
+	fault         *fault.Fault
 }
 
 func (r *MarkovEvalResult) Method() string {
@@ -177,6 +189,10 @@ func (r *MarkovEvalResult) Rank() float64 {
 
 func (r *MarkovEvalResult) RawScore() float64 {
 	return r.HittingTime
+}
+
+func (r *MarkovEvalResult) RankComputationMethod() string {
+	return r.HT_RankMethod
 }
 
 func (r *MarkovEvalResult) Fault() *fault.Fault {
@@ -214,6 +230,10 @@ func (r *RankListEvalResult) Eval() string {
 
 func (r *RankListEvalResult) Rank() float64 {
 	return r.RankScore
+}
+
+func (r *RankListEvalResult) RankComputationMethod() string {
+	return "exact"
 }
 
 func (r *RankListEvalResult) RawScore() float64 {

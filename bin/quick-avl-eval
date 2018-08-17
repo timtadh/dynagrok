@@ -27,8 +27,8 @@ dynagrok \
     --min-edges=0 \
     -s $METRIC \
     eval \
-    --max-states-for-exact-htrank=1000 \
-    --parallelism=1 \
+    --htrank-method=exact \
+    --parallelism=16 \
     -o $OUTPUT \
     -t $TIMEOUT \
     -f ./testcases/avl-expr/$MUT/mutations \

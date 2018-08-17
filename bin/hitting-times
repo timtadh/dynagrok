@@ -67,17 +67,25 @@ def lusolve(lu, B):
     return X
 
 
-def main():
+def main(args):
+    node_id = None
+    if len(args) > 0:
+        try:
+            node_id = int(args[0])
+        except:
+            pass
     d = json.load(sys.stdin)
     start = d['Start']
     states = d['States']
     transitions = sparse.lil_matrix(d['Transitions'], dtype=np.float32)
+    enable_print = node_id is not None and node_id == 1 and transitions.shape[0] > 250
     times = dict()
     log_freq = int(float(len(states))*.25)
-    print >>sys.stderr, "starting hitting time computation. P: {}, states: {}, log_freq: {}".format(
-        transitions.shape, len(states),
-        log_freq,
-    )
+    if enable_print:
+        print >>sys.stderr, "starting hitting time computation. P: {}, states: {}, log_freq: {}".format(
+            transitions.shape, len(states),
+            log_freq,
+        )
     total_time = None
     for i, state in enumerate(states):
         s = datetime.utcnow()
@@ -90,7 +98,7 @@ def main():
         do_print = i == 0
         do_print = do_print or i + 1 >= len(states)
         do_print = do_print or (log_freq > 0 and i%log_freq == 0)
-        if do_print:
+        if enable_print and do_print:
             print >>sys.stderr, "computed {}/{}: {} in {} avg {}".format(
                 i+1, len(states), times[state],
                 durationpy.to_str(e - s, True),
@@ -99,4 +107,4 @@ def main():
     json.dump(times, sys.stdout)
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])

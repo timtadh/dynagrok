@@ -22,9 +22,20 @@ type Evaluator struct {
 	lattice           *lattice.Lattice
 	fi                FaultIdentifier
 	maxStatesForExact int
+	exactHTrank       *bool
 }
 
 type EvaluatorOption func(*Evaluator)
+
+func ForceEstimateHTRank(e *Evaluator) {
+	e.exactHTrank = new(bool)
+	*e.exactHTrank = false
+}
+
+func ForceExactHTRank(e *Evaluator) {
+	e.exactHTrank = new(bool)
+	*e.exactHTrank = true
+}
 
 func MaxStatesForExactHTRank(max int) EvaluatorOption {
 	return func(e *Evaluator) {
@@ -48,6 +59,20 @@ func NewEvaluator(lattice *lattice.Lattice, fi FaultIdentifier, opts ...Evaluato
 		opt(e)
 	}
 	return e
+}
+
+func (e *Evaluator) HTRankMethod(states int) string {
+	if e.ExactHTRank(states) {
+		return "exact"
+	}
+	return "estimate"
+}
+
+func (e *Evaluator) ExactHTRank(states int) bool {
+	if e.exactHTrank == nil {
+		return states < e.maxStatesForExact
+	}
+	return *e.exactHTrank
 }
 
 func (e *Evaluator) Workers() int {
@@ -155,21 +180,11 @@ func Discflo(o *discflo.Options, s mine.ScoreFunc) [][]ColorScore {
 func (e *Evaluator) RankListEval(methodName, scoreName string, groups [][]ColorScore) (results EvalResults) {
 	sum := 0
 	var min *RankListEvalResult
-	for gid, group := range groups {
+	for _, group := range groups {
 		for _, cs := range group {
 			if f := e.Fault(cs.Color); f != nil {
 				label := e.lattice.Labels.Label(cs.Color)
 				bbid, fnName, pos := e.lattice.Info.Get(cs.Color)
-				fmt.Printf(
-					"   %v + %v {\n        rank: %v, gid: %v, group-size: %v\n        score: %v,\n        fn: %v (%d),\n        pos: %v\n        label: %v\n    }\n",
-					methodName, scoreName,
-					float64(sum)+float64(len(group))/2, gid, len(group),
-					cs.Score,
-					fnName,
-					bbid,
-					pos,
-					label,
-				)
 				r := &RankListEvalResult{
 					MethodName:     methodName,
 					ScoreName:      scoreName,
@@ -197,11 +212,10 @@ func (e *Evaluator) RankListEval(methodName, scoreName string, groups [][]ColorS
 func (e *Evaluator) SBBFLRankListEval(nodes []*mine.SearchNode, methodName, scoreName string) EvalResults {
 	min := -1.0
 	minScore := -1.0
-	gid := 0
 	var minFault *fault.Fault
 	groups := mine.GroupNodesByScore(nodes)
 	sum := 0.0
-	for i, g := range groups {
+	for _, g := range groups {
 		count := 0
 		var f *fault.Fault
 		for _, n := range g {
@@ -218,7 +232,6 @@ func (e *Evaluator) SBBFLRankListEval(nodes []*mine.SearchNode, methodName, scor
 			b := float64(count)
 			score := ((b + r + 1) / (b + 1)) + sum
 			if min <= 0 || score < min {
-				gid = i
 				minFault = f
 				min = score
 				minScore = g[0].Score
@@ -236,11 +249,5 @@ func (e *Evaluator) SBBFLRankListEval(nodes []*mine.SearchNode, methodName, scor
 		Suspiciousness: minScore,
 		LocalizedFault: minFault,
 	}
-	fmt.Printf(
-		"   %v + %v {\n        rank: %v, gid: %v group-size: %v\n        score: %v\n    }\n",
-		methodName, scoreName,
-		r.Rank(), gid, len(groups[gid]),
-		r.RawScore(),
-	)
 	return EvalResults{r}
 }
