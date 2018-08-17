@@ -99,13 +99,6 @@ Option Flags
 				if faultsPath == "" {
 					return nil, cmd.Errorf(1, "You must supply the `-f` flag and give a path to the faults")
 				}
-				faults, err := fault.LoadFaults(faultsPath)
-				if err != nil {
-					return nil, cmd.Err(1, err)
-				}
-				for _, f := range faults {
-					fmt.Println(f)
-				}
 				ouf := os.Stdout
 				if outputPath != "" {
 					f, err := os.Create(outputPath)
@@ -127,6 +120,25 @@ Option Flags
 						break
 					}
 					options = append(options, opt)
+				}
+				var faults []*fault.Fault
+				if dataSource == "dynagrok" {
+					var err error
+					faults, err = fault.LoadFaults(faultsPath)
+					if err != nil {
+						return nil, cmd.Err(1, err)
+					}
+				} else if dataSource == "defect4j" {
+					var err error
+					faults, err = fault.LoadD4JFaults(faultsPath)
+					if err != nil {
+						return nil, cmd.Err(1, err)
+					}
+				} else {
+					return nil, cmd.Errorf(1, "unexpected data source")
+				}
+				for _, f := range faults {
+					fmt.Println(f)
 				}
 				timeit := func(m *mine.Miner) ([]*mine.SearchNode, time.Duration) {
 					ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -246,7 +258,7 @@ Option Flags
 						}
 					}
 				}
-				if true {
+				if false {
 					fmt.Println("SBBFL")
 					for i := range outputs {
 						results = nonNilAppend(results, markovEval(miners[i], options[i], outputs[i], "SBBFL", options[i].MinerName, options[i].ScoreName, "Ranked-List").Avg())

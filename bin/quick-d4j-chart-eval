@@ -5,7 +5,7 @@ then
   exit 1
 fi
 
-BASE=$HOME/stuff/research/d4j-reporter/Reports/Chart_4
+BASE=$HOME/stuff/research/gcp-cluster/data/defect4j-data/CoverageReports/Time/Time_9
 
 MIN_FAILS=2
 MAX_EDGES=25
@@ -30,7 +30,7 @@ dynagrok \
     --data-source=defect4j \
     -o $OUTPUT \
     -t $TIMEOUT \
-    -f $BASE/fault \
+    -f $BASE/*.buggy.lines \
     swrw walk-top-colors -p .2 -w 2
     # swrw walk-top-colors -p .2 -w 10 \
     # swrw walk-top-colors -p 1 -w 2 \

@@ -73,13 +73,15 @@ func (e *Evaluator) HTRank(methodName, scoreName, chainName string, colorStates 
 	var min *MarkovEvalResult
 	for color, score := range scores {
 		if f := e.Fault(color); f != nil {
+			label := e.lattice.Labels.Label(color)
 			b, fn, pos := e.lattice.Info.Get(color)
 			fmt.Printf(
-				"    %v + %v + Markov%v {\n        rank: %v,\n        hitting time: %v,\n        fn: %v (%d),\n        pos: %v\n    }\n",
+				"    %v + %v + Markov%v {\n        rank: %v,\n        hitting time: %v,\n        fn: %v (%d),\n        pos: %v\n        label: %v\n    }\n",
 				methodName, scoreName, chainName,
 				ranks[color],
 				score,
 				fn, b, pos,
+				label,
 			)
 			r := &MarkovEvalResult{
 				MethodName:  methodName,
@@ -93,6 +95,7 @@ func (e *Evaluator) HTRank(methodName, scoreName, chainName string, colorStates 
 					BasicBlockId: b,
 					FnName:       fn,
 					Position:     pos,
+					Label:        label,
 				},
 			}
 			if min == nil || r.HT_Rank < min.HT_Rank {

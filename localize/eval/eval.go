@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"runtime"
+	"strings"
 
 	"github.com/timtadh/dynagrok/localize/discflo"
 	"github.com/timtadh/dynagrok/localize/fault"
@@ -104,9 +105,11 @@ func NewDefect4J_FaultIdentifier(lattice *lattice.Lattice, faults []*fault.Fault
 }
 
 func (d *Defect4J_FaultIdentifier) Fault(color int) *fault.Fault {
-	_, _, pos := d.lattice.Info.Get(color)
+	label := d.lattice.Labels.Label(color)
+	label = strings.Replace(strings.Replace(label, ".", "/", -1), "#", ".java:", 1)
 	for _, f := range d.faults {
-		if pos == f.Position {
+		if label == f.Position {
+			fmt.Println(label)
 			return f
 		}
 	}
@@ -155,15 +158,17 @@ func (e *Evaluator) RankListEval(methodName, scoreName string, groups [][]ColorS
 	for gid, group := range groups {
 		for _, cs := range group {
 			if f := e.Fault(cs.Color); f != nil {
+				label := e.lattice.Labels.Label(cs.Color)
 				bbid, fnName, pos := e.lattice.Info.Get(cs.Color)
 				fmt.Printf(
-					"   %v + %v {\n        rank: %v, gid: %v, group-size: %v\n        score: %v,\n        fn: %v (%d),\n        pos: %v\n    }\n",
+					"   %v + %v {\n        rank: %v, gid: %v, group-size: %v\n        score: %v,\n        fn: %v (%d),\n        pos: %v\n        label: %v\n    }\n",
 					methodName, scoreName,
 					float64(sum)+float64(len(group))/2, gid, len(group),
 					cs.Score,
 					fnName,
 					bbid,
 					pos,
+					label,
 				)
 				r := &RankListEvalResult{
 					MethodName:     methodName,
@@ -172,6 +177,7 @@ func (e *Evaluator) RankListEval(methodName, scoreName string, groups [][]ColorS
 					Suspiciousness: cs.Score,
 					LocalizedFault: f,
 					Loc: &mine.Location{
+						Label:        label,
 						Color:        cs.Color,
 						BasicBlockId: bbid,
 						FnName:       fnName,

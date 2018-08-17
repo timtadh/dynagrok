@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/timtadh/dynagrok/cmd"
 	"github.com/timtadh/dynagrok/mutate"
@@ -38,6 +40,19 @@ func LoadFault(bits []byte) (*Fault, error) {
 	return f, nil
 }
 
+func LoadD4JFault(bits []byte) (*Fault, error) {
+	parts := strings.Split(string(bits), "#")
+	path := parts[0]
+	line, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return nil, err
+	}
+	f := &Fault{
+		Position: fmt.Sprintf("%v:%d", path, line),
+	}
+	return f, nil
+}
+
 func LoadFaults(path string) ([]*Fault, error) {
 	fin, failClose, err := cmd.Input(path)
 	if err != nil {
@@ -53,6 +68,35 @@ func LoadFaults(path string) ([]*Fault, error) {
 			continue
 		}
 		f, err := LoadFault(line)
+		if err != nil {
+			return nil, fmt.Errorf("Could not load failure: `%v`\nerror: %v", string(line), err)
+		}
+		if !seen[*f] {
+			seen[*f] = true
+			failures = append(failures, f)
+		}
+	}
+	if err := s.Err(); err != nil {
+		return nil, fmt.Errorf("Could not read the failures file: %v, error: %v", path, err)
+	}
+	return failures, nil
+}
+
+func LoadD4JFaults(path string) ([]*Fault, error) {
+	fin, failClose, err := cmd.Input(path)
+	if err != nil {
+		return nil, fmt.Errorf("Could not read the list of failures: %v\n%v", path, err)
+	}
+	defer failClose()
+	seen := make(map[Fault]bool)
+	failures := make([]*Fault, 0, 10)
+	s := bufio.NewScanner(fin)
+	for s.Scan() {
+		line := bytes.TrimSpace(s.Bytes())
+		if len(line) == 0 {
+			continue
+		}
+		f, err := LoadD4JFault(line)
 		if err != nil {
 			return nil, fmt.Errorf("Could not load failure: `%v`\nerror: %v", string(line), err)
 		}
