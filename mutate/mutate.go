@@ -44,7 +44,7 @@ type mutator struct {
 	instrumenting bool
 }
 
-func Mutate(mutate float64, only, allowedMuts map[string]bool, instrumenting bool, entryPkgName string, program *loader.Program) (mutants []*ExportedMut, err error) {
+func Mutate(total int, mutate float64, only, allowedMuts map[string]bool, instrumenting bool, entryPkgName string, program *loader.Program) (mutants []*ExportedMut, err error) {
 	entry := program.Package(entryPkgName)
 	if entry == nil {
 		return nil, errors.Errorf("The entry package was not found in the loaded program")
@@ -66,15 +66,20 @@ func Mutate(mutate float64, only, allowedMuts map[string]bool, instrumenting boo
 	if len(muts) <= 0 {
 		return nil, errors.Errorf("Can't mutate this program, there are no mutation points")
 	}
-	for int(float64(len(muts))*mutate) <= 0 {
-		mutate *= 1.01
-		if mutate > 1 {
-			mutate = 1
-			break
+	var mutations Mutations
+	if total > 0 {
+		mutations = muts.Sample(total)
+	} else {
+		for int(float64(len(muts))*mutate) <= 0 {
+			mutate *= 1.01
+			if mutate > 1 {
+				mutate = 1
+				break
+			}
 		}
+		mutations = muts.Sample(int(float64(len(muts)) * mutate))
+		errors.Logf("INFO", "mutating %v points out of %v potential points", len(mutations), len(muts))
 	}
-	mutations := muts.Sample(int(float64(len(muts)) * mutate))
-	errors.Logf("INFO", "mutating %v points out of %v potential points", len(mutations), len(muts))
 	for _, m := range mutations {
 		mutants = append(mutants, m.Export())
 	}

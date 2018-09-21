@@ -28,6 +28,8 @@ Option Flags
     -w,--work=<path>                  Work directory to use (defaults to tempdir)
     --keep-work                       Keep the work directory
     -r,--mutation-rate=<float>        Percentage of statements to mutate (defaults to .01)
+    -t,--total-mutations=<int>        Total number of mutations to create (default not-set)
+                                        When this is set it over-rides the --mutation-rate flag
     --instrument                      Also instrument the resulting program
     --only=<pkg>                      Only mutate the specified pkg (may be specified multiple
                                       times or with a comma separated list)
@@ -35,12 +37,13 @@ Option Flags
                                       multiple times or with a comma separated list).
     --mutations                       List the available mutations
 `,
-		"o:w:r:m:",
+		"o:w:r:m:t:",
 		[]string{
 			"output=",
 			"work=",
 			"keep-work",
 			"mutation-rate=",
+			"total-mutations=",
 			"instrument",
 			"only=",
 			"mutation=",
@@ -51,6 +54,7 @@ Option Flags
 			keepWork := false
 			work := ""
 			mutate := .01
+			total := -1
 			addInstrumentation := false
 			only := make(map[string]bool)
 			allowedMuts := make(map[string]bool)
@@ -73,6 +77,13 @@ Option Flags
 							"%v takes a float between 0 and 1, got: %v", oa.Opt(), f))
 					}
 					mutate = f
+				case "-t", "--total-mutations":
+					t, err := strconv.Atoi(oa.Arg())
+					if err != nil {
+						return nil, cmd.Usage(r, 1, fmt.Sprintf(
+							"%v takes an int. %v", oa.Opt(), err.Error()))
+					}
+					total = t
 				case "--instrument":
 					addInstrumentation = true
 				case "--only":
@@ -110,7 +121,7 @@ Option Flags
 			if err != nil {
 				return nil, cmd.Usage(r, 6, err.Error())
 			}
-			mutations, err := Mutate(mutate, only, allowedMuts, addInstrumentation, pkgName, program)
+			mutations, err := Mutate(total, mutate, only, allowedMuts, addInstrumentation, pkgName, program)
 			if err != nil {
 				return nil, cmd.Errorf(7, err.Error())
 			}

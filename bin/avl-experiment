@@ -21,7 +21,7 @@ DYNAGROK=$(which dynagrok)
 MAPTEST=$dgpath/examples/src/dynagrok/examples/avl/testcases/map_tester.py
 
 MUTANTS=20
-RATE=.01
+TOTAL=1
 TESTS=50
 
 function run {
@@ -45,7 +45,7 @@ for ((i=1;i<=$MUTANTS;i++)); do
     run mkdir -p $mutdir
      if ! run \
           $DYNAGROK -r $goroot -d $dgpath -g $dgpath/examples \
-             mutate --keep-work -w $BUILD --instrument -r $RATE \
+             mutate --keep-work -w $BUILD --instrument -t $TOTAL \
                     --only dynagrok/examples/avl \
                     --mutation=branch -o $mut dynagrok/examples/avl
      then
