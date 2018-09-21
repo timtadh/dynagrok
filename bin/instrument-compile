@@ -71,7 +71,7 @@ export GOROOT=$goroot
 export GOPATH=/tmp/fake-go-path
 rm -rf $TARGET
 echo "dyangrok instrument"
-dynagrok -d $dgpath \
+dynagrok -r $goroot -d $dgpath \
 	instrument \
 		--keep-work -w $TARGET \
 		-o $OUTPUT \

@@ -223,6 +223,7 @@ func (c *CFG) build() {
 	_ = c.visitStmts(c.Body, blk)
 	// fmt.Println(c)
 	c.filterEmpty()
+	c.mergeChains()
 	for _, blk := range c.Blocks {
 		for _, s := range blk.Stmts {
 			c.AddToBlk(blk, *s)
@@ -238,6 +239,23 @@ func (c *CFG) filterEmpty() {
 		blk := c.Blocks[i]
 		// there are no stmts AND one or more prev blks ===> a next blk exists
 		if len(blk.Stmts) == 0 && (len(blk.Prev) <= 0 || len(blk.Next) > 0) {
+			err := c.removeBlock(blk)
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
+}
+
+func (c *CFG) mergeChains() {
+	for i := len(c.Blocks) - 1; i >= 0; i-- {
+		blk := c.Blocks[i]
+		// there are no stmts AND one or more prev blks ===> a next blk exists
+		if len(blk.Next) == 1 && len(blk.Prev) == 1 && blk.Prev[0].Type == Unconditional {
+			prev := blk.Prev[0].Block
+			for _, stmt := range blk.Stmts {
+				prev.Add(stmt)
+			}
 			err := c.removeBlock(blk)
 			if err != nil {
 				panic(err)

@@ -19,11 +19,11 @@ func Main(r Runnable, cleans ...*func()) {
 		}
 	}
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		fmt.Println(err)
 		os.Exit(err.ExitCode)
 	}
 	if len(args) != 0 {
-		fmt.Fprintf(os.Stderr, "expected 0 args left got %v\n", args)
+		fmt.Printf("expected 0 args left got %v\n", args)
 		os.Exit(1)
 	}
 	os.Exit(0)

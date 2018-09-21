@@ -71,6 +71,27 @@ func rangeEx(x int) {
 	println()
 }
 
+func functionalIter(x int) {
+	l := make([]int, 10)
+	next := func(i int, l []int) (newI, c int, eol bool) {
+		i++
+		if i >= len(l) {
+			return 0, 0, true
+		}
+		return i, l[c], false
+	}
+	for i, c, eol := next(0, l); !eol; i, c, eol = next(i, l) {
+		print(i)
+		print(":")
+		print(c)
+		if i+1 < len(l) {
+			print(", ")
+		}
+		print("")
+	}
+	println()
+}
+
 func typeSwitch(x interface{}) {
 	switch x.(type) {
 	case uint, float64:

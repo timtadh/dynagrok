@@ -189,12 +189,14 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.
 			*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 0, i.mkShutdown(fnAst.Pos()))
 		}
 	} else {
-		*fnBody = Insert(cfg, nil, *fnBody, 0, i.mkCfg(fnAst.Pos(), cfg, cfgName))
-		*fnBody = Insert(cfg, nil, *fnBody, 1, i.mkIdom(fnAst.Pos(), pdt, ipdomName))
-		*fnBody = Insert(cfg, nil, *fnBody, 2, i.mkEnterFunc(fnAst.Pos(), fnName, cfgName, ipdomName))
-		*fnBody = Insert(cfg, nil, *fnBody, 3, i.mkExitFunc(fnAst.Pos(), fnName))
+		emptyBlk := analysis.NewBlock(cfg.FSet, 0, fnBody, 0)
+		cfg.Blocks = append(cfg.Blocks, emptyBlk)
+		*fnBody = Insert(cfg, emptyBlk, *fnBody, 0, i.mkCfg(fnAst.Pos(), cfg, cfgName))
+		*fnBody = Insert(cfg, emptyBlk, *fnBody, 1, i.mkIdom(fnAst.Pos(), pdt, ipdomName))
+		*fnBody = Insert(cfg, emptyBlk, *fnBody, 2, i.mkEnterFunc(fnAst.Pos(), fnName, cfgName, ipdomName))
+		*fnBody = Insert(cfg, emptyBlk, *fnBody, 3, i.mkExitFunc(fnAst.Pos(), fnName))
 		if pkg.Pkg.Path() == i.entry && fnName == fmt.Sprintf("%v.main", pkg.Pkg.Path()) {
-			*fnBody = Insert(cfg, nil, *fnBody, 0, i.mkShutdown(fnAst.Pos()))
+			*fnBody = Insert(cfg, emptyBlk, *fnBody, 0, i.mkShutdown(fnAst.Pos()))
 		}
 	}
 	return nil
