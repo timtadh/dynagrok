@@ -5,16 +5,17 @@ then
   exit 1
 fi
 
-BASE=$HOME/stuff/research/gcp-cluster/data/defect4j-data/CoverageReports/Time/Time_9
+# BASE=$HOME/stuff/research/gcp-cluster/data/defect4j-data/CoverageReports/Time/Time_9
+BASE=$HOME/stuff/research/java-tracing/blinky-dcfg/defects4j/chart/1
 
-MIN_FAILS=2
-MAX_EDGES=25
+MIN_FAILS=1
+MAX_EDGES=5
 TIMEOUT=10s
 
 METRIC=rf1
-FAILING=$(wc -l $BASE/Failing/* |
+FAILING=$(wc -l $BASE/failing/* |
           egrep -v 'total' | sort -n | sed 's/ \+/ /g;s/^ *[0-9]\+ //' | head -n 20 | xargs | tr ' ' ,)
-PASSING=$(wc -l $BASE/Passing/*   |
+PASSING=$(wc -l $BASE/passing/*   |
           egrep -v 'total' | sort -n | sed 's/ \+/ /g;s/^ *[0-9]\+ //' | tail -n 20 | xargs | tr ' ' ,)
 OUTPUT=/tmp/dynagrok/d4j-chart-4.eval-out
 
