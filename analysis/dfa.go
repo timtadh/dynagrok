@@ -37,6 +37,17 @@ type Reference struct {
 	Ident    *ast.Ident
 	Oid      token.Pos // object location - for non-local objects
 	Obj      *Object
+	Location *BlockLocation
+}
+
+func (r *Reference) HasObject() bool {
+	if r == nil {
+		return false
+	}
+	if r.Obj == nil {
+		return false
+	}
+	return true
 }
 
 func (r *Reference) String() string {
@@ -81,6 +92,10 @@ func FindDefinitions(cfg *CFG, info *types.Info) *Definitions {
 			Ident:    e,
 			Obj:      object,
 			Oid:      obj.Pos(),
+			Location: &BlockLocation{
+				Block: bid,
+				Stmt:  sid,
+			},
 		}
 		d.objs[object.Id] = object
 		d.refs[token.Pos(ref.Id)] = ref
@@ -107,10 +122,10 @@ func FindDefinitions(cfg *CFG, info *types.Info) *Definitions {
 				case *ast.Ident:
 					if obj := info.Defs[e]; obj != nil {
 						// this is a definition
-						fmt.Fprintln(os.Stderr, "def", FmtNode(cfg.FSet, e), ":", obj.Id(), obj.Pos())
+						fmt.Fprintln(os.Stderr, "def", FmtNode(cfg.FSet, e), ":", obj.Id(), cfg.FSet.Position(obj.Pos()))
 						decl(blk.Id, sid, e, obj)
 					} else if obj := info.Uses[e]; obj != nil {
-						fmt.Fprintln(os.Stderr, "use", FmtNode(cfg.FSet, e), ":", obj.Id(), obj.Pos())
+						fmt.Fprintln(os.Stderr, "use", FmtNode(cfg.FSet, e), ":", obj.Id(), cfg.FSet.Position(obj.Pos()))
 						object := d.objs[obj.Pos()]
 						ref := &Reference{
 							Id:       int(e.Pos()),
@@ -118,13 +133,17 @@ func FindDefinitions(cfg *CFG, info *types.Info) *Definitions {
 							Ident:    e,
 							Obj:      object,
 							Oid:      obj.Pos(),
+							Location: &BlockLocation{
+								Block: blk.Id,
+								Stmt:  sid,
+							},
 						}
 						d.refs[token.Pos(ref.Id)] = ref
 					}
 				}
 			})
 		}
-		add := func(e *ast.Ident) {
+		add := func(e *ast.Ident, blk *Block, sid int) {
 			ref := d.refs[e.Pos()]
 			if ref == nil {
 				var obj types.Object = nil
@@ -145,6 +164,10 @@ func FindDefinitions(cfg *CFG, info *types.Info) *Definitions {
 					Ident:    e,
 					Obj:      object,
 					Oid:      oid,
+					Location: &BlockLocation{
+						Block: blk.Id,
+						Stmt:  sid,
+					},
 				}
 				d.refs[token.Pos(ref.Id)] = ref
 			}
@@ -153,18 +176,18 @@ func FindDefinitions(cfg *CFG, info *types.Info) *Definitions {
 				obj.Redefs.Add(ds_types.Int(ref.Id))
 			}
 		}
-		for _, stmt := range blk.Stmts {
+		for sid, stmt := range blk.Stmts {
 			switch s := (*stmt).(type) {
 			case *ast.IncDecStmt:
 				switch e := s.X.(type) {
 				case *ast.Ident:
-					add(e)
+					add(e, blk, sid)
 				}
 			case *ast.AssignStmt:
 				for _, expr := range s.Lhs {
 					switch e := expr.(type) {
 					case *ast.Ident:
-						add(e)
+						add(e, blk, sid)
 					}
 				}
 			}
@@ -187,6 +210,20 @@ func (d *Definitions) ReachingDefinitions() *ReachingDefinitions {
 	}
 	rd.in, rd.out = ForwardSolveSets(d.cfg, rd.Flow)
 	return rd
+}
+
+func (rd *ReachingDefinitions) Reaches(ref *Reference) []*Reference {
+	if !ref.HasObject() {
+		return nil
+	}
+	alldefs := rd.In(ref.Location)
+	defs := make([]*Reference, 0, len(alldefs))
+	for _, def := range alldefs {
+		if def.HasObject() && def.Obj == ref.Obj {
+			defs = append(defs, def)
+		}
+	}
+	return defs
 }
 
 func (rd *ReachingDefinitions) In(loc *BlockLocation) []*Reference {

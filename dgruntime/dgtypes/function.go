@@ -9,6 +9,7 @@ type Function struct {
 	IPDom  []int
 	Calls  int
 	DynCDP []map[int]bool // Dynamic Control Dependence Predecessors
+	Values map[VarReference]interface{}
 }
 
 type ExportFunction struct {
@@ -16,6 +17,10 @@ type ExportFunction struct {
 	IPDom  []int
 	Calls  int
 	DynCDP [][]int // Dynamic Control Dependence Predecessors
+	Values []struct {
+		VarReference VarReference
+		Value        interface{}
+	}
 }
 
 type FuncCall struct {
@@ -27,6 +32,13 @@ type FuncCall struct {
 	DynCDP   []map[int]bool // Dynamic Control Dependence Predecessors
 	Last     BlkEntrance
 	LastTime time.Time
+	Values   map[VarReference]interface{}
+}
+
+type VarReference struct {
+	VarName string
+	BlockId int
+	StmtId  int
 }
 
 func ExportFunctions(funcs map[uintptr]*Function) map[string]*ExportFunction {
@@ -39,11 +51,22 @@ func ExportFunctions(funcs map[uintptr]*Function) map[string]*ExportFunction {
 				dcdp[x] = append(dcdp[x], y)
 			}
 		}
+		values := make([]struct {
+			VarReference VarReference
+			Value        interface{}
+		}, 0, 10)
+		for k, v := range fn.Values {
+			values = append(values, struct {
+				VarReference VarReference
+				Value        interface{}
+			}{k, v})
+		}
 		export[fn.Name] = &ExportFunction{
 			CFG:    fn.CFG,
 			IPDom:  fn.IPDom,
 			Calls:  fn.Calls,
 			DynCDP: dcdp,
+			Values: values,
 		}
 	}
 	return export
@@ -56,6 +79,7 @@ func NewFunction(fc *FuncCall) *Function {
 		CFG:    fc.CFG,
 		IPDom:  fc.IPDom,
 		DynCDP: fc.DynCDP,
+		Values: fc.Values,
 	}
 	f.Update(fc)
 	return f
@@ -71,6 +95,9 @@ func (f *Function) Merge(b *Function) {
 			f.DynCDP[x][pred] = true
 		}
 	}
+	for k, v := range b.Values {
+		f.Values[k] = v
+	}
 }
 
 func (f *Function) Update(fc *FuncCall) {
@@ -82,5 +109,8 @@ func (f *Function) Update(fc *FuncCall) {
 		for pred := range preds {
 			f.DynCDP[x][pred] = true
 		}
+	}
+	for k, v := range fc.Values {
+		f.Values[k] = v
 	}
 }

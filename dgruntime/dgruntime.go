@@ -48,6 +48,15 @@ func ReportFailFloat(fnName string, bbid int, pos string) float64 {
 	return 0
 }
 
+func RecordValue(refPos string, bbid, sid int, name, objPos string, value interface{}) {
+	execCheck()
+	g := exec.Goroutine(runtime.GoID())
+	g.m.Lock()
+	defer g.m.Unlock()
+	fc := g.Stack[len(g.Stack)-1]
+	fc.Values[dgtypes.VarReference{name, bbid, sid}] = value
+}
+
 func EnterBlkFromCond(bbid int, pos string) bool {
 	EnterBlk(bbid, pos)
 	return true
@@ -120,6 +129,7 @@ func EnterFunc(name, pos string, cfg [][]int, ipdom []int) {
 		IPDom:    ipdom,
 		CDStack:  append(make([]int, 0, len(ipdom)), 0),
 		DynCDP:   make([]map[int]bool, len(cfg)),
+		Values:   make(map[dgtypes.VarReference]interface{}),
 	}
 	g.Stack = append(g.Stack, fc)
 	for i := range fc.DynCDP {

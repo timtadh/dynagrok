@@ -57,7 +57,7 @@ Option Flags
 			if err != nil {
 				return nil, cmd.Usage(r, 6, err.Error())
 			}
-			err = Instrument(pkgName, program)
+			err = Instrument(pkgName, program, InstrumentDataflow)
 			if err != nil {
 				return nil, cmd.Errorf(7, err.Error())
 			}

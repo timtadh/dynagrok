@@ -13,19 +13,28 @@ import (
 	"strings"
 
 	"github.com/timtadh/data-structures/errors"
+	"github.com/timtadh/data-structures/set"
+	"github.com/timtadh/data-structures/types"
 	"github.com/timtadh/dynagrok/analysis"
 	"github.com/timtadh/dynagrok/dgruntime/excludes"
 	"golang.org/x/tools/go/ast/astutil"
 	"golang.org/x/tools/go/loader"
 )
 
+type InstrumentOption func(*instrumenter)
+
+func InstrumentDataflow(i *instrumenter) {
+	i.dataflow = true
+}
+
 type instrumenter struct {
 	program     *loader.Program
 	entry       string
 	currentFile *ast.File
+	dataflow    bool
 }
 
-func Instrument(entryPkgName string, program *loader.Program) (err error) {
+func Instrument(entryPkgName string, program *loader.Program, options ...InstrumentOption) (err error) {
 	entry := program.Package(entryPkgName)
 	if entry == nil {
 		return errors.Errorf("The entry package was not found in the loaded program")
@@ -36,6 +45,9 @@ func Instrument(entryPkgName string, program *loader.Program) (err error) {
 	i := &instrumenter{
 		program: program,
 		entry:   entryPkgName,
+	}
+	for _, opt := range options {
+		opt(i)
 	}
 	return i.instrument()
 }
@@ -83,6 +95,13 @@ func (i *instrumenter) instrument() (err error) {
 func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.Node, fnBody *[]ast.Stmt) error {
 	cfg := analysis.BuildCFG(i.program.Fset, fnName, fnAst, fnBody)
 	if true {
+		var defs *analysis.Definitions
+		var reachingDefs *analysis.ReachingDefinitions
+		if i.dataflow {
+			defs = analysis.FindDefinitions(cfg, &pkg.Info)
+			reachingDefs = defs.ReachingDefinitions()
+		}
+
 		// first collect the instrumentation points (IPs)
 		// build a map from lexical blocks to a sequence of IPs
 		// The IPs are basic blocks from the CFG
@@ -102,6 +121,47 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.
 				if err != nil {
 					return err
 				}
+			}
+			for _, stmt := range b.Stmts {
+				*stmt = ReplaceExprs(*stmt, func(parent ast.Node, expr ast.Expr) ast.Expr {
+					noInstrument := set.NewSortedSet(10)
+					switch n := parent.(type) {
+					case *ast.AssignStmt:
+						for _, e := range n.Lhs {
+							noInstrument.Add(types.Int(e.Pos()))
+						}
+					case *ast.IncDecStmt:
+						return expr
+					}
+					switch expr.(type) {
+					case *ast.Ident:
+						if noInstrument.Has(types.Int(expr.Pos())) {
+							return expr
+						}
+						ref := defs.References()[expr.Pos()]
+						if ref.HasObject() {
+							// obj := ref.Obj
+							defs := reachingDefs.Reaches(ref)
+							if len(defs) <= 1 {
+								return expr
+							} else {
+								fmt.Println("blk", b.Id, "ident", ref, "location", ref.Location, ref.Position)
+								fmt.Println("   ", "reaching defs", defs)
+								s := fmt.Sprintf("func() %v { dgruntime.RecordValue(%q, %d, %d, %q, %q, %v); return %v; }()", ref.Obj.Object.Type(), ref.Position, ref.Location.Block, ref.Location.Stmt, expr, ref.Obj.Position, expr, expr)
+								instrumented, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(expr.Pos()).Name(), s, parser.Mode(0))
+								if err != nil {
+									fmt.Println(s)
+									panic(err)
+								}
+								return instrumented
+							}
+						} else {
+							return expr
+						}
+					default:
+						return expr
+					}
+				})
 			}
 		}
 		// Now instrument each lexical block

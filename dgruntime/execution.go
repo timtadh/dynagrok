@@ -185,10 +185,17 @@ func shutdown(e *Execution) {
 		fmt.Println("writing functions to:", fnPath)
 		fn, err := os.Create(fnPath)
 		if err != nil {
+			fmt.Println(err)
 			panic(err)
 		}
-		defer fn.Close()
-		e.Profile.WriteFunctions(fn)
+		defer func() {
+			fn.Close()
+			fmt.Println("fn closed")
+		}()
+		err = e.Profile.WriteFunctions(fn)
+		if err != nil {
+			panic(err)
+		}
 
 		dotPath := pjoin(e.OutputDir, "flow-graph.dot")
 		fmt.Println("writing flow-graph to:", dotPath)
