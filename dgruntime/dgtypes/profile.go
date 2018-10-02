@@ -45,10 +45,8 @@ func (p *Profile) Empty() bool {
 
 func (p *Profile) WriteFunctions(fout io.Writer) error {
 	e := json.NewEncoder(fout)
-	// e.SetIndent("", "  ")
-	fmt.Println("Functions", p.Funcs)
+	e.SetIndent("", "  ")
 	exported := ExportFunctions(p.Funcs)
-	fmt.Println(exported)
 	return e.Encode(exported)
 }
 

@@ -188,10 +188,7 @@ func shutdown(e *Execution) {
 			fmt.Println(err)
 			panic(err)
 		}
-		defer func() {
-			fn.Close()
-			fmt.Println("fn closed")
-		}()
+		defer fn.Close()
 		err = e.Profile.WriteFunctions(fn)
 		if err != nil {
 			panic(err)

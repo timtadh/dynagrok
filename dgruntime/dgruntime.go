@@ -55,6 +55,7 @@ func RecordValue(refPos string, bbid, sid int, name, objPos string, value interf
 	defer g.m.Unlock()
 	fc := g.Stack[len(g.Stack)-1]
 	fc.Values[dgtypes.VarReference{name, bbid, sid}] = value
+	fmt.Println("RecordValue", fc.Name, bbid, sid, name, value)
 }
 
 func EnterBlkFromCond(bbid int, pos string) bool {

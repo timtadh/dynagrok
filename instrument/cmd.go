@@ -22,6 +22,7 @@ Option Flags
     -h,--help                         Show this message
     -o,--output=<path>                Output file to create (defaults to pkg-name.instr)
     -w,--work=<path>                  Work directory to use (defaults to tempdir)
+    --instrument-dataflow             Do dataflow instrumentation
     --keep-work                       Keep the work directory
 `,
 		"o:w:",
@@ -29,12 +30,14 @@ Option Flags
 			"output=",
 			"work=",
 			"keep-work",
+			"instrument-dataflow",
 		},
 		func(r cmd.Runnable, args []string, optargs []getopt.OptArg) ([]string, *cmd.Error) {
 			fmt.Println(c)
 			output := ""
 			keepWork := false
 			work := ""
+			flags := make([]InstrumentOption, 0, 10)
 			for _, oa := range optargs {
 				switch oa.Opt() {
 				case "-o", "--output":
@@ -43,6 +46,8 @@ Option Flags
 					work = oa.Arg()
 				case "-k", "--keep-work":
 					keepWork = true
+				case "--instrument-dataflow":
+					flags = append(flags, InstrumentDataflow)
 				}
 			}
 			if len(args) != 1 {
@@ -57,7 +62,7 @@ Option Flags
 			if err != nil {
 				return nil, cmd.Usage(r, 6, err.Error())
 			}
-			err = Instrument(pkgName, program, InstrumentDataflow)
+			err = Instrument(pkgName, program, flags...)
 			if err != nil {
 				return nil, cmd.Errorf(7, err.Error())
 			}

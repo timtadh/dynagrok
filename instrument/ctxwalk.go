@@ -19,9 +19,16 @@ func walkIdentList(v Visitor, parent ast.Node, list []*ast.Ident) []*ast.Ident {
 }
 
 func walkExprList(v Visitor, parent ast.Node, list []ast.Expr) []ast.Expr {
+	if list == nil {
+		return nil
+	}
 	replacement := make([]ast.Expr, 0, len(list))
 	for _, x := range list {
-		replacement = append(replacement, ReplacingWalk(v, parent, x).(ast.Expr))
+		if x == nil {
+			replacement = append(replacement, nil)
+		} else {
+			replacement = append(replacement, ReplacingWalk(v, parent, x).(ast.Expr))
+		}
 	}
 	return replacement
 }

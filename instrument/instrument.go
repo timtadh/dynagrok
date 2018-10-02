@@ -8,6 +8,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	gotypes "go/types"
 	"sort"
 	"strconv"
 	"strings"
@@ -122,7 +123,14 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.
 					return err
 				}
 			}
+			if !i.dataflow {
+				continue
+			}
 			for _, stmt := range b.Stmts {
+				switch (*stmt).(type) {
+				case *ast.SwitchStmt:
+					continue
+				}
 				*stmt = ReplaceExprs(*stmt, func(parent ast.Node, expr ast.Expr) ast.Expr {
 					noInstrument := set.NewSortedSet(10)
 					switch n := parent.(type) {
@@ -140,6 +148,12 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.
 						}
 						ref := defs.References()[expr.Pos()]
 						if ref.HasObject() {
+							typ := ref.Obj.Object.Type()
+							switch typ.(type) {
+							case *gotypes.Basic:
+							default:
+								return expr
+							}
 							// obj := ref.Obj
 							defs := reachingDefs.Reaches(ref)
 							if len(defs) <= 1 {
