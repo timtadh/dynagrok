@@ -18,7 +18,7 @@ type BlockLocation struct {
 	Stmt  int // Statement Id in the Block
 }
 
-type Object struct {
+type Declaration struct {
 	Id       token.Pos
 	Position token.Position
 	Ident    *ast.Ident
@@ -27,38 +27,38 @@ type Object struct {
 	Redefs   *set.SortedSet
 }
 
-func (o *Object) String() string {
+func (o *Declaration) String() string {
 	return fmt.Sprintf("%v", o.Ident.Name)
 }
 
-type Reference struct {
-	Id       int
-	Position token.Position
-	Ident    *ast.Ident
-	Oid      token.Pos // object location - for non-local objects
-	Obj      *Object
-	Location *BlockLocation
+type Use struct {
+	Id          int
+	Position    token.Position
+	Ident       *ast.Ident
+	Did         token.Pos // decl location - for non-local decls
+	Declaration *Declaration
+	Location    *BlockLocation
 }
 
-func (r *Reference) HasObject() bool {
+func (r *Use) HasObject() bool {
 	if r == nil {
 		return false
 	}
-	if r.Obj == nil {
+	if r.Declaration == nil {
 		return false
 	}
 	return true
 }
 
-func (r *Reference) String() string {
-	return fmt.Sprintf("%v:%v", r.Id, r.Obj)
+func (r *Use) String() string {
+	return fmt.Sprintf("%v:%v", r.Id, r.Declaration)
 }
 
 type Definitions struct {
 	cfg  *CFG
 	info *types.Info
-	objs map[token.Pos]*Object
-	refs map[token.Pos]*Reference
+	objs map[token.Pos]*Declaration
+	refs map[token.Pos]*Use
 }
 
 type ReachingDefinitions struct {
@@ -70,12 +70,12 @@ type ReachingDefinitions struct {
 func FindDefinitions(cfg *CFG, info *types.Info) *Definitions {
 	d := &Definitions{
 		cfg:  cfg,
-		objs: make(map[token.Pos]*Object),
-		refs: make(map[token.Pos]*Reference),
+		objs: make(map[token.Pos]*Declaration),
+		refs: make(map[token.Pos]*Use),
 		info: info,
 	}
 	decl := func(bid, sid int, e *ast.Ident, obj types.Object) {
-		object := &Object{
+		object := &Declaration{
 			Id:       obj.Pos(),
 			Position: cfg.FSet.Position(obj.Pos()),
 			Ident:    e,
@@ -86,12 +86,12 @@ func FindDefinitions(cfg *CFG, info *types.Info) *Definitions {
 			},
 			Redefs: set.NewSortedSet(10),
 		}
-		ref := &Reference{
-			Id:       int(e.Pos()),
-			Position: cfg.FSet.Position(e.Pos()),
-			Ident:    e,
-			Obj:      object,
-			Oid:      obj.Pos(),
+		ref := &Use{
+			Id:          int(e.Pos()),
+			Position:    cfg.FSet.Position(e.Pos()),
+			Ident:       e,
+			Declaration: object,
+			Did:         obj.Pos(),
 			Location: &BlockLocation{
 				Block: bid,
 				Stmt:  sid,
@@ -127,12 +127,12 @@ func FindDefinitions(cfg *CFG, info *types.Info) *Definitions {
 					} else if obj := info.Uses[e]; obj != nil {
 						fmt.Fprintln(os.Stderr, "use", FmtNode(cfg.FSet, e), ":", obj.Id(), cfg.FSet.Position(obj.Pos()))
 						object := d.objs[obj.Pos()]
-						ref := &Reference{
-							Id:       int(e.Pos()),
-							Position: cfg.FSet.Position(e.Pos()),
-							Ident:    e,
-							Obj:      object,
-							Oid:      obj.Pos(),
+						ref := &Use{
+							Id:          int(e.Pos()),
+							Position:    cfg.FSet.Position(e.Pos()),
+							Ident:       e,
+							Declaration: object,
+							Did:         obj.Pos(),
 							Location: &BlockLocation{
 								Block: blk.Id,
 								Stmt:  sid,
@@ -148,7 +148,7 @@ func FindDefinitions(cfg *CFG, info *types.Info) *Definitions {
 			if ref == nil {
 				var obj types.Object = nil
 				var oid token.Pos = 0
-				var object *Object = nil
+				var object *Declaration = nil
 				if o := info.Defs[e]; o != nil {
 					obj = o
 					oid = obj.Pos()
@@ -158,12 +158,12 @@ func FindDefinitions(cfg *CFG, info *types.Info) *Definitions {
 					oid = obj.Pos()
 					object = d.objs[oid]
 				}
-				ref = &Reference{
-					Id:       int(e.Pos()),
-					Position: cfg.FSet.Position(e.Pos()),
-					Ident:    e,
-					Obj:      object,
-					Oid:      oid,
+				ref = &Use{
+					Id:          int(e.Pos()),
+					Position:    cfg.FSet.Position(e.Pos()),
+					Ident:       e,
+					Declaration: object,
+					Did:         oid,
 					Location: &BlockLocation{
 						Block: blk.Id,
 						Stmt:  sid,
@@ -171,7 +171,7 @@ func FindDefinitions(cfg *CFG, info *types.Info) *Definitions {
 				}
 				d.refs[token.Pos(ref.Id)] = ref
 			}
-			obj := ref.Obj
+			obj := ref.Declaration
 			if obj != nil {
 				obj.Redefs.Add(ds_types.Int(ref.Id))
 			}
@@ -196,11 +196,11 @@ func FindDefinitions(cfg *CFG, info *types.Info) *Definitions {
 	return d
 }
 
-func (d *Definitions) Objects() map[token.Pos]*Object {
+func (d *Definitions) Objects() map[token.Pos]*Declaration {
 	return d.objs
 }
 
-func (d *Definitions) References() map[token.Pos]*Reference {
+func (d *Definitions) References() map[token.Pos]*Use {
 	return d.refs
 }
 
@@ -212,30 +212,30 @@ func (d *Definitions) ReachingDefinitions() *ReachingDefinitions {
 	return rd
 }
 
-func (rd *ReachingDefinitions) Reaches(ref *Reference) []*Reference {
+func (rd *ReachingDefinitions) Reaches(ref *Use) []*Use {
 	if !ref.HasObject() {
 		return nil
 	}
 	alldefs := rd.In(ref.Location)
-	defs := make([]*Reference, 0, len(alldefs))
+	defs := make([]*Use, 0, len(alldefs))
 	for _, def := range alldefs {
-		if def.HasObject() && def.Obj == ref.Obj {
+		if def.HasObject() && def.Declaration == ref.Declaration {
 			defs = append(defs, def)
 		}
 	}
 	return defs
 }
 
-func (rd *ReachingDefinitions) In(loc *BlockLocation) []*Reference {
-	in := make([]*Reference, 0, rd.in[*loc].Size())
+func (rd *ReachingDefinitions) In(loc *BlockLocation) []*Use {
+	in := make([]*Use, 0, rd.in[*loc].Size())
 	for x, next := rd.in[*loc].Items()(); next != nil; x, next = next() {
 		in = append(in, rd.refs[token.Pos(x.(ds_types.Int))])
 	}
 	return in
 }
 
-func (rd *ReachingDefinitions) Out(loc *BlockLocation) []*Reference {
-	out := make([]*Reference, 0, rd.out[*loc].Size())
+func (rd *ReachingDefinitions) Out(loc *BlockLocation) []*Use {
+	out := make([]*Use, 0, rd.out[*loc].Size())
 	for x, next := rd.out[*loc].Items()(); next != nil; x, next = next() {
 		out = append(out, rd.refs[token.Pos(x.(ds_types.Int))])
 	}
@@ -261,11 +261,11 @@ func (rd *ReachingDefinitions) GenKill(loc *BlockLocation) (gen, kill *set.Sorte
 			return
 		}
 		ref := rd.refs[e.Pos()]
-		if ref.Obj == nil {
+		if ref.Declaration == nil {
 			return
 		}
 		gen.Add(ds_types.Int(ref.Id))
-		for redef, next := ref.Obj.Redefs.Items()(); next != nil; redef, next = next() {
+		for redef, next := ref.Declaration.Redefs.Items()(); next != nil; redef, next = next() {
 			if int(redef.(ds_types.Int)) != ref.Id {
 				kill.Add(redef)
 			}

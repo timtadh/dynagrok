@@ -148,7 +148,7 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.
 						}
 						ref := defs.References()[expr.Pos()]
 						if ref.HasObject() {
-							typ := ref.Obj.Object.Type()
+							typ := ref.Declaration.Object.Type()
 							switch typ.(type) {
 							case *gotypes.Basic:
 							default:
@@ -161,7 +161,7 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.
 							} else {
 								fmt.Println("blk", b.Id, "ident", ref, "location", ref.Location, ref.Position)
 								fmt.Println("   ", "reaching defs", defs)
-								s := fmt.Sprintf("func() %v { dgruntime.RecordValue(%q, %d, %d, %q, %q, %v); return %v; }()", ref.Obj.Object.Type(), ref.Position, ref.Location.Block, ref.Location.Stmt, expr, ref.Obj.Position, expr, expr)
+								s := fmt.Sprintf("func() %v { dgruntime.RecordValue(%q, %d, %d, %q, %q, %v); return %v; }()", ref.Declaration.Object.Type(), ref.Position, ref.Location.Block, ref.Location.Stmt, expr, ref.Declaration.Position, expr, expr)
 								instrumented, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(expr.Pos()).Name(), s, parser.Mode(0))
 								if err != nil {
 									fmt.Println(s)
