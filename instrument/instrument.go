@@ -71,12 +71,12 @@ func (i *instrumenter) instrument() (err error) {
 					if x.Body == nil {
 						return nil
 					}
-					return i.fnBody(pkg, fnName, fn, &x.Body.List)
+					return i.fnBody(pkg, fileAst, fnName, fn, &x.Body.List)
 				case *ast.FuncLit:
 					if x.Body == nil {
 						return nil
 					}
-					return i.fnBody(pkg, fnName, fn, &x.Body.List)
+					return i.fnBody(pkg, fileAst, fnName, fn, &x.Body.List)
 				default:
 					return errors.Errorf("unexpected type %T", x)
 				}
@@ -93,7 +93,7 @@ func (i *instrumenter) instrument() (err error) {
 	}
 	return nil
 }
-func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.Node, fnBody *[]ast.Stmt) error {
+func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fileAst *ast.File, fnName string, fnAst ast.Node, fnBody *[]ast.Stmt) error {
 	cfg := analysis.BuildCFG(i.program.Fset, fnName, fnAst, fnBody)
 	if true {
 		var defs *analysis.Definitions
@@ -138,6 +138,10 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.
 						for _, e := range n.Lhs {
 							noInstrument.Add(types.Int(e.Pos()))
 						}
+					case *ast.ValueSpec:
+						for _, e := range n.Names {
+							noInstrument.Add(types.Int(e.Pos()))
+						}
 					case *ast.IncDecStmt:
 						return expr
 					}
@@ -146,22 +150,25 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fnName string, fnAst ast.
 						if noInstrument.Has(types.Int(expr.Pos())) {
 							return expr
 						}
-						ref := defs.References()[expr.Pos()]
-						if ref.HasObject() {
-							typ := ref.Declaration.Object.Type()
+						use := defs.References()[expr.Pos()]
+						if use.HasObject() {
+							typ := use.Declaration.Object.Type()
 							switch typ.(type) {
 							case *gotypes.Basic:
 							default:
 								return expr
 							}
-							// obj := ref.Obj
-							defs := reachingDefs.Reaches(ref)
+							typeName := i.localTypeName(use.Declaration.Object, pkg.Pkg, fileAst)
+							// obj := use.Obj
+							defs := reachingDefs.Reaches(use)
 							if len(defs) <= 1 {
 								return expr
 							} else {
-								fmt.Println("blk", b.Id, "ident", ref, "location", ref.Location, ref.Position)
+								fmt.Println("blk", b.Id, "ident", use, "location", use.Location, use.Position)
 								fmt.Println("   ", "reaching defs", defs)
-								s := fmt.Sprintf("func() %v { dgruntime.RecordValue(%q, %d, %d, %q, %q, %v); return %v; }()", ref.Declaration.Object.Type(), ref.Position, ref.Location.Block, ref.Location.Stmt, expr, ref.Declaration.Position, expr, expr)
+								s := fmt.Sprintf(
+									"func() %v { dgruntime.RecordValue(%q, %d, %d, %q, %q, %v); return %v; }()",
+									typeName, use.Position, use.Location.Block, use.Location.Stmt, expr, use.Declaration.Position, expr, expr)
 								instrumented, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(expr.Pos()).Name(), s, parser.Mode(0))
 								if err != nil {
 									fmt.Println(s)
@@ -313,6 +320,36 @@ func (i *instrumenter) exprInstrument(b *analysis.Block) error {
 		panic(fmt.Errorf("unexpected node %T", stmt))
 	}
 	return nil
+}
+
+func (i *instrumenter) localTypeName(object gotypes.Object, pkg *gotypes.Package, fileAst *ast.File) (name string) {
+	addImport := func(other *gotypes.Package) string {
+		imports := astutil.Imports(i.program.Fset, fileAst)
+		for _, group := range imports {
+			for _, importSpec := range group {
+				path := strings.Trim(importSpec.Path.Value, "\"")
+				if path != other.Path() {
+					continue
+				}
+				if importSpec.Name != nil && importSpec.Name.Name == "." {
+					return ""
+				} else if importSpec.Name != nil {
+					return importSpec.Name.Name
+				} else {
+					return other.Name()
+				}
+			}
+		}
+		astutil.AddImport(i.program.Fset, fileAst, other.Path())
+		return other.Name()
+	}
+	name = gotypes.TypeString(object.Type(), func(other *gotypes.Package) string {
+		if pkg == other {
+			return "" // same package; unqualified
+		}
+		return addImport(other)
+	})
+	return name
 }
 
 func Insert(cfg *analysis.CFG, cfgBlk *analysis.Block, blk []ast.Stmt, j int, stmt ast.Stmt) []ast.Stmt {
