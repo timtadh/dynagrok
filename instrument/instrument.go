@@ -126,6 +126,7 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fileAst *ast.File, fnName
 			if !i.dataflow {
 				continue
 			}
+
 			for _, stmt := range b.Stmts {
 				switch (*stmt).(type) {
 				case *ast.SwitchStmt:
@@ -228,9 +229,34 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fileAst *ast.File, fnName
 				}
 			}
 		}
+		err := analysis.Blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
+			for idx := len(*blk) - 1; idx >= 0; idx-- {
+				stmt := (*blk)[idx]
+				switch s := stmt.(type) {
+				case *ast.AssignStmt:
+					for _, variable := range s.Lhs {
+						use := defs.References()[variable.Pos()]
+						fmt.Println(idx, s, variable, use)
+						x := fmt.Sprintf(
+							"dgruntime.RecordValue(%q, %d, %d, %q, %q, %v)",
+							use.Position, use.Location.Block, use.Location.Stmt, variable, use.Declaration.Position, variable)
+						instrumented, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(s.Pos()).Name(), x, parser.Mode(0))
+						if err != nil {
+							fmt.Println(x)
+							panic(err)
+						}
+						*blk = Insert(cfg, nil, *blk, idx+1, &ast.ExprStmt{instrumented})
+					}
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
 		// Finally, we need to check for the existence of an os.Exit call and insert a
 		// shutdown hook for Dyangrok if it exists.
-		err := analysis.Blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
+		err = analysis.Blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
 			for j := 0; j < len(*blk); j++ {
 				pos := (*blk)[j].Pos()
 				switch stmt := (*blk)[j].(type) {
