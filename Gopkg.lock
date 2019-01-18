@@ -55,12 +55,12 @@
   version = "v0.1.0"
 
 [[projects]]
-  digest = "1:10e122eaa5b094b5ad13cbc6f58f1fd8e1403f466c15659055fd53d9d02029d7"
+  digest = "1:f32395438f29c99ca6243c8d4dd7f5660fcf0e42d526b63856f0d188e503beeb"
   name = "github.com/timtadh/getopt"
   packages = ["."]
   pruneopts = ""
-  revision = "29f1208d827b977f2e4060ca9923032b34094187"
-  version = "v1.0.0"
+  revision = "8106987aa32ac3b14d816390f1fa15335338e24c"
+  version = "v1.0.1"
 
 [[projects]]
   branch = "go1"

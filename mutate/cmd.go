@@ -2,19 +2,16 @@ package mutate
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
-)
 
-import (
-	"github.com/timtadh/getopt"
-)
-
-import (
 	"github.com/timtadh/dynagrok/cmd"
 	"github.com/timtadh/dynagrok/instrument"
+	"github.com/timtadh/getopt"
+	"golang.org/x/tools/go/loader"
 )
 
 func NewCommand(c *cmd.Config) cmd.Runnable {
@@ -109,6 +106,21 @@ Option Flags
 					return nil, nil
 				}
 			}
+			if work == "" {
+				tmpdir, err := ioutil.TempDir("", fmt.Sprintf("dynagrok-work-"))
+				if err != nil {
+					return nil, cmd.Errorf(4, "could not make tmp dir for working: %v", err)
+				}
+				work = tmpdir
+			} else {
+				err := os.MkdirAll(work, os.ModeDir|0775)
+				if err != nil {
+					return nil, cmd.Errorf(4, "could not make work dir: %v", err)
+				}
+			}
+			if !keepWork {
+				defer os.RemoveAll(work)
+			}
 			if len(args) != 1 {
 				return nil, cmd.Usage(r, 5, "Expected one package name got %v", args)
 			}
@@ -117,7 +129,11 @@ Option Flags
 				output = fmt.Sprintf("%v.instr", filepath.Base(pkgName))
 			}
 			fmt.Println("mutating", pkgName)
-			program, err := cmd.LoadPkg(c, pkgName)
+			var program *loader.Program
+			err := instrument.CD(work, func() (err error) {
+				program, err = cmd.LoadPkg(c, pkgName)
+				return err
+			})
 			if err != nil {
 				return nil, cmd.Usage(r, 6, err.Error())
 			}
@@ -132,7 +148,7 @@ Option Flags
 				}
 			}
 			// return nil, cmd.Errorf(1, "early exit for no build")
-			work, err = instrument.BuildBinary(c, keepWork, work, pkgName, output, program)
+			work, err = instrument.BuildBinary(c, work, pkgName, output, program)
 			if err != nil {
 				return nil, cmd.Errorf(9, err.Error())
 			}

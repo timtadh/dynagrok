@@ -2,16 +2,13 @@ package objectstate
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
 	"path/filepath"
-)
 
-import (
-	"github.com/timtadh/getopt"
-)
-
-import (
 	"github.com/timtadh/dynagrok/cmd"
 	"github.com/timtadh/dynagrok/instrument"
+	"github.com/timtadh/getopt"
 )
 
 func NewCommand(c *cmd.Config) cmd.Runnable {
@@ -51,8 +48,38 @@ Option Flags
 					keepWork = true
 				}
 			}
+			if work == "" {
+				tmpdir, err := ioutil.TempDir("", fmt.Sprintf("dynagrok-work-"))
+				if err != nil {
+					return nil, cmd.Errorf(4, "could not make tmp dir for working: %v", err)
+				}
+				work = tmpdir
+			} else {
+				err := os.MkdirAll(work, os.ModeDir|0775)
+				if err != nil {
+					return nil, cmd.Errorf(4, "could not make work dir: %v", err)
+				}
+			}
+			if !keepWork {
+				defer os.RemoveAll(work)
+			}
 			if len(args) != 1 {
 				return nil, cmd.Usage(r, 5, "Expected one package name got %v", args)
+			}
+			if work == "" {
+				tmpdir, err := ioutil.TempDir("", fmt.Sprintf("dynagrok-work-"))
+				if err != nil {
+					return nil, cmd.Errorf(4, "could not make tmp dir for working: %v", err)
+				}
+				work = tmpdir
+			} else {
+				err := os.MkdirAll(work, os.ModeDir|0775)
+				if err != nil {
+					return nil, cmd.Errorf(4, "could not make work dir: %v", err)
+				}
+			}
+			if !keepWork {
+				defer os.RemoveAll(work)
 			}
 			pkgName := args[0]
 			if output == "" {
@@ -72,7 +99,7 @@ Option Flags
 			if err != nil {
 				return nil, cmd.Errorf(8, err.Error())
 			}
-			_, err = instrument.BuildBinary(c, keepWork, work, pkgName, output, program)
+			_, err = instrument.BuildBinary(c, work, pkgName, output, program)
 			if err != nil {
 				return nil, cmd.Errorf(9, err.Error())
 			}

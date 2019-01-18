@@ -2,15 +2,12 @@ package instrument
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
 	"path/filepath"
-)
 
-import (
-	"github.com/timtadh/getopt"
-)
-
-import (
 	"github.com/timtadh/dynagrok/cmd"
+	"github.com/timtadh/getopt"
 )
 
 func NewCommand(c *cmd.Config) cmd.Runnable {
@@ -50,6 +47,21 @@ Option Flags
 					flags = append(flags, InstrumentDataflow)
 				}
 			}
+			if work == "" {
+				tmpdir, err := ioutil.TempDir("", fmt.Sprintf("dynagrok-work-"))
+				if err != nil {
+					return nil, cmd.Errorf(4, "could not make tmp dir for working: %v", err)
+				}
+				work = tmpdir
+			} else {
+				err := os.MkdirAll(work, os.ModeDir|0775)
+				if err != nil {
+					return nil, cmd.Errorf(4, "could not make work dir: %v", err)
+				}
+			}
+			if !keepWork {
+				defer os.RemoveAll(work)
+			}
 			if len(args) != 1 {
 				return nil, cmd.Usage(r, 5, "Expected one package name got %v", args)
 			}
@@ -58,17 +70,20 @@ Option Flags
 				output = fmt.Sprintf("%v.instr", filepath.Base(pkgName))
 			}
 			fmt.Println("instrumenting", pkgName)
-			program, err := cmd.LoadPkg(c, pkgName)
-			if err != nil {
-				return nil, cmd.Usage(r, 6, err.Error())
-			}
-			err = Instrument(pkgName, program, flags...)
+			err := CD(work, func() error {
+				program, err := cmd.LoadPkg(c, pkgName)
+				if err != nil {
+					return err
+				}
+				err = Instrument(pkgName, program, flags...)
+				if err != nil {
+					return err
+				}
+				_, err = BuildBinary(c, work, pkgName, output, program)
+				return err
+			})
 			if err != nil {
 				return nil, cmd.Errorf(7, err.Error())
-			}
-			_, err = BuildBinary(c, keepWork, work, pkgName, output, program)
-			if err != nil {
-				return nil, cmd.Errorf(8, err.Error())
 			}
 			return nil, nil
 		})
