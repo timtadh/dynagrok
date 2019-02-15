@@ -48,14 +48,14 @@ func ReportFailFloat(fnName string, bbid int, pos string) float64 {
 	return 0
 }
 
-func RecordValue(refPos string, bbid, sid int, name, objPos string, value interface{}) {
+func RecordValue(refPos string, bbid, bsid, gsid int, name, objPos string, value interface{}) {
 	execCheck()
 	g := exec.Goroutine(runtime.GoID())
 	g.m.Lock()
 	defer g.m.Unlock()
 	fc := g.Stack[len(g.Stack)-1]
-	fc.Values[dgtypes.VarReference{name, bbid, sid}] = value
-	fmt.Println("RecordValue", fc.Name, bbid, sid, name, value)
+	fc.Values[dgtypes.VarReference{name, bbid, bsid, gsid}] = value
+	fmt.Println("RecordValue", fc.Name, bbid, bsid, gsid, name, value)
 }
 
 func EnterBlkFromCond(bbid int, pos string) bool {
@@ -109,7 +109,7 @@ func EnterBlk(bbid int, pos string) {
 	}
 }
 
-func EnterFunc(name, pos string, cfg [][]int, ipdom []int) {
+func EnterFunc(name, pos string, cfg [][]int, ipdom []int, pdg string) {
 	execCheck()
 	g := exec.Goroutine(runtime.GoID())
 	// g.m.Lock()
@@ -128,6 +128,7 @@ func EnterFunc(name, pos string, cfg [][]int, ipdom []int) {
 		LastTime: time.Now(),
 		CFG:      cfg,
 		IPDom:    ipdom,
+		PDG:      pdg,
 		CDStack:  append(make([]int, 0, len(ipdom)), 0),
 		DynCDP:   make([]map[int]bool, len(cfg)),
 		Values:   make(map[dgtypes.VarReference]interface{}),

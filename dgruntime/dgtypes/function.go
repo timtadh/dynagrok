@@ -7,6 +7,7 @@ type Function struct {
 	FuncPc uintptr
 	CFG    [][]int
 	IPDom  []int
+	PDG    string
 	Calls  int
 	DynCDP []map[int]bool // Dynamic Control Dependence Predecessors
 	Values map[VarReference]interface{}
@@ -15,6 +16,7 @@ type Function struct {
 type ExportFunction struct {
 	CFG    [][]int
 	IPDom  []int
+	PDG    string
 	Calls  int
 	DynCDP [][]int // Dynamic Control Dependence Predecessors
 	Values []struct {
@@ -28,6 +30,7 @@ type FuncCall struct {
 	FuncPc   uintptr
 	CFG      [][]int
 	IPDom    []int
+	PDG      string
 	CDStack  []int
 	DynCDP   []map[int]bool // Dynamic Control Dependence Predecessors
 	Last     BlkEntrance
@@ -36,9 +39,10 @@ type FuncCall struct {
 }
 
 type VarReference struct {
-	VarName string
-	BlockId int
-	StmtId  int
+	VarName      string
+	BlockId      int
+	BlockStmtId  int
+	GlobalStmtId int
 }
 
 func ExportFunctions(funcs map[uintptr]*Function) map[string]*ExportFunction {
@@ -64,6 +68,7 @@ func ExportFunctions(funcs map[uintptr]*Function) map[string]*ExportFunction {
 		export[fn.Name] = &ExportFunction{
 			CFG:    fn.CFG,
 			IPDom:  fn.IPDom,
+			PDG:    fn.PDG,
 			Calls:  fn.Calls,
 			DynCDP: dcdp,
 			Values: values,
@@ -78,6 +83,7 @@ func NewFunction(fc *FuncCall) *Function {
 		FuncPc: fc.FuncPc,
 		CFG:    fc.CFG,
 		IPDom:  fc.IPDom,
+		PDG:    fc.PDG,
 		DynCDP: fc.DynCDP,
 		Values: fc.Values,
 	}

@@ -95,12 +95,17 @@ func (i *instrumenter) instrument() (err error) {
 }
 func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fileAst *ast.File, fnName string, fnAst ast.Node, fnBody *[]ast.Stmt) error {
 	cfg := analysis.BuildCFG(i.program.Fset, fnName, fnAst, fnBody)
+	var pdg string
 	if true {
 		var defs *analysis.Definitions
 		var reachingDefs *analysis.ReachingDefinitions
+		var locToStmt map[analysis.BlockLocation]*analysis.Statement
 		if i.dataflow {
 			defs = analysis.FindDefinitions(cfg, &pkg.Info)
 			reachingDefs = defs.ReachingDefinitions()
+			t := analysis.MakeProcedureDependenceGraph(cfg, analysis.ControlDependencies(cfg), reachingDefs)
+			locToStmt = t.LocationToStmt
+			pdg = t.JSON()
 		}
 
 		// first collect the instrumentation points (IPs)
@@ -146,8 +151,11 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fileAst *ast.File, fnName
 					case *ast.IncDecStmt:
 						return expr
 					}
-					switch expr.(type) {
+					switch x := expr.(type) {
 					case *ast.Ident:
+						if x.Name == "_" {
+							return expr
+						}
 						if noInstrument.Has(types.Int(expr.Pos())) {
 							return expr
 						}
@@ -167,9 +175,10 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fileAst *ast.File, fnName
 							} else {
 								fmt.Println("blk", b.Id, "ident", use, "location", use.Location, use.Position)
 								fmt.Println("   ", "reaching defs", defs)
+								loc := use.Location
 								s := fmt.Sprintf(
-									"func() %v { dgruntime.RecordValue(%q, %d, %d, %q, %q, %v); return %v; }()",
-									typeName, use.Position, use.Location.Block, use.Location.Stmt, expr, use.Declaration.Position, expr, expr)
+									"func() %v { dgruntime.RecordValue(%q, %d, %d, %d, %q, %q, %v); return %v; }()",
+									typeName, use.Position, loc.Block, loc.Stmt, locToStmt[*loc].Pos(), expr, use.Declaration.Position, expr, expr)
 								instrumented, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(expr.Pos()).Name(), s, parser.Mode(0))
 								if err != nil {
 									fmt.Println(s)
@@ -229,34 +238,46 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fileAst *ast.File, fnName
 				}
 			}
 		}
-		err := analysis.Blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
-			for idx := len(*blk) - 1; idx >= 0; idx-- {
-				stmt := (*blk)[idx]
-				switch s := stmt.(type) {
-				case *ast.AssignStmt:
-					for _, variable := range s.Lhs {
-						use := defs.References()[variable.Pos()]
-						fmt.Println(idx, s, variable, use)
-						x := fmt.Sprintf(
-							"dgruntime.RecordValue(%q, %d, %d, %q, %q, %v)",
-							use.Position, use.Location.Block, use.Location.Stmt, variable, use.Declaration.Position, variable)
-						instrumented, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(s.Pos()).Name(), x, parser.Mode(0))
-						if err != nil {
-							fmt.Println(x)
-							panic(err)
+		if i.dataflow {
+			err := analysis.Blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
+				for idx := len(*blk) - 1; idx >= 0; idx-- {
+					stmt := (*blk)[idx]
+					switch s := stmt.(type) {
+					case *ast.AssignStmt:
+						for _, variable := range s.Lhs {
+							if fmt.Sprint(variable) == "_" {
+								continue
+							}
+							use := defs.References()[variable.Pos()]
+							if !use.HasObject() {
+								continue
+							}
+							typ := use.Declaration.Object.Type()
+							loc := use.Location
+							switch typ.(type) {
+							case *gotypes.Basic:
+								x := fmt.Sprintf(
+									"dgruntime.RecordValue(%q, %d, %d, %d, %q, %q, %v)",
+									use.Position, loc.Block, loc.Stmt, locToStmt[*loc].Pos(), variable, use.Declaration.Position, variable)
+								instrumented, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(s.Pos()).Name(), x, parser.Mode(0))
+								if err != nil {
+									fmt.Println(x)
+									panic(err)
+								}
+								*blk = Insert(cfg, nil, *blk, idx+1, &ast.ExprStmt{instrumented})
+							}
 						}
-						*blk = Insert(cfg, nil, *blk, idx+1, &ast.ExprStmt{instrumented})
 					}
 				}
+				return nil
+			})
+			if err != nil {
+				return err
 			}
-			return nil
-		})
-		if err != nil {
-			return err
 		}
 		// Finally, we need to check for the existence of an os.Exit call and insert a
 		// shutdown hook for Dyangrok if it exists.
-		err = analysis.Blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
+		err := analysis.Blocks(fnBody, nil, func(blk *[]ast.Stmt, id int) error {
 			for j := 0; j < len(*blk); j++ {
 				pos := (*blk)[j].Pos()
 				switch stmt := (*blk)[j].(type) {
@@ -287,11 +308,13 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fileAst *ast.File, fnName
 	pdt := cfg.PostDominators()
 	cfgName := "__cfg"
 	ipdomName := "__ipdom"
+	pdgName := "__pdg"
 	if len(cfg.Blocks) > 0 {
 		*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 0, i.mkCfg(fnAst.Pos(), cfg, cfgName))
 		*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 1, i.mkIdom(fnAst.Pos(), pdt, ipdomName))
-		*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 2, i.mkEnterFunc(fnAst.Pos(), fnName, cfgName, ipdomName))
-		*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 3, i.mkExitFunc(fnAst.Pos(), fnName))
+		*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 2, i.mkPdg(fnAst.Pos(), pdg, pdgName))
+		*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 3, i.mkEnterFunc(fnAst.Pos(), fnName, cfgName, ipdomName, pdgName))
+		*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 4, i.mkExitFunc(fnAst.Pos(), fnName))
 		if pkg.Pkg.Path() == i.entry && fnName == fmt.Sprintf("%v.main", pkg.Pkg.Path()) {
 			*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 0, i.mkShutdown(fnAst.Pos()))
 		}
@@ -300,8 +323,9 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fileAst *ast.File, fnName
 		cfg.Blocks = append(cfg.Blocks, emptyBlk)
 		*fnBody = Insert(cfg, emptyBlk, *fnBody, 0, i.mkCfg(fnAst.Pos(), cfg, cfgName))
 		*fnBody = Insert(cfg, emptyBlk, *fnBody, 1, i.mkIdom(fnAst.Pos(), pdt, ipdomName))
-		*fnBody = Insert(cfg, emptyBlk, *fnBody, 2, i.mkEnterFunc(fnAst.Pos(), fnName, cfgName, ipdomName))
-		*fnBody = Insert(cfg, emptyBlk, *fnBody, 3, i.mkExitFunc(fnAst.Pos(), fnName))
+		*fnBody = Insert(cfg, cfg.Blocks[0], *fnBody, 2, i.mkPdg(fnAst.Pos(), "", pdgName))
+		*fnBody = Insert(cfg, emptyBlk, *fnBody, 3, i.mkEnterFunc(fnAst.Pos(), fnName, cfgName, ipdomName, pdgName))
+		*fnBody = Insert(cfg, emptyBlk, *fnBody, 4, i.mkExitFunc(fnAst.Pos(), fnName))
 		if pkg.Pkg.Path() == i.entry && fnName == fmt.Sprintf("%v.main", pkg.Pkg.Path()) {
 			*fnBody = Insert(cfg, emptyBlk, *fnBody, 0, i.mkShutdown(fnAst.Pos()))
 		}
@@ -449,9 +473,9 @@ func (i *instrumenter) mkDeferPrint(pos token.Pos, data string) ast.Stmt {
 	return &ast.DeferStmt{Call: e.(*ast.CallExpr)}
 }
 
-func (i *instrumenter) mkEnterFunc(pos token.Pos, name, cfg, ipdom string) ast.Stmt {
+func (i *instrumenter) mkEnterFunc(pos token.Pos, name, cfg, ipdom, pdg string) ast.Stmt {
 	p := i.program.Fset.Position(pos)
-	s := fmt.Sprintf("dgruntime.EnterFunc(%v, %v, %v, %v)", strconv.Quote(name), strconv.Quote(p.String()), cfg, ipdom)
+	s := fmt.Sprintf("dgruntime.EnterFunc(%v, %v, %v, %v, %v)", strconv.Quote(name), strconv.Quote(p.String()), cfg, ipdom, pdg)
 	e, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
 	if err != nil {
 		panic(fmt.Errorf("mkEnterFunc (%v) error: %v", s, err))
@@ -560,5 +584,19 @@ func (i *instrumenter) mkIdom(pos token.Pos, dt *analysis.DominatorTree, varName
 		Lhs: []ast.Expr{variable},
 		Tok: token.DEFINE,
 		Rhs: []ast.Expr{arr},
+	}
+}
+
+func (i *instrumenter) mkPdg(pos token.Pos, pdg string, varName string) ast.Stmt {
+	s := strconv.Quote(pdg)
+	out, err := parser.ParseExprFrom(i.program.Fset, i.program.Fset.File(pos).Name(), s, parser.Mode(0))
+	if err != nil {
+		panic(fmt.Errorf("mkPdg (%v) error: %v", s, err))
+	}
+	variable := ast.NewIdent(varName)
+	return &ast.AssignStmt{
+		Lhs: []ast.Expr{variable},
+		Tok: token.DEFINE,
+		Rhs: []ast.Expr{out},
 	}
 }

@@ -1,18 +1,23 @@
 package analysis
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"go/ast"
 	"go/token"
 	"strconv"
 	"strings"
+
+	ds_types "github.com/timtadh/data-structures/types"
 )
 
 type StatementFlowGraph struct {
-	cfg        *CFG
-	Statements []*Statement
-	Flows      [][]int
-	lookup     map[token.Pos]*Statement
+	cfg            *CFG
+	Statements     []*Statement
+	Flows          [][]int
+	lookup         map[token.Pos]*Statement
+	LocationToStmt map[BlockLocation]*Statement
 }
 
 type ProcedureDependenceGraph struct {
@@ -22,10 +27,21 @@ type ProcedureDependenceGraph struct {
 }
 
 type Statement struct {
-	Id   int // Id is local to the statements containing function
-	Stmt *ast.Stmt
-	Fn   ast.Node
-	Blk  *Block // Containing CFG Basic Block
+	Id            int // Id is local to the statements containing function
+	Stmt          *ast.Stmt
+	Fn            ast.Node
+	Blk           *Block // Containing CFG Basic Block
+	BlockLocation *BlockLocation
+	Uses          []*Use
+	Assigns       []*Use
+	Declares      []*Declaration
+}
+
+func (s *Statement) Pos() token.Pos {
+	if s.Stmt != nil {
+		return (*s.Stmt).Pos()
+	}
+	return s.Fn.Pos()
 }
 
 func MakeProcedureDependenceGraph(cfg *CFG, cdg *ControlDependenceGraph, defs *ReachingDefinitions) *ProcedureDependenceGraph {
@@ -35,6 +51,10 @@ func MakeProcedureDependenceGraph(cfg *CFG, cdg *ControlDependenceGraph, defs *R
 	g.Controls = g.controlDependencies(cfg, cdg)
 	g.ProvidesData = g.dataDependencies(cfg, defs)
 	return g
+}
+
+func (g *StatementFlowGraph) Statement(loc BlockLocation) *Statement {
+	return g.LocationToStmt[loc]
 }
 
 func (g *StatementFlowGraph) controlDependencies(cfg *CFG, cdg *ControlDependenceGraph) [][]int {
@@ -51,6 +71,9 @@ func (g *StatementFlowGraph) controlDependencies(cfg *CFG, cdg *ControlDependenc
 		edges[entry.Id] = append(edges[entry.Id], stmt.Id)
 	}
 	for _, blk := range cfg.Blocks {
+		if len(blk.Stmts) <= 0 {
+			continue
+		}
 		last := g.lookup[(*blk.Stmts[len(blk.Stmts)-1]).Pos()]
 		for _, nblk := range cdg.Next(blk) {
 			for _, s := range nblk.Stmts {
@@ -74,6 +97,58 @@ func (g *StatementFlowGraph) dataDependencies(cfg *CFG, defs *ReachingDefinition
 	}
 	added := make(map[edge]bool)
 	edges := make([][]int, len(g.Statements))
+	for _, def := range defs.objs {
+		loc := def.Location
+		var stmt *Statement
+		if loc.Block < 0 || loc.Stmt < 0 {
+			// a parameter
+			stmt = g.Statements[0]
+		} else {
+			s := cfg.Blocks[loc.Block].Stmts[loc.Stmt]
+			stmt = g.lookup[(*s).Pos()]
+		}
+		stmt.Declares = append(stmt.Declares, def)
+	}
+	assigned := make(map[int]map[token.Pos]bool)
+	for _, stmt := range g.Statements {
+		assigned[stmt.Id] = make(map[token.Pos]bool)
+	}
+	for _, use := range defs.uses {
+		if !use.HasObject() {
+			continue
+		}
+		loc := use.Location
+		var stmt *Statement
+		if loc.Block < 0 || loc.Stmt < 0 {
+			// a parameter
+			stmt = g.Statements[0]
+		} else {
+			s := cfg.Blocks[loc.Block].Stmts[loc.Stmt]
+			stmt = g.lookup[(*s).Pos()]
+		}
+		gen, _ := defs.GenKill(loc)
+		if gen.Has(ds_types.Int(use.Id)) {
+			assigned[stmt.Id][use.Declaration.Id] = true
+			stmt.Assigns = append(stmt.Assigns, use)
+		}
+	}
+	for _, use := range defs.uses {
+		if !use.HasObject() {
+			continue
+		}
+		loc := use.Location
+		var stmt *Statement
+		if loc.Block < 0 || loc.Stmt < 0 {
+			// a parameter
+			stmt = g.Statements[0]
+		} else {
+			s := cfg.Blocks[loc.Block].Stmts[loc.Stmt]
+			stmt = g.lookup[(*s).Pos()]
+		}
+		if !assigned[stmt.Id][use.Declaration.Id] {
+			stmt.Uses = append(stmt.Uses, use)
+		}
+	}
 	for bid, blk := range cfg.Blocks {
 		for sid, t := range blk.Stmts {
 			target := g.lookup[(*t).Pos()]
@@ -119,22 +194,27 @@ func MakeStatementFlowGraph(cfg *CFG) *StatementFlowGraph {
 	if len(cfg.Blocks) <= 0 {
 		return &StatementFlowGraph{}
 	}
+	locToStmt := make(map[BlockLocation]*Statement)
 	entry := &Statement{
-		Id:  len(stmts),
-		Fn:  cfg.Fn,
-		Blk: cfg.Blocks[0],
+		Id:            len(stmts),
+		Fn:            cfg.Fn,
+		Blk:           cfg.Blocks[0],
+		BlockLocation: &BlockLocation{-1, -1},
 	}
 	stmts = append(stmts, entry)
 	lookup[cfg.Fn.Pos()] = entry
-	for _, blk := range cfg.Blocks {
-		for _, stmt := range blk.Stmts {
+	locToStmt[BlockLocation{-1, -1}] = entry
+	for bid, blk := range cfg.Blocks {
+		for sid, stmt := range blk.Stmts {
 			s := &Statement{
-				Id:   len(stmts),
-				Stmt: stmt,
-				Blk:  blk,
+				Id:            len(stmts),
+				Stmt:          stmt,
+				Blk:           blk,
+				BlockLocation: &BlockLocation{bid, sid},
 			}
 			stmts = append(stmts, s)
 			lookup[(*stmt).Pos()] = s
+			locToStmt[BlockLocation{bid, sid}] = s
 		}
 	}
 	edges := make([][]int, len(stmts))
@@ -143,6 +223,9 @@ func MakeStatementFlowGraph(cfg *CFG) *StatementFlowGraph {
 		edges[entry.Id] = append(edges[entry.Id], first.Id)
 	}
 	for _, blk := range cfg.Blocks {
+		if len(blk.Stmts) <= 0 {
+			continue
+		}
 		for i := 0; i < len(blk.Stmts)-1; i++ {
 			cur := lookup[(*blk.Stmts[i]).Pos()]
 			next := lookup[(*blk.Stmts[i+1]).Pos()]
@@ -158,10 +241,11 @@ func MakeStatementFlowGraph(cfg *CFG) *StatementFlowGraph {
 		}
 	}
 	return &StatementFlowGraph{
-		cfg:        cfg,
-		Statements: stmts,
-		Flows:      edges,
-		lookup:     lookup,
+		cfg:            cfg,
+		Statements:     stmts,
+		Flows:          edges,
+		lookup:         lookup,
+		LocationToStmt: locToStmt,
 	}
 }
 
@@ -181,6 +265,118 @@ func (g *ProcedureDependenceGraph) Dotty() string {
 	return g.dotty("statement-procedure-dependence-graph", []edgeSet{
 		{g.Controls, "controls"},
 		{g.ProvidesData, "provides-data"}})
+}
+
+func (g *ProcedureDependenceGraph) JSON() string {
+	type jdecl struct {
+		Id   int
+		Name string
+	}
+	type juse struct {
+		Id     int
+		Name   string
+		DeclId int
+	}
+	type jstatement struct {
+		Id            int
+		Text          string
+		Position      string
+		BlockLocation *BlockLocation
+		Declares      []jdecl
+		Assigns       []jdecl
+		Uses          []juse
+	}
+	type jgraph struct {
+		Statements []jstatement
+		Flows      [][]int
+		Controls   [][]int
+		DataFlows  [][]int
+	}
+	toJdecl := func(def *Declaration) jdecl {
+		return jdecl{
+			Id:   int(def.Id),
+			Name: def.Ident.Name,
+		}
+	}
+	toJuse := func(use *Use) juse {
+		return juse{
+			Id:     use.Id,
+			DeclId: int(use.Declaration.Id),
+			Name:   use.Declaration.Ident.Name,
+		}
+	}
+	toJstmt := func(stmt *Statement) jstatement {
+		decls := make([]jdecl, 0, len(stmt.Declares))
+		assigns := make([]jdecl, 0, len(stmt.Assigns))
+		uses := make([]juse, 0, len(stmt.Uses))
+		for _, d := range stmt.Declares {
+			decls = append(decls, toJdecl(d))
+		}
+		for _, a := range stmt.Assigns {
+			assigns = append(assigns, toJdecl(a.Declaration))
+		}
+		for _, u := range stmt.Uses {
+			uses = append(uses, toJuse(u))
+		}
+		if stmt.Stmt != nil {
+			return jstatement{
+				Id:            int((*stmt.Stmt).Pos()),
+				Text:          FmtStmt(g.cfg.FSet, stmt.Stmt),
+				Position:      fmt.Sprint(g.cfg.FSet.Position((*stmt.Stmt).Pos())),
+				BlockLocation: stmt.BlockLocation,
+				Declares:      decls,
+				Assigns:       assigns,
+				Uses:          uses,
+			}
+		} else {
+			var label string
+			switch fn := stmt.Fn.(type) {
+			case *ast.FuncDecl:
+				label = strconv.Quote(FmtNode(stmt.Blk.FSet, fn.Type))
+			case *ast.FuncLit:
+				label = strconv.Quote(FmtNode(stmt.Blk.FSet, fn.Type))
+			default:
+				label = strconv.Quote("unknown-func-type")
+			}
+			return jstatement{
+				Id:            int(stmt.Fn.Pos()),
+				Text:          label,
+				Position:      fmt.Sprint(g.cfg.FSet.Position(stmt.Fn.Pos())),
+				BlockLocation: stmt.BlockLocation,
+				Declares:      decls,
+				Assigns:       assigns,
+				Uses:          uses,
+			}
+		}
+	}
+	copyEdges := func(edges [][]int) [][]int {
+		arcs := make([][]int, 0, len(edges))
+		for _, adj := range edges {
+			cur := make([]int, len(adj))
+			copy(cur, adj)
+			arcs = append(arcs, cur)
+		}
+		return arcs
+	}
+	toJgraph := func(g *ProcedureDependenceGraph) jgraph {
+		stmts := make([]jstatement, 0, len(g.Statements))
+		for _, stmt := range g.Statements {
+			stmts = append(stmts, toJstmt(stmt))
+		}
+		return jgraph{
+			Statements: stmts,
+			Flows:      copyEdges(g.Flows),
+			Controls:   copyEdges(g.Controls),
+			DataFlows:  copyEdges(g.ProvidesData),
+		}
+	}
+	var buf bytes.Buffer
+	e := json.NewEncoder(&buf)
+	err := e.Encode(toJgraph(g))
+	if err != nil {
+		panic(err)
+	}
+	return buf.String()
 }
 
 type edgeSet struct {
