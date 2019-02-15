@@ -21,6 +21,44 @@ func FmtNode(fset *token.FileSet, n ast.Node) string {
 	return buf.String()
 }
 
+func FmtStmt(fset *token.FileSet, s *ast.Stmt) string {
+	switch stmt := (*s).(type) {
+	case *ast.IfStmt:
+		return fmt.Sprintf("if %v", FmtNode(fset, stmt.Cond))
+	case *ast.ForStmt:
+		cond := ""
+		if stmt.Cond != nil {
+			cond = " " + FmtNode(fset, stmt.Cond)
+		}
+		return fmt.Sprintf("for%v", cond)
+	case *ast.SelectStmt:
+		return fmt.Sprintf("select")
+	case *ast.SwitchStmt:
+		tag := ""
+		if stmt.Tag != nil {
+			tag = " " + FmtNode(fset, stmt.Tag)
+		}
+		return fmt.Sprintf("switch%v", tag)
+	case *ast.TypeSwitchStmt:
+		return fmt.Sprintf("type-switch %v", FmtNode(fset, stmt.Assign))
+	case *ast.RangeStmt:
+		kv := ""
+		if stmt.Key != nil {
+			kv = FmtNode(fset, stmt.Key)
+		}
+		if stmt.Value != nil {
+			kv += ", " + FmtNode(fset, stmt.Value)
+		}
+		if kv != "" {
+			kv += " := "
+		}
+		x := FmtNode(fset, stmt.X)
+		return fmt.Sprintf("for %vrange %v", kv, x)
+	default:
+		return fmt.Sprintf("%v", FmtNode(fset, stmt))
+	}
+}
+
 type CFG struct {
 	FSet                      *token.FileSet
 	Name                      string

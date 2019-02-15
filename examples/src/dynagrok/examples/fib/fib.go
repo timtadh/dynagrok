@@ -6,8 +6,8 @@ import (
 )
 
 func main() {
-	for i := 10; i >= -2; i-- {
-		println(fib(i))
+	for j := 10; j >= -2; j-- {
+		println(fib(j))
 	}
 }
 

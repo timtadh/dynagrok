@@ -6,10 +6,9 @@ import (
 	"go/token"
 	"go/types"
 	"os"
-)
 
-import (
 	"github.com/timtadh/data-structures/set"
+
 	ds_types "github.com/timtadh/data-structures/types"
 )
 
@@ -28,7 +27,7 @@ type Declaration struct {
 }
 
 func (o *Declaration) String() string {
-	return fmt.Sprintf("%v", o.Ident.Name)
+	return fmt.Sprintf("dec:%v:%v", o.Ident.Name, o.Id)
 }
 
 type Use struct {
@@ -51,7 +50,7 @@ func (r *Use) HasObject() bool {
 }
 
 func (r *Use) String() string {
-	return fmt.Sprintf("%v:%v", r.Id, r.Declaration)
+	return fmt.Sprintf("%v:%v", r.Id, r.Declaration.Ident.Name)
 }
 
 type Definitions struct {
@@ -125,7 +124,7 @@ func FindDefinitions(cfg *CFG, info *types.Info) *Definitions {
 						fmt.Fprintln(os.Stderr, "def", FmtNode(cfg.FSet, e), ":", obj.Id(), cfg.FSet.Position(obj.Pos()))
 						decl(blk.Id, sid, e, obj)
 					} else if obj := info.Uses[e]; obj != nil {
-						fmt.Fprintln(os.Stderr, "use", FmtNode(cfg.FSet, e), ":", obj.Id(), cfg.FSet.Position(obj.Pos()))
+						// fmt.Fprintln(os.Stderr, "use", FmtNode(cfg.FSet, e), ":", obj.Id(), cfg.FSet.Position(obj.Pos()))
 						object := d.objs[obj.Pos()]
 						use := &Use{
 							Id:          int(e.Pos()),
@@ -234,12 +233,32 @@ func (rd *ReachingDefinitions) In(loc *BlockLocation) []*Use {
 	return in
 }
 
+func (rd *ReachingDefinitions) InFor(loc *BlockLocation, decl *Declaration) []*Use {
+	filtered := make([]*Use, 0, 10)
+	for _, use := range rd.In(loc) {
+		if use.Declaration.Id == decl.Id {
+			filtered = append(filtered, use)
+		}
+	}
+	return filtered
+}
+
 func (rd *ReachingDefinitions) Out(loc *BlockLocation) []*Use {
 	out := make([]*Use, 0, rd.out[*loc].Size())
 	for x, next := rd.out[*loc].Items()(); next != nil; x, next = next() {
 		out = append(out, rd.uses[token.Pos(x.(ds_types.Int))])
 	}
 	return out
+}
+
+func (rd *ReachingDefinitions) OutFor(loc *BlockLocation, decl *Declaration) []*Use {
+	filtered := make([]*Use, 0, 10)
+	for _, use := range rd.Out(loc) {
+		if use.Declaration.Id == decl.Id {
+			filtered = append(filtered, use)
+		}
+	}
+	return filtered
 }
 
 func (rd *ReachingDefinitions) Flow(loc *BlockLocation, in *set.SortedSet) (out *set.SortedSet) {
@@ -265,6 +284,7 @@ func (rd *ReachingDefinitions) GenKill(loc *BlockLocation) (gen, kill *set.Sorte
 			return
 		}
 		gen.Add(ds_types.Int(use.Id))
+		// fmt.Println("use redefs", use, use.Declaration, use.Declaration.Redefs)
 		for redef, next := use.Declaration.Redefs.Items()(); next != nil; redef, next = next() {
 			if int(redef.(ds_types.Int)) != use.Id {
 				kill.Add(redef)
@@ -360,7 +380,7 @@ func ForwardSolveSets(cfg *CFG, flow func(*BlockLocation, *set.SortedSet) *set.S
 		}
 		in[cur] = input
 		res := flow(&cur, input)
-		fmt.Fprintln(os.Stderr, cfg.Name, cur, res, out[cur])
+		// fmt.Fprintln(os.Stderr, cfg.Name, cur, res, out[cur])
 		if out[cur] == nil || !res.Equals(out[cur]) {
 			out[cur] = res
 			if blk != nil && cur.Stmt+1 < len(blk.Stmts) {
