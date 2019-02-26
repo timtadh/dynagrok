@@ -17,10 +17,21 @@ if [[ -z "$goroot" ]]; then
     exit 1
 fi
 
+TARGET=$3
+if [[ -z "$TARGET" ]]; then
+    echo "must supply a TARGET output directory"
+    exit 1
+fi
+
+MUTANTS=$4
+if [[ -z "$MUTANTS" ]]; then
+    echo "must supply the number of mutants"
+    exit 1
+fi
+
 DYNAGROK=$(which dynagrok)
 MAPTEST=$dgpath/examples/src/dynagrok/examples/avl/testcases/map_tester.py
 
-MUTANTS=20
 TOTAL=1
 TESTS=50
 
@@ -29,7 +40,6 @@ function run {
   "${@}"
 }
 
-TARGET=/tmp/avl-expr
 BUILD=$TARGET/build
 
 run mkdir -p $TARGET
@@ -42,18 +52,18 @@ for ((i=1;i<=$MUTANTS;i++)); do
     oks=$mutdir/oks
     fails=$mutdir/fails
     run rm -r $mutdir
-    run mkdir -p $mutdir
-     if ! run \
-          $DYNAGROK -r $goroot -d $dgpath -g $dgpath/examples \
-             mutate --keep-work -w $BUILD --instrument -t $TOTAL \
-                    --only dynagrok/examples/avl \
-                    --mutation=branch -o $mut dynagrok/examples/avl
-     then
-         echo "creating the $i avl mutant failed"
-         exit 1
-     fi
-    run cp $BUILD/mutations $mutdir/mutations
     run rm -r $BUILD/mutations $BUILD/gopath
+    run mkdir -p $mutdir
+    if ! run \
+         $DYNAGROK -r $goroot -d $dgpath -g $dgpath/examples \
+            mutate --keep-work -w $BUILD --instrument -t $TOTAL \
+                   --only dynagrok/examples/avl \
+                   --mutation=branch -o $mut dynagrok/examples/avl
+    then
+        echo "creating the $i avl mutant failed"
+        exit 1
+    fi
+    run cp $BUILD/mutations $mutdir/mutations
     run mkdir -p $oks/tests
     run mkdir -p $fails/tests $fails/failures
     for ((t=1;t<=$TESTS;t++)); do
@@ -78,6 +88,17 @@ for ((i=1;i<=$MUTANTS;i++)); do
         i=$((i-1))
         echo "retrying"
         continue
+    else
+        ## saving the source code
+        run rm -rf $BUILD/goroot/pkg
+        run rm -rf $BUILD/goroot/bin
+        run rm -rf $BUILD/gopath/pkg
+        run rm -rf $BUILD/gopath/bin
+        (
+          run cd $TARGET
+          run tar czf build.tar.gz build
+        )
+        run cp $TARGET/build.tar.gz $mutdir
     fi
 done
 

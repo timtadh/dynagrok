@@ -30,21 +30,21 @@ func Shutdown() {
 	shutdown(exec)
 }
 
-func ReportFailBool(fnName string, bbid int, pos string) bool {
+func ReportFailBool(fnName string, bbid int, sid int, pos string) bool {
 	execCheck()
-	exec.Fail(fnName, bbid, pos)
+	exec.Fail(fnName, bbid, sid, pos)
 	return true
 }
 
-func ReportFailInt(fnName string, bbid int, pos string) int {
+func ReportFailInt(fnName string, bbid int, sid int, pos string) int {
 	execCheck()
-	exec.Fail(fnName, bbid, pos)
+	exec.Fail(fnName, bbid, sid, pos)
 	return 0
 }
 
-func ReportFailFloat(fnName string, bbid int, pos string) float64 {
+func ReportFailFloat(fnName string, bbid int, sid int, pos string) float64 {
 	execCheck()
-	exec.Fail(fnName, bbid, pos)
+	exec.Fail(fnName, bbid, sid, pos)
 	return 0
 }
 
@@ -55,7 +55,6 @@ func RecordValue(refPos string, bbid, bsid, gsid int, name, objPos string, value
 	defer g.m.Unlock()
 	fc := g.Stack[len(g.Stack)-1]
 	fc.Values[dgtypes.VarReference{name, bbid, bsid, gsid}] = value
-	fmt.Println("RecordValue", fc.Name, bbid, bsid, gsid, name, value)
 }
 
 func EnterBlkFromCond(bbid int, pos string) bool {

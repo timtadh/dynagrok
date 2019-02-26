@@ -142,7 +142,7 @@ Option Flags
 				return nil, cmd.Errorf(7, err.Error())
 			}
 			if addInstrumentation {
-				err = instrument.Instrument(pkgName, program)
+				err = instrument.Instrument(pkgName, program, instrument.InstrumentDataflow)
 				if err != nil {
 					return nil, cmd.Errorf(8, err.Error())
 				}

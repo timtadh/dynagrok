@@ -142,7 +142,7 @@ func (m *mutator) fnBodyCollect(pkg *loader.PackageInfo, file *ast.File, fnName 
 	cfg := analysis.BuildCFG(m.program.Fset, fnName, fnAst, fnBody)
 	muts := make(Mutations, 0, 10)
 	for _, blk := range cfg.Blocks {
-		for _, s := range blk.Stmts {
+		for sid, s := range blk.Stmts {
 			switch stmt := (*s).(type) {
 			case *ast.ForStmt:
 				if stmt.Cond != nil {
@@ -154,6 +154,7 @@ func (m *mutator) fnBodyCollect(pkg *loader.PackageInfo, file *ast.File, fnName 
 						fileAst: file,
 						fnName:  fnName,
 						bbid:    blk.Id,
+						sid:     sid,
 					})
 				}
 			case *ast.IfStmt:
@@ -166,17 +167,18 @@ func (m *mutator) fnBodyCollect(pkg *loader.PackageInfo, file *ast.File, fnName 
 						fileAst: file,
 						fnName:  fnName,
 						bbid:    blk.Id,
+						sid:     sid,
 					})
 				}
 			case *ast.SendStmt:
-				muts = m.exprCollect(muts, pkg, file, fnName, blk, &stmt.Value)
+				muts = m.exprCollect(muts, pkg, file, fnName, blk, sid, &stmt.Value)
 			case *ast.ReturnStmt:
 				for i := range stmt.Results {
-					muts = m.exprCollect(muts, pkg, file, fnName, blk, &stmt.Results[i])
+					muts = m.exprCollect(muts, pkg, file, fnName, blk, sid, &stmt.Results[i])
 				}
 			case *ast.AssignStmt:
 				for i := range stmt.Rhs {
-					muts = m.exprCollect(muts, pkg, file, fnName, blk, &stmt.Rhs[i])
+					muts = m.exprCollect(muts, pkg, file, fnName, blk, sid, &stmt.Rhs[i])
 				}
 			}
 			exprs := make([]ast.Expr, 0, 10)
@@ -186,25 +188,25 @@ func (m *mutator) fnBodyCollect(pkg *loader.PackageInfo, file *ast.File, fnName 
 			for _, e := range exprs {
 				switch expr := e.(type) {
 				case *ast.BinaryExpr:
-					muts = m.exprCollect(muts, pkg, file, fnName, blk, &expr.X)
-					muts = m.exprCollect(muts, pkg, file, fnName, blk, &expr.Y)
+					muts = m.exprCollect(muts, pkg, file, fnName, blk, sid, &expr.X)
+					muts = m.exprCollect(muts, pkg, file, fnName, blk, sid, &expr.Y)
 				case *ast.UnaryExpr:
 					// cannot mutate things which are having their addresses
 					// taken
 					if expr.Op != token.AND {
-						muts = m.exprCollect(muts, pkg, file, fnName, blk, &expr.X)
+						muts = m.exprCollect(muts, pkg, file, fnName, blk, sid, &expr.X)
 					}
 				case *ast.ParenExpr:
-					muts = m.exprCollect(muts, pkg, file, fnName, blk, &expr.X)
+					muts = m.exprCollect(muts, pkg, file, fnName, blk, sid, &expr.X)
 				case *ast.CallExpr:
 					for idx := range expr.Args {
-						muts = m.exprCollect(muts, pkg, file, fnName, blk, &expr.Args[idx])
+						muts = m.exprCollect(muts, pkg, file, fnName, blk, sid, &expr.Args[idx])
 					}
 				case *ast.IndexExpr:
 					// Cannot mutate the index clause in the case of a fixed
 					// size array with out extra checking.
 				case *ast.KeyValueExpr:
-					muts = m.exprCollect(muts, pkg, file, fnName, blk, &expr.Value)
+					muts = m.exprCollect(muts, pkg, file, fnName, blk, sid, &expr.Value)
 				}
 			}
 		}
@@ -216,7 +218,7 @@ func (m *mutator) fnBodyCollect(pkg *loader.PackageInfo, file *ast.File, fnName 
 	return muts, nil
 }
 
-func (m *mutator) exprCollect(muts Mutations, pkg *loader.PackageInfo, file *ast.File, fnName string, blk *analysis.Block, expr *ast.Expr) Mutations {
+func (m *mutator) exprCollect(muts Mutations, pkg *loader.PackageInfo, file *ast.File, fnName string, blk *analysis.Block, sid int, expr *ast.Expr) Mutations {
 	p := m.program.Fset.Position((*expr).Pos())
 	exprType := pkg.Info.TypeOf(*expr)
 	switch eT := exprType.(type) {
@@ -232,6 +234,7 @@ func (m *mutator) exprCollect(muts Mutations, pkg *loader.PackageInfo, file *ast
 				fileAst: file,
 				fnName:  fnName,
 				bbid:    blk.Id,
+				sid:     sid,
 			})
 		} else if (i & types.IsFloat) != 0 {
 			muts = append(muts, &IncrementMutation{
@@ -243,6 +246,7 @@ func (m *mutator) exprCollect(muts Mutations, pkg *loader.PackageInfo, file *ast
 				fileAst: file,
 				fnName:  fnName,
 				bbid:    blk.Id,
+				sid:     sid,
 			})
 		}
 	}
