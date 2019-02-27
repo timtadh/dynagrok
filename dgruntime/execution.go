@@ -149,15 +149,6 @@ func (e *Execution) merge(g *Goroutine) {
 	for be, dur := range g.Durations {
 		e.Profile.Durations[be] += dur
 	}
-	for funcName, instances := range g.Inputs {
-		e.Profile.Inputs[funcName] = append(e.Profile.Inputs[funcName], instances...)
-	}
-	for funcName, instances := range g.Outputs {
-		e.Profile.Outputs[funcName] = append(e.Profile.Outputs[funcName], instances...)
-	}
-	for typeName, typ := range g.Types {
-		e.Profile.Types[typeName] = typ
-	}
 }
 
 func shutdown(e *Execution) {
@@ -213,11 +204,6 @@ func shutdown(e *Execution) {
 		}
 		defer txt.Close()
 		e.Profile.WriteSimple(txt)
-	}
-
-	if len(e.Profile.Inputs) > 0 {
-		files := []string{"object-profiles.json"}
-		writeOut(e, files[0], e.Profile.SerializeProfs)
 	}
 
 	if len(e.fails) > 0 {

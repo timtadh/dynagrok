@@ -54,7 +54,14 @@ func RecordValue(refPos string, bbid, bsid, gsid int, name, objPos string, value
 	g.m.Lock()
 	defer g.m.Unlock()
 	fc := g.Stack[len(g.Stack)-1]
-	fc.Values[dgtypes.VarReference{name, bbid, bsid, gsid}] = value
+	if v, err := dgtypes.InterfaceToValue(value); err == nil {
+		r := fc.Values[dgtypes.VarReference{name, bbid, bsid, gsid}]
+		if r == nil {
+			r = dgtypes.NewValueReservoir(20)
+			fc.Values[dgtypes.VarReference{name, bbid, bsid, gsid}] = r
+		}
+		r.Add(v)
+	}
 }
 
 func EnterBlkFromCond(bbid int, pos string) bool {
@@ -130,7 +137,7 @@ func EnterFunc(name, pos string, cfg [][]int, ipdom []int, pdg string) {
 		PDG:      pdg,
 		CDStack:  append(make([]int, 0, len(ipdom)), 0),
 		DynCDP:   make([]map[int]bool, len(cfg)),
-		Values:   make(map[dgtypes.VarReference]interface{}),
+		Values:   make(map[dgtypes.VarReference]*dgtypes.ValueReservoir),
 	}
 	g.Stack = append(g.Stack, fc)
 	for i := range fc.DynCDP {
@@ -140,43 +147,6 @@ func EnterFunc(name, pos string, cfg [][]int, ipdom []int, pdg string) {
 	g.Calls[dgtypes.Call{Caller: g.Stack[len(g.Stack)-2].FuncPc, Callee: fpc}]++
 	g.Positions[cur] = pos
 	// g.m.Unlock()
-}
-
-func deriveProfile(items []interface{}) (dgtypes.ObjectProfile, []dgtypes.Type) {
-	// profiles will be delivered as a struct {name string, val interface{}}
-
-	values := make(dgtypes.ObjectProfile, 0, len(items))
-	types := make([]dgtypes.Type, 0, len(items))
-	for _, item := range items {
-		if param, ok := item.(struct {
-			Name string
-			Val  interface{}
-		}); ok {
-			values = append(values, dgtypes.Param{Name: param.Name, Val: dgtypes.NewVal(param.Val)})
-			types = append(types, dgtypes.NewType(param.Val))
-		}
-	}
-	return values, types
-}
-
-func MethodInput(fnName string, pos string, inputs ...interface{}) {
-	execCheck()
-	g := exec.Goroutine(runtime.GoID())
-	values, types := deriveProfile(inputs)
-	g.Inputs[fnName] = append(g.Inputs[fnName], values)
-	for _, typ := range types {
-		g.Types[typ.Name()] = typ
-	}
-}
-
-func MethodOutput(fnName string, pos string, outputs ...interface{}) {
-	execCheck()
-	g := exec.Goroutine(runtime.GoID())
-	values, types := deriveProfile(outputs)
-	g.Outputs[fnName] = append(g.Outputs[fnName], values)
-	for _, typ := range types {
-		g.Types[typ.Name()] = typ
-	}
 }
 
 func ExitFunc(name string) {

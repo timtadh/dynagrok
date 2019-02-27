@@ -10,9 +10,6 @@ import (
 )
 
 type Profile struct {
-	Inputs    map[string][]ObjectProfile
-	Outputs   map[string][]ObjectProfile
-	Types     map[string]Type
 	Funcs     map[uintptr]*Function
 	Calls     map[Call]int
 	Flows     map[FlowEdge]int
@@ -28,9 +25,6 @@ func NewProfile() *Profile {
 		Flows:     make(map[FlowEdge]int),
 		Positions: make(map[BlkEntrance]string),
 		Durations: make(map[BlkEntrance]time.Duration),
-		Inputs:    make(map[string][]ObjectProfile),
-		Outputs:   make(map[string][]ObjectProfile),
-		Types:     make(map[string]Type),
 	}
 }
 
@@ -191,24 +185,4 @@ func (p *Profile) WriteSimple(fout io.Writer) {
 func LoadSimple(fout io.Writer) (*Profile, error) {
 	p := NewProfile()
 	return p, nil
-}
-
-func (p *Profile) SerializeProfs(fout io.Writer) {
-	types := make([]Type, len(p.Types))
-	for _, typ := range p.Types {
-		types = append(types, typ)
-	}
-	fmt.Fprint(fout, TypeProfile{types}.Serialize())
-	for fname := range p.Inputs {
-		if _, ok := p.Outputs[fname]; ok {
-			fmt.Fprint(fout, FuncProfile{fname, p.Inputs[fname], p.Outputs[fname]}.Serialize())
-		} else {
-			fmt.Fprint(fout, FuncProfile{fname, p.Inputs[fname], []ObjectProfile{}}.Serialize())
-		}
-	}
-	for fname, profs := range p.Outputs {
-		if _, ok := p.Inputs[fname]; !ok {
-			fmt.Fprint(fout, FuncProfile{fname, []ObjectProfile{}, profs}.Serialize())
-		}
-	}
 }
