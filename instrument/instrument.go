@@ -173,8 +173,8 @@ func (i *instrumenter) fnBody(pkg *loader.PackageInfo, fileAst *ast.File, fnName
 							if len(defs) <= 1 {
 								return expr
 							} else {
-								fmt.Println("blk", b.Id, "ident", use, "location", use.Location, use.Position)
-								fmt.Println("   ", "reaching defs", defs)
+								// fmt.Println("blk", b.Id, "ident", use, "location", use.Location, use.Position)
+								// fmt.Println("   ", "reaching defs", defs)
 								loc := use.Location
 								s := fmt.Sprintf(
 									"func() %v { dgruntime.RecordValue(%q, %d, %d, %d, %q, %q, %v); return %v; }()",
@@ -419,8 +419,8 @@ func Insert(cfg *analysis.CFG, cfgBlk *analysis.Block, blk []ast.Stmt, j int, st
 				cfgBlk = cfg.GetClosestBlk(j, blk, blk[j])
 			}
 			if cfgBlk == nil {
-				p := cfg.FSet.Position(stmt.Pos())
-				fmt.Printf("nil cfg-blk %T %v %v \n", stmt, analysis.FmtNode(cfg.FSet, stmt), p)
+				// p := cfg.FSet.Position(stmt.Pos())
+				// fmt.Printf("nil cfg-blk %T %v %v \n", stmt, analysis.FmtNode(cfg.FSet, stmt), p)
 				// panic(fmt.Errorf("nil cfgBlk"))
 			}
 		}

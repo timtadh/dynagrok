@@ -3,6 +3,7 @@ testcases
 testcases-counterfault
 data
 vendor
+mdfiles
 
 *.tar.gz
 

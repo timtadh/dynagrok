@@ -5,7 +5,6 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
-	"os"
 
 	"github.com/timtadh/data-structures/set"
 
@@ -121,7 +120,7 @@ func FindDefinitions(cfg *CFG, info *types.Info) *Definitions {
 				case *ast.Ident:
 					if obj := info.Defs[e]; obj != nil {
 						// this is a definition
-						fmt.Fprintln(os.Stderr, "def", FmtNode(cfg.FSet, e), ":", obj.Id(), cfg.FSet.Position(obj.Pos()))
+						// fmt.Fprintln(os.Stderr, "def", FmtNode(cfg.FSet, e), ":", obj.Id(), cfg.FSet.Position(obj.Pos()))
 						decl(blk.Id, sid, e, obj)
 					} else if obj := info.Uses[e]; obj != nil {
 						// fmt.Fprintln(os.Stderr, "use", FmtNode(cfg.FSet, e), ":", obj.Id(), cfg.FSet.Position(obj.Pos()))

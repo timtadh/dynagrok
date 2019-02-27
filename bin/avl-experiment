@@ -79,7 +79,6 @@ for ((i=1;i<=$MUTANTS;i++)); do
             run cp $output/input $oks/tests/$t
         fi
     done
-    run rm -r $tests
     sleep .02
     if ! [ "$(ls -A $oks/tests)" ] || ! [ "$(ls -A $fails/tests)" ]; then
         echo "mutant either always failed or always worked"
