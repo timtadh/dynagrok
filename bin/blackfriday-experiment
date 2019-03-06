@@ -7,41 +7,42 @@ fi
 
 dgpath=$1
 if [[ -z "$dgpath" ]]; then
-	echo "must supply the path to dynagrok's source tree as the first arg"
-	exit 1
+    echo "must supply the path to dynagrok's source tree as the first arg"
+    exit 1
 fi
 
 goroot=$2
 if [[ -z "$goroot" ]]; then
-	echo "must supply a GOROOT (which is a git checkout) as the second arg"
-	exit 1
+    echo "must supply a GOROOT (which is a git checkout) as the second arg"
+    exit 1
 fi
 
-RATE=$3
-if [[ -z "$RATE" ]]; then
-	echo "must supply a mutation rate as arg 3"
-	exit 1
+TOTAL=$3
+if [[ -z "$TOTAL" ]]; then
+    echo "must supply the number of mutations as arg 3"
+    exit 1
 fi
 
 COUNT=$4
 if [[ -z "$COUNT" ]]; then
-	echo "must supply the number mutants to make as arg 4"
-	exit 1
+    echo "must supply the number mutants to make as arg 4"
+    exit 1
 fi
 
 TARGET=$5
 if [[ -z "$TARGET" ]]; then
-	TARGET=/tmp/mutants
+    echo "must supply the target dir as arg 5"
+    exit 1
 fi
 
-DYNAGROK=$dgpath/bin/dynagrok
+DYNAGROK=$(which dynagrok)
 
 function run {
   >&2 echo $ "${@}"
   "${@}"
 }
 
-BUILD=/tmp/blackfriday-build
+BUILD=$TARGET/build
 
 run mkdir -p $TARGET
 run rm -r  $BUILD/goroot/src/dgruntime $BUILD/gopath
@@ -54,25 +55,25 @@ for ((i=1;i<=$COUNT;i++)); do
     fails=$mutdir/fails
     run rm -r $mutdir
     run mkdir -p $mutdir
-     if ! run \
-          $DYNAGROK -r $goroot -d $dgpath -g $dgpath/examples \
-             mutate --keep-work -w $BUILD --instrument -r $RATE \
-                    --mutation=branch -o $mut dynagrok/examples/blackfriday
-     then
-         echo "creating the $i blackfriday mutant failed"
-         exit 1
-     fi
-    run cp $BUILD/mutations $mutdir/mutations
     run rm -r $BUILD/mutations $BUILD/gopath
+    if ! run \
+        $DYNAGROK -r $goroot -d $dgpath -g $dgpath/examples \
+            mutate --keep-work -w $BUILD --instrument -t $TOTAL \
+                   --mutation=branch -o $mut dynagrok/examples/blackfriday
+    then
+        echo "creating the $i blackfriday mutant failed"
+        exit 1
+    fi
+    run cp $BUILD/mutations $mutdir/mutations
     run mkdir -p $oks/tests
     run mkdir -p $fails/tests $fails/failures
     t=1
     IFS=$'\n'
-    for path in $(cat $dgpath/mdfiles | awk 'BEGIN {srand()} !/^$/ { if (rand() <= .25) print $0}'); do
+    for path in $(cat $dgpath/mdfiles | awk 'BEGIN {srand()} !/^$/ { if (rand() <= .25) print $0}' | head -n 25); do
         echo "running test $t $path"
         export DGPROF=$tests/$t
         run mkdir -p $DGPROF
-        cat $path | run timeout 1s $mut -test=true > /dev/null
+        cat $path | run timeout 30s $mut -test=true > /dev/null
         if [[ $? -eq 124 ]]; then
             echo "skipping test it timed out"
         elif [[ -f $DGPROF/failures ]]; then
@@ -81,10 +82,8 @@ for ((i=1;i<=$COUNT;i++)); do
         else
             run cp $path $oks/tests/$t-$(basename $path | tr ' ' '-')
         fi
-        run rm -r $DGPROF
         t=$((t+1))
     done
-    run rm -r $tests
     sleep .02
     if ! [ "$(ls -A $oks/tests)" ] || ! [ "$(ls -A $fails/tests)" ]; then
         echo "mutant either always failed or always worked"
@@ -93,5 +92,16 @@ for ((i=1;i<=$COUNT;i++)); do
         i=$((i-1))
         echo "retrying"
         continue
+    else
+        ## saving the source code
+        run rm -rf $BUILD/goroot/pkg
+        run rm -rf $BUILD/goroot/bin
+        run rm -rf $BUILD/gopath/pkg
+        run rm -rf $BUILD/gopath/bin
+        (
+          run cd $TARGET
+          run tar czf build.tar.gz build
+        )
+        run cp $TARGET/build.tar.gz $mutdir
     fi
 done

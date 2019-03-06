@@ -38,16 +38,8 @@ type binaryBuilder struct {
 	output            string
 }
 
-func BuildBinary(c *cmd.Config, keepWork bool, work, entryPkgName, output string, program *loader.Program) (_ string, err error) {
-	if work == "" {
-		work, err = ioutil.TempDir("", fmt.Sprintf("dynagrok-build-%v-", filepath.Base(entryPkgName)))
-		if err != nil {
-			return "", err
-		}
-	}
-	if !keepWork {
-		defer os.RemoveAll(work)
-	}
+func BuildBinary(c *cmd.Config, work, entryPkgName, output string, program *loader.Program) (_ string, err error) {
+
 	errors.Logf("INFO", "work-dir %v", work)
 	b := &binaryBuilder{
 		config:       c,
@@ -163,7 +155,9 @@ func (b *binaryBuilder) Build() error {
 			}
 		}
 	}
-	return b.goBuild(anyStdlib)
+	return CD(b.path, func() error {
+		return b.goBuild(anyStdlib)
+	})
 }
 
 func (b *binaryBuilder) noEnv() []string {
@@ -202,7 +196,7 @@ func (b *binaryBuilder) getWorkingRoot() (string, error) {
 	}
 }
 
-func (b *binaryBuilder) cd(path string, do func() error) error {
+func CD(path string, do func() error) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return err
@@ -224,7 +218,7 @@ func (b *binaryBuilder) rebuildGo() error {
 		return err
 	} else if goroot != b.root {
 		errors.Logf("INFO", "go env GOROOT -> %v \n\t\t\t\t\t\t\t\t\t\t\t\t\t\twanted %v", goroot, b.root)
-		err := b.cd(filepath.Join(b.root, "src"), func() error {
+		err := CD(filepath.Join(b.root, "src"), func() error {
 			c := exec.Command("bash", "make.bash")
 			c.Stdin = os.Stdin
 			c.Stdout = os.Stdout

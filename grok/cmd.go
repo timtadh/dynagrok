@@ -3,7 +3,6 @@ package grok
 import (
 	"fmt"
 	"go/ast"
-	"os"
 
 	"github.com/timtadh/data-structures/errors"
 	"github.com/timtadh/dynagrok/analysis"
@@ -69,49 +68,16 @@ Option Flags
 						}
 						cfg := analysis.BuildCFG(program.Fset, fnName, fn, body)
 						rd := analysis.FindDefinitions(cfg, &pkg.Info).ReachingDefinitions()
-						{
-							loc := &analysis.BlockLocation{-1, -1}
-							gen, kill := rd.GenKill(loc)
-							fmt.Fprintln(os.Stderr, loc, gen, kill)
-						}
-						for _, blk := range cfg.Blocks {
-							for sid, stmt := range blk.Stmts {
-								loc := &analysis.BlockLocation{blk.Id, sid}
-								gen, kill := rd.GenKill(loc)
-								fmt.Fprintln(os.Stderr, loc, analysis.FmtNode(cfg.FSet, *stmt), gen, kill)
-							}
-						}
-						fmt.Fprintln(os.Stderr)
-						fmt.Fprintln(os.Stderr)
-						{
-							loc := &analysis.BlockLocation{-1, -1}
-							fmt.Fprintln(os.Stderr, loc, rd.In(loc), rd.Out(loc))
-						}
-						for _, blk := range cfg.Blocks {
-							for sid, _ := range blk.Stmts {
-								loc := &analysis.BlockLocation{blk.Id, sid}
-								fmt.Fprintln(os.Stderr, loc, rd.In(loc), rd.Out(loc))
-							}
-						}
-						fmt.Fprintln(os.Stderr)
-						fmt.Fprintln(os.Stderr, cfg.Nexts())
-						// fmt.Fprintln(os.Stderr, cfg.Dominators())
-						// fmt.Fprintln(os.Stderr, cfg.Dominators().Frontier())
-						// fmt.Fprintln(os.Stderr)
-						fmt.Fprintln(os.Stderr, cfg.PostDominators())
-						// fmt.Fprintln(os.Stderr, cfg.PostDominators().Frontier())
-						// fmt.Fprintln(os.Stderr)
-						// fmt.Fprintln(os.Stderr)
-						fmt.Fprintln(os.Stderr, cfg.PostDominators().ImmediateDominators())
+						cdg := analysis.ControlDependencies(cfg)
+						pdg := analysis.MakeProcedureDependenceGraph(cfg, cdg, rd)
 						fmt.Println(cfg.Dotty())
-						for i, blk := range cfg.Blocks {
-							if blk == nil {
-								fmt.Fprintln(os.Stderr, "nil blk", i, cfg.Name)
-							}
-						}
 						fmt.Println(cfg.Dominators().Dotty(cfg))
 						fmt.Println(cfg.PostDominators().Dotty(cfg))
-						fmt.Println(analysis.ControlDependencies(cfg).Dotty(cfg))
+						fmt.Println(cdg.Dotty(cfg))
+						fmt.Println(pdg.StatementFlowGraph.Dotty())
+						fmt.Println(pdg.CDGDotty())
+						fmt.Println(pdg.DDGDotty())
+						fmt.Println(pdg.Dotty())
 						return nil
 					})
 					if err != nil {

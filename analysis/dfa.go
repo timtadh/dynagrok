@@ -5,11 +5,9 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
-	"os"
-)
 
-import (
 	"github.com/timtadh/data-structures/set"
+
 	ds_types "github.com/timtadh/data-structures/types"
 )
 
@@ -18,7 +16,7 @@ type BlockLocation struct {
 	Stmt  int // Statement Id in the Block
 }
 
-type Object struct {
+type Declaration struct {
 	Id       token.Pos
 	Position token.Position
 	Ident    *ast.Ident
@@ -27,27 +25,38 @@ type Object struct {
 	Redefs   *set.SortedSet
 }
 
-func (o *Object) String() string {
-	return fmt.Sprintf("%v", o.Ident.Name)
+func (o *Declaration) String() string {
+	return fmt.Sprintf("dec:%v:%v", o.Ident.Name, o.Id)
 }
 
-type Reference struct {
-	Id       int
-	Position token.Position
-	Ident    *ast.Ident
-	Oid      token.Pos // object location - for non-local objects
-	Obj      *Object
+type Use struct {
+	Id          int
+	Position    token.Position
+	Ident       *ast.Ident
+	Did         token.Pos // decl location - for non-local decls
+	Declaration *Declaration
+	Location    *BlockLocation
 }
 
-func (r *Reference) String() string {
-	return fmt.Sprintf("%v:%v", r.Id, r.Obj)
+func (r *Use) HasObject() bool {
+	if r == nil {
+		return false
+	}
+	if r.Declaration == nil {
+		return false
+	}
+	return true
+}
+
+func (r *Use) String() string {
+	return fmt.Sprintf("%v:%v", r.Id, r.Declaration.Ident.Name)
 }
 
 type Definitions struct {
 	cfg  *CFG
 	info *types.Info
-	objs map[token.Pos]*Object
-	refs map[token.Pos]*Reference
+	objs map[token.Pos]*Declaration
+	uses map[token.Pos]*Use
 }
 
 type ReachingDefinitions struct {
@@ -59,12 +68,12 @@ type ReachingDefinitions struct {
 func FindDefinitions(cfg *CFG, info *types.Info) *Definitions {
 	d := &Definitions{
 		cfg:  cfg,
-		objs: make(map[token.Pos]*Object),
-		refs: make(map[token.Pos]*Reference),
+		objs: make(map[token.Pos]*Declaration),
+		uses: make(map[token.Pos]*Use),
 		info: info,
 	}
 	decl := func(bid, sid int, e *ast.Ident, obj types.Object) {
-		object := &Object{
+		object := &Declaration{
 			Id:       obj.Pos(),
 			Position: cfg.FSet.Position(obj.Pos()),
 			Ident:    e,
@@ -75,16 +84,20 @@ func FindDefinitions(cfg *CFG, info *types.Info) *Definitions {
 			},
 			Redefs: set.NewSortedSet(10),
 		}
-		ref := &Reference{
-			Id:       int(e.Pos()),
-			Position: cfg.FSet.Position(e.Pos()),
-			Ident:    e,
-			Obj:      object,
-			Oid:      obj.Pos(),
+		use := &Use{
+			Id:          int(e.Pos()),
+			Position:    cfg.FSet.Position(e.Pos()),
+			Ident:       e,
+			Declaration: object,
+			Did:         obj.Pos(),
+			Location: &BlockLocation{
+				Block: bid,
+				Stmt:  sid,
+			},
 		}
 		d.objs[object.Id] = object
-		d.refs[token.Pos(ref.Id)] = ref
-		object.Redefs.Add(ds_types.Int(ref.Id))
+		d.uses[token.Pos(use.Id)] = use
+		object.Redefs.Add(ds_types.Int(use.Id))
 	}
 	param := func(fields *ast.FieldList) {
 		if fields == nil {
@@ -107,29 +120,33 @@ func FindDefinitions(cfg *CFG, info *types.Info) *Definitions {
 				case *ast.Ident:
 					if obj := info.Defs[e]; obj != nil {
 						// this is a definition
-						fmt.Fprintln(os.Stderr, "def", FmtNode(cfg.FSet, e), ":", obj.Id(), obj.Pos())
+						// fmt.Fprintln(os.Stderr, "def", FmtNode(cfg.FSet, e), ":", obj.Id(), cfg.FSet.Position(obj.Pos()))
 						decl(blk.Id, sid, e, obj)
 					} else if obj := info.Uses[e]; obj != nil {
-						fmt.Fprintln(os.Stderr, "use", FmtNode(cfg.FSet, e), ":", obj.Id(), obj.Pos())
+						// fmt.Fprintln(os.Stderr, "use", FmtNode(cfg.FSet, e), ":", obj.Id(), cfg.FSet.Position(obj.Pos()))
 						object := d.objs[obj.Pos()]
-						ref := &Reference{
-							Id:       int(e.Pos()),
-							Position: cfg.FSet.Position(e.Pos()),
-							Ident:    e,
-							Obj:      object,
-							Oid:      obj.Pos(),
+						use := &Use{
+							Id:          int(e.Pos()),
+							Position:    cfg.FSet.Position(e.Pos()),
+							Ident:       e,
+							Declaration: object,
+							Did:         obj.Pos(),
+							Location: &BlockLocation{
+								Block: blk.Id,
+								Stmt:  sid,
+							},
 						}
-						d.refs[token.Pos(ref.Id)] = ref
+						d.uses[token.Pos(use.Id)] = use
 					}
 				}
 			})
 		}
-		add := func(e *ast.Ident) {
-			ref := d.refs[e.Pos()]
-			if ref == nil {
+		add := func(e *ast.Ident, blk *Block, sid int) {
+			use := d.uses[e.Pos()]
+			if use == nil {
 				var obj types.Object = nil
 				var oid token.Pos = 0
-				var object *Object = nil
+				var object *Declaration = nil
 				if o := info.Defs[e]; o != nil {
 					obj = o
 					oid = obj.Pos()
@@ -139,32 +156,36 @@ func FindDefinitions(cfg *CFG, info *types.Info) *Definitions {
 					oid = obj.Pos()
 					object = d.objs[oid]
 				}
-				ref = &Reference{
-					Id:       int(e.Pos()),
-					Position: cfg.FSet.Position(e.Pos()),
-					Ident:    e,
-					Obj:      object,
-					Oid:      oid,
+				use = &Use{
+					Id:          int(e.Pos()),
+					Position:    cfg.FSet.Position(e.Pos()),
+					Ident:       e,
+					Declaration: object,
+					Did:         oid,
+					Location: &BlockLocation{
+						Block: blk.Id,
+						Stmt:  sid,
+					},
 				}
-				d.refs[token.Pos(ref.Id)] = ref
+				d.uses[token.Pos(use.Id)] = use
 			}
-			obj := ref.Obj
+			obj := use.Declaration
 			if obj != nil {
-				obj.Redefs.Add(ds_types.Int(ref.Id))
+				obj.Redefs.Add(ds_types.Int(use.Id))
 			}
 		}
-		for _, stmt := range blk.Stmts {
+		for sid, stmt := range blk.Stmts {
 			switch s := (*stmt).(type) {
 			case *ast.IncDecStmt:
 				switch e := s.X.(type) {
 				case *ast.Ident:
-					add(e)
+					add(e, blk, sid)
 				}
 			case *ast.AssignStmt:
 				for _, expr := range s.Lhs {
 					switch e := expr.(type) {
 					case *ast.Ident:
-						add(e)
+						add(e, blk, sid)
 					}
 				}
 			}
@@ -173,12 +194,12 @@ func FindDefinitions(cfg *CFG, info *types.Info) *Definitions {
 	return d
 }
 
-func (d *Definitions) Objects() map[token.Pos]*Object {
+func (d *Definitions) Objects() map[token.Pos]*Declaration {
 	return d.objs
 }
 
-func (d *Definitions) References() map[token.Pos]*Reference {
-	return d.refs
+func (d *Definitions) References() map[token.Pos]*Use {
+	return d.uses
 }
 
 func (d *Definitions) ReachingDefinitions() *ReachingDefinitions {
@@ -189,20 +210,54 @@ func (d *Definitions) ReachingDefinitions() *ReachingDefinitions {
 	return rd
 }
 
-func (rd *ReachingDefinitions) In(loc *BlockLocation) []*Reference {
-	in := make([]*Reference, 0, rd.in[*loc].Size())
+func (rd *ReachingDefinitions) Reaches(use *Use) []*Use {
+	if !use.HasObject() {
+		return nil
+	}
+	alldefs := rd.In(use.Location)
+	defs := make([]*Use, 0, len(alldefs))
+	for _, def := range alldefs {
+		if def.HasObject() && def.Declaration == use.Declaration {
+			defs = append(defs, def)
+		}
+	}
+	return defs
+}
+
+func (rd *ReachingDefinitions) In(loc *BlockLocation) []*Use {
+	in := make([]*Use, 0, rd.in[*loc].Size())
 	for x, next := rd.in[*loc].Items()(); next != nil; x, next = next() {
-		in = append(in, rd.refs[token.Pos(x.(ds_types.Int))])
+		in = append(in, rd.uses[token.Pos(x.(ds_types.Int))])
 	}
 	return in
 }
 
-func (rd *ReachingDefinitions) Out(loc *BlockLocation) []*Reference {
-	out := make([]*Reference, 0, rd.out[*loc].Size())
+func (rd *ReachingDefinitions) InFor(loc *BlockLocation, decl *Declaration) []*Use {
+	filtered := make([]*Use, 0, 10)
+	for _, use := range rd.In(loc) {
+		if use.Declaration.Id == decl.Id {
+			filtered = append(filtered, use)
+		}
+	}
+	return filtered
+}
+
+func (rd *ReachingDefinitions) Out(loc *BlockLocation) []*Use {
+	out := make([]*Use, 0, rd.out[*loc].Size())
 	for x, next := rd.out[*loc].Items()(); next != nil; x, next = next() {
-		out = append(out, rd.refs[token.Pos(x.(ds_types.Int))])
+		out = append(out, rd.uses[token.Pos(x.(ds_types.Int))])
 	}
 	return out
+}
+
+func (rd *ReachingDefinitions) OutFor(loc *BlockLocation, decl *Declaration) []*Use {
+	filtered := make([]*Use, 0, 10)
+	for _, use := range rd.Out(loc) {
+		if use.Declaration.Id == decl.Id {
+			filtered = append(filtered, use)
+		}
+	}
+	return filtered
 }
 
 func (rd *ReachingDefinitions) Flow(loc *BlockLocation, in *set.SortedSet) (out *set.SortedSet) {
@@ -223,13 +278,14 @@ func (rd *ReachingDefinitions) GenKill(loc *BlockLocation) (gen, kill *set.Sorte
 		if rd.info.Uses[e] == nil && rd.info.Defs[e] == nil {
 			return
 		}
-		ref := rd.refs[e.Pos()]
-		if ref.Obj == nil {
+		use := rd.uses[e.Pos()]
+		if use.Declaration == nil {
 			return
 		}
-		gen.Add(ds_types.Int(ref.Id))
-		for redef, next := ref.Obj.Redefs.Items()(); next != nil; redef, next = next() {
-			if int(redef.(ds_types.Int)) != ref.Id {
+		gen.Add(ds_types.Int(use.Id))
+		// fmt.Println("use redefs", use, use.Declaration, use.Declaration.Redefs)
+		for redef, next := use.Declaration.Redefs.Items()(); next != nil; redef, next = next() {
+			if int(redef.(ds_types.Int)) != use.Id {
 				kill.Add(redef)
 			}
 		}
@@ -323,7 +379,7 @@ func ForwardSolveSets(cfg *CFG, flow func(*BlockLocation, *set.SortedSet) *set.S
 		}
 		in[cur] = input
 		res := flow(&cur, input)
-		fmt.Fprintln(os.Stderr, cfg.Name, cur, res, out[cur])
+		// fmt.Fprintln(os.Stderr, cfg.Name, cur, res, out[cur])
 		if out[cur] == nil || !res.Equals(out[cur]) {
 			out[cur] = res
 			if blk != nil && cur.Stmt+1 < len(blk.Stmts) {

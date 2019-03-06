@@ -26,11 +26,12 @@ type Failure struct {
 	Position     string
 	FnName       string
 	BasicBlockId int
+	StatementId  int
 }
 
 func (f *Failure) String() string {
-	return fmt.Sprintf(`{"Position":%v, "FnName":%v, "BasicBlockId":%d}`,
-		strconv.Quote(f.Position), strconv.Quote(f.FnName), f.BasicBlockId)
+	return fmt.Sprintf(`{"Position":%v, "FnName":%v, "BasicBlockId":%d, "StatementId":%d}`,
+		strconv.Quote(f.Position), strconv.Quote(f.FnName), f.BasicBlockId, f.StatementId)
 }
 
 var execMu sync.Mutex
@@ -95,13 +96,14 @@ func (e *Execution) Goroutine(id int64) *Goroutine {
 	return e.Goroutines[id]
 }
 
-func (e *Execution) Fail(fnName string, bbid int, pos string) {
+func (e *Execution) Fail(fnName string, bbid, sid int, pos string) {
 	e.m.Lock()
 	if !e.failed[pos] {
 		e.failed[pos] = true
 		e.fails = append(e.fails, &Failure{
 			FnName:       fnName,
 			BasicBlockId: bbid,
+			StatementId:  sid,
 			Position:     pos,
 		})
 	}
@@ -147,15 +149,6 @@ func (e *Execution) merge(g *Goroutine) {
 	for be, dur := range g.Durations {
 		e.Profile.Durations[be] += dur
 	}
-	for funcName, instances := range g.Inputs {
-		e.Profile.Inputs[funcName] = append(e.Profile.Inputs[funcName], instances...)
-	}
-	for funcName, instances := range g.Outputs {
-		e.Profile.Outputs[funcName] = append(e.Profile.Outputs[funcName], instances...)
-	}
-	for typeName, typ := range g.Types {
-		e.Profile.Types[typeName] = typ
-	}
 }
 
 func shutdown(e *Execution) {
@@ -185,10 +178,14 @@ func shutdown(e *Execution) {
 		fmt.Println("writing functions to:", fnPath)
 		fn, err := os.Create(fnPath)
 		if err != nil {
+			fmt.Println(err)
 			panic(err)
 		}
 		defer fn.Close()
-		e.Profile.WriteFunctions(fn)
+		err = e.Profile.WriteFunctions(fn)
+		if err != nil {
+			panic(err)
+		}
 
 		dotPath := pjoin(e.OutputDir, "flow-graph.dot")
 		fmt.Println("writing flow-graph to:", dotPath)
@@ -207,11 +204,6 @@ func shutdown(e *Execution) {
 		}
 		defer txt.Close()
 		e.Profile.WriteSimple(txt)
-	}
-
-	if len(e.Profile.Inputs) > 0 {
-		files := []string{"object-profiles.json"}
-		writeOut(e, files[0], e.Profile.SerializeProfs)
 	}
 
 	if len(e.fails) > 0 {

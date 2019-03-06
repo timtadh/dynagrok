@@ -30,22 +30,38 @@ func Shutdown() {
 	shutdown(exec)
 }
 
-func ReportFailBool(fnName string, bbid int, pos string) bool {
+func ReportFailBool(fnName string, bbid int, sid int, pos string) bool {
 	execCheck()
-	exec.Fail(fnName, bbid, pos)
+	exec.Fail(fnName, bbid, sid, pos)
 	return true
 }
 
-func ReportFailInt(fnName string, bbid int, pos string) int {
+func ReportFailInt(fnName string, bbid int, sid int, pos string) int {
 	execCheck()
-	exec.Fail(fnName, bbid, pos)
+	exec.Fail(fnName, bbid, sid, pos)
 	return 0
 }
 
-func ReportFailFloat(fnName string, bbid int, pos string) float64 {
+func ReportFailFloat(fnName string, bbid int, sid int, pos string) float64 {
 	execCheck()
-	exec.Fail(fnName, bbid, pos)
+	exec.Fail(fnName, bbid, sid, pos)
 	return 0
+}
+
+func RecordValue(refPos string, bbid, bsid, gsid int, name, objPos string, value interface{}) {
+	execCheck()
+	g := exec.Goroutine(runtime.GoID())
+	g.m.Lock()
+	defer g.m.Unlock()
+	fc := g.Stack[len(g.Stack)-1]
+	if v, err := dgtypes.InterfaceToValue(value); err == nil {
+		r := fc.Values[dgtypes.VarReference{name, bbid, bsid, gsid}]
+		if r == nil {
+			r = dgtypes.NewValueReservoir(20)
+			fc.Values[dgtypes.VarReference{name, bbid, bsid, gsid}] = r
+		}
+		r.Add(v)
+	}
 }
 
 func EnterBlkFromCond(bbid int, pos string) bool {
@@ -99,7 +115,7 @@ func EnterBlk(bbid int, pos string) {
 	}
 }
 
-func EnterFunc(name, pos string, cfg [][]int, ipdom []int) {
+func EnterFunc(name, pos string, cfg [][]int, ipdom []int, pdg string) {
 	execCheck()
 	g := exec.Goroutine(runtime.GoID())
 	// g.m.Lock()
@@ -118,8 +134,10 @@ func EnterFunc(name, pos string, cfg [][]int, ipdom []int) {
 		LastTime: time.Now(),
 		CFG:      cfg,
 		IPDom:    ipdom,
+		PDG:      pdg,
 		CDStack:  append(make([]int, 0, len(ipdom)), 0),
 		DynCDP:   make([]map[int]bool, len(cfg)),
+		Values:   make(map[dgtypes.VarReference]*dgtypes.ValueReservoir),
 	}
 	g.Stack = append(g.Stack, fc)
 	for i := range fc.DynCDP {
@@ -129,43 +147,6 @@ func EnterFunc(name, pos string, cfg [][]int, ipdom []int) {
 	g.Calls[dgtypes.Call{Caller: g.Stack[len(g.Stack)-2].FuncPc, Callee: fpc}]++
 	g.Positions[cur] = pos
 	// g.m.Unlock()
-}
-
-func deriveProfile(items []interface{}) (dgtypes.ObjectProfile, []dgtypes.Type) {
-	// profiles will be delivered as a struct {name string, val interface{}}
-
-	values := make(dgtypes.ObjectProfile, 0, len(items))
-	types := make([]dgtypes.Type, 0, len(items))
-	for _, item := range items {
-		if param, ok := item.(struct {
-			Name string
-			Val  interface{}
-		}); ok {
-			values = append(values, dgtypes.Param{Name: param.Name, Val: dgtypes.NewVal(param.Val)})
-			types = append(types, dgtypes.NewType(param.Val))
-		}
-	}
-	return values, types
-}
-
-func MethodInput(fnName string, pos string, inputs ...interface{}) {
-	execCheck()
-	g := exec.Goroutine(runtime.GoID())
-	values, types := deriveProfile(inputs)
-	g.Inputs[fnName] = append(g.Inputs[fnName], values)
-	for _, typ := range types {
-		g.Types[typ.Name()] = typ
-	}
-}
-
-func MethodOutput(fnName string, pos string, outputs ...interface{}) {
-	execCheck()
-	g := exec.Goroutine(runtime.GoID())
-	values, types := deriveProfile(outputs)
-	g.Outputs[fnName] = append(g.Outputs[fnName], values)
-	for _, typ := range types {
-		g.Types[typ.Name()] = typ
-	}
 }
 
 func ExitFunc(name string) {

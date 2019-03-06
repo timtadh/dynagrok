@@ -35,6 +35,7 @@ type ExportedMut struct {
 	Mutation     string
 	FnName       string
 	BasicBlockId int
+	StatementId  int
 	SrcPosition  token.Position
 }
 
@@ -56,7 +57,8 @@ func (e *ExportedMut) String() string {
     column: %v
     in-func: %v
     in-basic-block: %v
-}`, e.Type, e.Mutation, e.SrcPosition.Filename, e.SrcPosition.Line, e.SrcPosition.Column, e.FnName, e.BasicBlockId)
+    basic-block-statement: %v
+}`, e.Type, e.Mutation, e.SrcPosition.Filename, e.SrcPosition.Line, e.SrcPosition.Column, e.FnName, e.BasicBlockId, e.StatementId)
 }
 
 func LoadExportedMut(bits []byte) (*ExportedMut, error) {
@@ -145,6 +147,7 @@ type BranchMutation struct {
 	fileAst *ast.File
 	fnName  string
 	bbid    int
+	sid     int
 }
 
 func (m *BranchMutation) Export() *ExportedMut {
@@ -153,6 +156,7 @@ func (m *BranchMutation) Export() *ExportedMut {
 		Mutation:     m.String(),
 		FnName:       m.fnName,
 		BasicBlockId: m.bbid,
+		StatementId:  m.sid,
 		SrcPosition:  m.SrcPosition(),
 	}
 }
@@ -174,7 +178,7 @@ func (m *BranchMutation) Mutate() {
 }
 
 func (m *BranchMutation) mutate() ast.Expr {
-	report := fmt.Sprintf("dgruntime.ReportFailBool(%v, %d, %v)", strconv.Quote(m.fnName), m.bbid, strconv.Quote(m.p.String()))
+	report := fmt.Sprintf("dgruntime.ReportFailBool(%v, %d, %d, %v)", strconv.Quote(m.fnName), m.bbid, m.sid, strconv.Quote(m.p.String()))
 	pos := (*m.cond).Pos()
 	failReport, err := parser.ParseExprFrom(m.mutator.program.Fset, m.mutator.program.Fset.File(pos).Name(), report, parser.Mode(0))
 	if err != nil {
@@ -206,6 +210,7 @@ type IncrementMutation struct {
 	fileAst *ast.File
 	fnName  string
 	bbid    int
+	sid     int
 }
 
 func (m *IncrementMutation) Export() *ExportedMut {
@@ -214,6 +219,7 @@ func (m *IncrementMutation) Export() *ExportedMut {
 		Mutation:     m.String(),
 		FnName:       m.fnName,
 		BasicBlockId: m.bbid,
+		StatementId:  m.sid,
 		SrcPosition:  m.SrcPosition(),
 	}
 }
@@ -266,7 +272,7 @@ func (m *IncrementMutation) mutate() ast.Expr {
 		default:
 			panic(fmt.Errorf("unexpected kind %v", m.kind))
 		}
-		report = fmt.Sprintf("%v(dgruntime.ReportFailInt(%v, %d, %v))", cast, strconv.Quote(m.fnName), m.bbid, strconv.Quote(m.p.String()))
+		report = fmt.Sprintf("%v(dgruntime.ReportFailInt(%v, %d, %d, %v))", cast, strconv.Quote(m.fnName), m.bbid, m.sid, strconv.Quote(m.p.String()))
 	} else if m.tokType == token.FLOAT {
 		var cast string
 		switch m.kind {
@@ -277,7 +283,7 @@ func (m *IncrementMutation) mutate() ast.Expr {
 		default:
 			panic(fmt.Errorf("unexpected kind %v", m.kind))
 		}
-		report = fmt.Sprintf("%v(dgruntime.ReportFailFloat(%v, %d, %v))", cast, strconv.Quote(m.fnName), m.bbid, strconv.Quote(m.p.String()))
+		report = fmt.Sprintf("%v(dgruntime.ReportFailFloat(%v, %d, %d, %v))", cast, strconv.Quote(m.fnName), m.bbid, m.sid, strconv.Quote(m.p.String()))
 	} else {
 		panic(fmt.Errorf("unexpected tokType %v", m.tokType))
 	}
